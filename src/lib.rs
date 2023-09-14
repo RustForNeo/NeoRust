@@ -1,3 +1,6 @@
+#![feature(is_some_and)]
+extern crate core;
+
 pub mod types;
 pub mod crypto;
 pub mod utils;

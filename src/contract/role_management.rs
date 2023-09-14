@@ -1,9 +1,12 @@
 use p256::elliptic_curve::sec1::ToEncodedPoint;
+use p256::pkcs8::der::Encode;
+use primitive_types::H160;
 use crate::contract::contract_error::ContractError;
+use crate::contract::smartcontract::SmartContract;
 use crate::protocol::core::stack_item::StackItem;
+use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::ECPublicKey;
-use crate::types::hash160::H160;
 
 pub struct RoleManagement {
     script_hash: H160,
@@ -12,7 +15,7 @@ pub struct RoleManagement {
 impl RoleManagement {
 
     const NAME: &'static str = "RoleManagement";
-    const SCRIPT_HASH: H160 = // compute hash
+    const SCRIPT_HASH: H160 = SmartContract::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
     pub fn new() -> Self {
         Self {
@@ -44,7 +47,7 @@ impl RoleManagement {
             return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()));
         }
 
-        let current_block_count = self.neo_rust.get_block_count().send().await?.get_result();
+        let current_block_count = NeoRust::instance().get_block_count().await?.get_result();
 
         if block_index > current_block_count {
             return Err(ContractError::InvalidNeoName(format!("Block index {} exceeds current block count {}", block_index, current_block_count)));

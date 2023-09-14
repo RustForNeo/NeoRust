@@ -9,7 +9,6 @@ pub struct NeoGetTokenBalances<T> {
 
 pub trait TokenBalances: Serialize + Deserialize + Clone + PartialEq + Eq + Hash {
     type Balance: TokenBalance;
-
     fn address(&self) -> String;
     fn balances(&self) -> &Vec<Self::Balance>;
 }

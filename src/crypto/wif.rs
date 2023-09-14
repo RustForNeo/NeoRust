@@ -6,7 +6,7 @@ pub trait Wif {
     fn from_wif(s: &str) -> Option<Vec<u8>>;
 }
 
-impl Wif for [u8] {
+impl Wif for &[u8] {
 
     fn to_wif(&self) -> String {
         if self.len() != 32 {
@@ -38,5 +38,4 @@ impl Wif for [u8] {
 
         Some(data[1..33].to_vec())
     }
-
 }

@@ -31,6 +31,60 @@ impl<'a> BinaryReader<'a> {
         val
     }
 
+    pub fn read_u16(&mut self) -> u16 {
+        let bytes = self.read_bytes(2);
+        u16::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_i16(&mut self) -> i16 {
+        let bytes = self.read_bytes(2);
+        i16::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_u32(&mut self) -> u32 {
+        let bytes = self.read_bytes(4);
+        u32::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_i32(&mut self) -> i32 {
+        let bytes = self.read_bytes(4);
+        i32::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_u64(&mut self) -> u64 {
+        let bytes = self.read_bytes(8);
+        u64::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_i64(&mut self) -> i64 {
+        let bytes = self.read_bytes(8);
+        i64::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_u128(&mut self) -> u128 {
+        let bytes = self.read_bytes(16);
+        u128::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    pub fn read_i128(&mut self) -> i128 {
+        let bytes = self.read_bytes(16);
+        i128::from_ne_bytes(bytes.try_into().unwrap())
+    }
+
+    // pub fn read_bigint(&mut self) -> BigInt::Sign {
+    //     let size = self.read_varint();
+    //     let bytes = self.read_bytes(size as usize);
+    //     BigInt::Sign::parse_bytes(bytes, BigInt::Sign)
+    // }
+
+    pub fn read_encoded_ec_point(&mut self) -> Result<&'a [u8], &'static str> {
+        let byte = self.read_byte();
+        match byte {
+            0x02 | 0x03 => Ok(self.read_bytes(32).unwrap()),
+            _ => Err("Invalid encoded EC point"),
+        }
+    }
+
     // Other primitive reader methods
 
     pub fn read_bytes(&mut self, count: usize) -> Result<&'a [u8], NeoRustError> {
@@ -83,29 +137,24 @@ impl<'a> BinaryReader<'a> {
     pub fn read_script(&mut self) -> Result<Script, NeoRustError> {
         let len = self.read_var_int()?;
         let bytes = self.read_bytes(len as usize)?;
-        Ok(Script::from_bytes(bytes))
+        Ok(Script::from_bytes(bytes).clone().into())
     }
 
     pub fn read_ec_point(&mut self) -> Result<ECPoint, NeoRustError> {
-        let byte = self.read_u8();
-        let bytes = match byte {
-            0x00 => [0].to_vec(),
-            0x02 | 0x03 => {
-                let mut bytes = Vec::with_capacity(33);
-                bytes.push(byte);
-                bytes.extend_from_slice(&self.read_bytes(32)?);
-                bytes
-            },
-            0x04 => {
-                let mut bytes = Vec::with_capacity(65);
-                bytes.push(byte);
-                bytes.extend_from_slice(&self.read_bytes(64)?);
-                bytes
-            },
-            _ => return Err(NeoRustError::InvalidData("Invalid EC point encoding".to_string()))
-        };
+        pub fn read_ec_point(&mut self) -> Result<ProjectivePoint, &'static str> {
+            let tag = self.read_byte();
+            let bytes = match tag {
+                0x00 => return Ok(ProjectivePoint::IDENTITY),
+                0x02 | 0x03 => self.read_bytes(32),
+                0x04 => self.read_bytes(64),
+                _ => return Err("Invalid EC point tag")
+            };
 
-        ECPoint::decode(&SECP256R1, &bytes)
-            .map_err(|e| NeoRustError::InvalidData(e.to_string()))
+            let point = EncodedPoint::from_bytes(bytes);
+            match ProjectivePoint::from_encoded_point(&point) {
+                Some(point) => Ok(point),
+                None => Err("Invalid EC point")
+            }
+        }
     }
 }

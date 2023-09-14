@@ -1,3 +1,4 @@
+use std::error::Error;
 use decimal::d128;
 use primitive_types::H160;
 use reqwest::Url;
@@ -7,7 +8,6 @@ use crate::contract::fungible_token::FungibleToken;
 use crate::contract::gas_token::GasToken;
 use crate::contract::neo_token::NeoToken;
 use crate::transaction::transaction_builder::TransactionBuilder;
-use crate::types::hash160::H160;
 use crate::wallet::account::Account;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,7 +95,7 @@ impl NeoURI {
 
     // Builders
 
-    pub async fn build_transfer_from(&self, sender: &Account) -> Result<TransactionBuilder, JsError> {
+    pub async fn build_transfer_from(&self, sender: &Account) -> Result<TransactionBuilder, dyn Error> {
         let recipient = self.recipient.ok_or(invalid_state_error("Recipient not set"))?;
         let amount = self.amount.ok_or(invalid_state_error("Amount not set"))?;
         let token = self.token.ok_or(invalid_state_error("Token not set"))?;
@@ -144,7 +144,7 @@ impl NeoURI {
         self
     }
 
-    pub fn token_str(mut self, token_str: &str) -> Result<Self, JsError> {
+    pub fn token_str(mut self, token_str: &str) -> Result<Self, dyn Error> {
         self.token = match token_str {
             Self::NEO_TOKEN_STRING => Some(NeoToken::script_hash()),
             Self::GAS_TOKEN_STRING => Some(GasToken::script_hash()),
@@ -185,7 +185,7 @@ impl NeoURI {
         parts.join("&")
     }
 
-    pub fn build_uri(mut self) -> Result<Self, JsError> {
+    pub fn build_uri(mut self) -> Result<Self, dyn Error> {
         let recipient = self.recipient.ok_or(invalid_state_error("No recipient set"))?;
 
         let base = format!("{}:{}", Self::NEO_SCHEME, recipient.to_address()?);

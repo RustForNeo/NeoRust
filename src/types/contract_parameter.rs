@@ -42,7 +42,7 @@ pub struct ContractParameter {
     name: Option<String>,
     #[serde(rename = "type")]
     typ: ContractParameterType,
-    value: Option<ParameterValue>,
+    pub(crate) value: Option<ParameterValue>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

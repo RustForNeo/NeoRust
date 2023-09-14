@@ -1,6 +1,7 @@
 use primitive_types::H160;
 use secp256k1::ecdsa::Signature;
 use crate::neo_error::NeoRustError;
+use crate::script::interop_service::InteropService;
 use crate::script::op_code::OpCode;
 use crate::script::script_builder::ScriptBuilder;
 use crate::serialization::binary_reader::BinaryReader;
@@ -21,20 +22,20 @@ impl VerificationScript {
         let mut builder = ScriptBuilder::new();
         builder.push_data(public_key.to_bytes());
         builder.OpCode(OpCode::Syscall);
-        builder.push_data(&ECDSA_CHECKSIG_HASH);
+        builder.push_data(InteropService::SystemCryptoCheckSig.hash().as_bytes());
         Self::new(builder.build())
     }
 
     pub fn from_multisig(public_keys: &[ECPublicKey], threshold: u8) -> Self {
         // Build multi-sig script
         let mut builder = ScriptBuilder::new();
-        builder.push_int(threshold as i64);
+        builder.push_int(threshold as i64).expect("Threshold must be between 1 and 16");
         for key in public_keys {
             builder.push_data(key.to_bytes());
         }
-        builder.push_int(public_keys.len() as i64);
+        builder.push_int(public_keys.len() as i64).expect("Number of public keys must be between 1 and 16");
         builder.OpCode(OpCode::Syscall);
-        builder.push_data(&ECDSA_CHECKMULTISIG_HASH);
+        builder.push_data( InteropService::SystemCryptoCheckMultisig.hash().as_bytes());
         Self::new(builder.build())
     }
 
@@ -51,7 +52,7 @@ impl VerificationScript {
 
         let mut reader = BinaryReader::new(&self.script);
 
-        let n = reader.read_int().unwrap();
+        let n = reader.read_var_int().unwrap();
         if !(1..16).contains(&n) {
             return false;
         }
@@ -62,7 +63,7 @@ impl VerificationScript {
             if len != 33 {
                 return false;
             }
-            reader.skip(33);
+            let _ = reader.skip(33);
             m += 1;
         }
 
@@ -71,12 +72,12 @@ impl VerificationScript {
         }
 
         // additional checks
-        let service_bytes = &script[script.len()-4..];
-        if service_bytes != &ECDSA_CHECKMULTISIG_HASH[..] {
+        let service_bytes = &self.script[self.script.len()-4..];
+        if service_bytes != &InteropService::SystemCryptoCheckMultisig.hash().into_bytes() {
             return false;
         }
 
-        if m != reader.read_int().unwrap() {
+        if m != reader.read_var_int().unwrap() {
             return false;
         }
 
@@ -120,7 +121,7 @@ impl VerificationScript {
 
         if self.is_multisig() {
             let mut reader = BinaryReader::new(&self.script);
-            reader.read_int().unwrap(); // skip threshold
+            reader.read_var_int().unwrap(); // skip threshold
 
             let mut keys = vec![];
             while reader.read_u8() == Some(OpCode::PushData1 as u8) {

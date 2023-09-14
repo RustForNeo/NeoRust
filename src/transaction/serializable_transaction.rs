@@ -11,7 +11,6 @@ use crate::types::Bytes;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct SerializableTransaction {
-    neo_rust: Option<NeoRust>,
     version: u8,
     nonce: u32,
     valid_until_block: u32,
@@ -29,7 +28,6 @@ impl SerializableTransaction {
     // Constructor
 
     pub fn new(
-        neo_rust: Option<NeoRust>,
         version: u8,
         nonce: u32,
         valid_until_block: u32,
@@ -42,7 +40,6 @@ impl SerializableTransaction {
     ) -> Self {
 
         Self {
-            neo_rust,
             version,
             nonce,
             valid_until_block,
@@ -70,7 +67,7 @@ impl SerializableTransaction {
             return Err(TransactionError::InvalidTransaction);
         }
 
-        if self.size() >  MAX_TX_SIZE {
+        if self.size() >  Constent::MAX_TX_SIZE {
             return Err(TransactionError::TxTooLarge);
         }
 
@@ -78,7 +75,7 @@ impl SerializableTransaction {
         let hex = hex::encode(self.serialize());
 
         // Send using NeoRust
-        let neo_rust = self.neo_rust.as_ref()
+        let neo_rust = NeoRust::instance().as_ref()
             .ok_or(NeoRustError::NeoRustNotInitialized)?;
 
         neo_rust.send_raw_transaction(hex).await?;
@@ -91,7 +88,7 @@ impl SerializableTransaction {
     // Get hash data
     pub fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
 
-        let neo_rust = self.neo_rust.as_ref()
+        let neo_rust = NeoRust::instance().as_ref()
             .ok_or(TransactionError::NeoRustNotInitialized)?;
 
         let network_magic = neo_rust.get_network_magic()?;
@@ -156,7 +153,6 @@ impl SerializableTransaction {
         let script = reader.read_var_bytes()?;
 
         Ok(Self {
-            neo_rust: None,
             version,
             nonce,
             valid_until_block,

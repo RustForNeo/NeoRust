@@ -1,6 +1,6 @@
 use std::collections::HashMap;
+use crypto::scrypt::ScryptParams;
 use serde::{Deserialize, Serialize};
-use crate::crypto::scrypt_parameter::ScryptParams;
 use crate::wallet::nep6account::NEP6Account;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]

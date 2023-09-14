@@ -1,3 +1,4 @@
+use std::error::Error;
 use crypto::hmac::Hmac;
 use crypto::pbkdf2::pbkdf2;
 use num_bigint::BigInt;
@@ -38,7 +39,7 @@ impl Account {
         }
     }
 
-    pub fn from_key_pair(key_pair: KeyPair) -> Result<Self, Error> {
+    pub fn from_key_pair(key_pair: KeyPair) -> Result<Self, dyn Error> {
         let address = key_pair.to_address()?;
 
         Ok(Self {

@@ -1,9 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 use std::fs::File;
 use std::io::Write;
+use crypto::scrypt::ScryptParams;
 use primitive_types::H160;
 
-use crate::crypto::scrypt_parameter::ScryptParams;
 use crate::wallet::account::Account;
 use crate::wallet::nep6wallet::NEP6Wallet;
 use crate::wallet::wallet_error::WalletError;

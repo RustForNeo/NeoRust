@@ -339,7 +339,7 @@ impl NeoRust {
             .await
     }
 
-    pub async fn terminate_session(&self, session_id: String) -> Result<bool, ProtocolError> {
+    pub async fn terminate_session(&self, session_id: &String) -> Result<bool, ProtocolError> {
         self.neo_service
             .send("terminatesession", &[session_id])
             .await

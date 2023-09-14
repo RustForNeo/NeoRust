@@ -1,17 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Mutex;
+use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::contract_parameter::ContractParameter;
-use crate::types::{H160, H256};
+use crate::wallet::account::Account;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NonFungibleToken {
-
     script_hash: H160,
-
     name: Option<String>,
     symbol: Option<String>,
     decimals: u8,
@@ -140,7 +139,7 @@ impl NonFungibleToken {
     async fn transfer(&mut self, from: &H160, to: &H160, token_id: &H256) -> Result<TransactionBuilder, ContractError> {
 
         // Verify from owns token
-        ensure!(self.owner_of(token_id).await? == *from, "Not owner");
+        assert_eq!(self.owner_of(token_id).await?, *from, "Not owner");
 
         // Build transaction
         let tx = self.invoke_function("transfer", vec![from.into(), to.into(), token_id.into()])?;

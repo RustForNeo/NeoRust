@@ -2,10 +2,12 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::contract::fungible_token::FungibleToken;
+use crate::contract::smartcontract::SmartContract;
 use crate::protocol::core::responses::neo_account_state::AccountState;
 use crate::protocol::core::stack_item::StackItem;
 use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::ECPublicKey;
+use crate::wallet::account::Account;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NeoToken {
@@ -15,7 +17,7 @@ pub struct NeoToken {
 impl NeoToken{
 
     pub const NAME: &'static str = "NeoToken";
-    pub const SCRIPT_HASH: H160 = H160::ZERO;// calc hash
+    pub const SCRIPT_HASH: H160 = SmartContract::calc_native_contract_hash(Self::NAME).unwrap();
     pub const DECIMALS: u8 = 0;
     pub const SYMBOL: &'static str = "NEO";
     pub const TOTAL_SUPPLY: u64 = 100_000_000;
@@ -75,8 +77,8 @@ impl NeoToken{
     }
 
     async fn is_candidate(&self, public_key: &ECPublicKey) -> Result<bool, ContractError> {
-        self.get_candidates().await?.into_iter()
-            .any(|c| c.public_key == *public_key)
+        Ok(self.get_candidates().await?.into_iter()
+            .any(|c| c.public_key == *public_key))
     }
 
 // Voting

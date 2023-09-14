@@ -2,6 +2,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::contract::fungible_token::FungibleToken;
+use crate::contract::smartcontract::SmartContract;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GasToken {
@@ -11,7 +12,7 @@ pub struct GasToken {
 impl GasToken {
 
     pub const NAME: &'static str = "GasToken";
-    pub const SCRIPT_HASH: H160 = H160::ZERO;//""// compute hash
+    pub const SCRIPT_HASH: H160 = SmartContract::calc_native_contract_hash(Self::NAME).unwrap();
     pub const DECIMALS: u8 = 8;
     pub const SYMBOL: &'static str = "GAS";
 

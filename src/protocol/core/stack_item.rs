@@ -3,6 +3,8 @@ use primitive_types::{H160, H256};
 use serde::{Serialize, Deserialize};
 use crate::types::Address;
 
+
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StackItem {
@@ -69,6 +71,46 @@ pub struct MapEntry {
 // Utility methods
 
 impl StackItem {
+    pub const ANY_VALUE: &'static str = "Any";
+
+    pub const POINTER_VALUE: &'static str = "Pointer";
+
+    pub const BOOLEAN_VALUE: &'static str = "Boolean";
+
+    pub const INTEGER_VALUE: &'static str = "Integer";
+
+    pub const BYTE_STRING_VALUE: &'static str = "ByteString";
+
+    pub const BUFFER_VALUE: &'static str = "Buffer";
+
+    pub const ARRAY_VALUE: &'static str = "Array";
+
+    pub const STRUCT_VALUE: &'static str = "Struct";
+
+    pub const MAP_VALUE: &'static str = "Map";
+
+    pub const INTEROP_INTERFACE_VALUE: &'static str = "InteropInterface";
+
+
+    pub const ANY_BYTE: u8 = 0x00;
+
+    pub const POINTER_BYTE: u8 = 0x10;
+
+    pub const BOOLEAN_BYTE: u8 = 0x20;
+
+    pub const INTEGER_BYTE: u8 = 0x21;
+
+    pub const BYTE_STRING_BYTE: u8 = 0x28;
+
+    pub const BUFFER_BYTE: u8 = 0x30;
+
+    pub const ARRAY_BYTE: u8 = 0x40;
+
+    pub const STRUCT_BYTE: u8 = 0x41;
+
+    pub const MAP_BYTE: u8 = 0x48;
+
+    pub const INTEROP_INTERFACE_BYTE: u8 = 0x60;
 
     fn as_bool(&self) -> Option<bool> {
         match self {
@@ -86,6 +128,44 @@ impl StackItem {
             StackItem::Integer{value} => Some(value.to_string()),
             StackItem::Boolean{value} => Some(value.to_string()),
             _ => None,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            StackItem::Any(value) => format!("Any{{value={:?}}}", value),
+            StackItem::Pointer(value) => format!("Pointer{{value={}}}", value),
+            StackItem::Boolean(value) => format!("Boolean{{value={}}}", value),
+            StackItem::Integer(value) => format!("Integer{{value={}}}", value),
+            StackItem::ByteString(value) => format!("ByteString{{value={:?}}}", value),
+            StackItem::Buffer(value) => format!("Buffer{{value={:?}}}", value),
+            StackItem::Array(value) => {
+                let values = value
+                    .iter()
+                    .map(StackItem::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("Array{{value=[{}]}}", values)
+            }
+            StackItem::Struct(value) => {
+                let values = value
+                    .iter()
+                    .map(StackItem::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("Struct{{value=[{}]}}", values)
+            }
+            StackItem::Map(value) => {
+                let entries = value
+                    .iter()
+                    .map(|(k, v)| format!("{} -> {}", k.to_string(), v.to_string()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("Map{{{{{}}}}}", entries)
+            }
+            StackItem::InteropInterface(id, interface) => {
+                format!("InteropInterface{{id={}, interface={}}}", id, interface)
+            }
         }
     }
 

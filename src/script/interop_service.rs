@@ -1,5 +1,5 @@
 use std::hash::Hash;
-use crate::utils::bytes::Bytes;
+use crate::utils::bytes::{Bytes, BytesExtern};
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum InteropService {

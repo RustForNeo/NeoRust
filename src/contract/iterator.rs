@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use crate::protocol::core::stack_item::StackItem;
+use crate::protocol::neo_rust::NeoRust;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Iterator<T> {
@@ -13,7 +14,7 @@ pub struct Iterator<T> {
 impl<T> Iterator<T> {
 
     pub async fn next(&self, count: usize) -> Vec<T> {
-        let items = self.client.traverse_iter(
+        let items = NeoRust::instance().traverse_iter(
             self.session_id.clone(),
             self.iterator_id.clone(),
             count,
@@ -25,7 +26,7 @@ impl<T> Iterator<T> {
     }
 
     pub async fn close(&self) -> Result<(), Err> {
-        self.client.terminate_session(&self.session_id).await
+        NeoRust::instance().terminate_session(&self.session_id).await
     }
 
 }

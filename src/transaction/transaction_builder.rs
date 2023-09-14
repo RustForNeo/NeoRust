@@ -1,6 +1,8 @@
+use p256::ecdsa::signature::SignerMut;
 use serde::__private::de::TagOrContentField::Content;
 use crate::constant::NeoConstants;
 use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
+use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::account_signer::AccountSigner;
 use crate::transaction::contract_signer::ContractSigner;
 use crate::transaction::serializable_transaction::SerializableTransaction;
@@ -78,7 +80,7 @@ impl TransactionBuilder {
             return Err(TransactionError::TooManySigners);
         }
 
-        self.signers.push(signer);
+        self.signers.push(signer.clone());
         Ok(self)
     }
 
@@ -125,23 +127,14 @@ impl TransactionBuilder {
 
         // Check sender balance if needed
         if let Some(fee_consumer) = &self.fee_consumer {
-            let sender_balance = get_sender_balance().await?;
+            let sender_balance = NeoRust::instance().get_sender_balance().await?;
             if network_fee + system_fee > sender_balance {
                 fee_consumer(network_fee + system_fee, sender_balance);
             }
         }
 
         // Build transaction
-        let tx = SerializableTransaction::new(
-            version: self.version,
-            nonce: self.nonce,
-            valid_until_block: self.valid_until_block,
-            signers: &self.signers,
-            attributes: &self.attributes,
-            script: self.script.as_ref().unwrap(),
-            system_fee,
-            network_fee,
-        );
+        let tx = SerializableTransaction::new(self.version, self.nonce, self.valid_until_block?, self.clone().signers, system_fee as i64, network_fee as i64, self.clone().attributes, self.clone().script?, vec![]);
 
         Ok(tx)
 
@@ -150,14 +143,14 @@ impl TransactionBuilder {
     async fn get_system_fee(&self) -> Result<u64, TransactionError> {
         let script = self.script.as_ref().unwrap();
 
-        let response = self.neo_rust.invoke_script(script).await?;
-        Ok(response.gas_consumed) // example
+        let response = NeoRust::instance().invoke_script(script).await?;
+        Ok(response.gas_consumed.) // example
     }
 
     async fn get_network_fee(&mut self) -> Result<u64, TransactionError> {
         let unsigned_tx = self.get_unsigned_tx().await?;
 
-        let fee = self.neo_rust.get_network_fee(unsigned_tx).await?;
+        let fee = NeoRust::instance().get_network_fee(unsigned_tx).await?;
         Ok(fee)
     }
 
@@ -166,7 +159,7 @@ impl TransactionBuilder {
         // Call network
         let sender = &self.signers[0];
         let balance = match sender {
-            AccountSigner(account) => get_account_balance(account).await?,
+            AccountSigner(account) => NeoRust::instance().get_account_balance(account).await?,
             _ => return Err(TransactionError::InvalidSender),
         };
         Ok(balance)

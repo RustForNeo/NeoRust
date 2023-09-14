@@ -100,7 +100,7 @@ impl Token {
     }
 
     async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-        let address = self.neo_rust.as_ref()
+        let address = NeoRust::instance().as_ref()
             .unwrap()
             .call_contract_func(
                 name_service::CONTRACT_HASH,

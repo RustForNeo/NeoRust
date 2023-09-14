@@ -23,7 +23,7 @@ impl NeoRustExpress {
         Request::new(
             "expressgetnep17contracts".to_owned(),
             vec![],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -31,7 +31,7 @@ impl NeoRustExpress {
         Request::new(
             "expressgetcontractstorage".to_owned(),
             vec![contract_hash.to_string()],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -39,7 +39,7 @@ impl NeoRustExpress {
         Request::new(
             "expresslistcontracts".to_owned(),
             vec![],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -47,7 +47,7 @@ impl NeoRustExpress {
         Request::new(
             "expresscreatecheckpoint".to_owned(),
             vec![filename],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -55,7 +55,7 @@ impl NeoRustExpress {
         Request::new(
             "expresslistoraclerequests".to_owned(),
             vec![],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -63,7 +63,7 @@ impl NeoRustExpress {
         Request::new(
             "expresscreateoracleresponsetx".to_owned(),
             vec![oracle_response],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 
@@ -71,7 +71,7 @@ impl NeoRustExpress {
         Request::new(
             "expressshutdown".to_owned(),
             vec![],
-            self.neo_swift_service.clone(),
+            self.neo_service.clone(),
         )
     }
 

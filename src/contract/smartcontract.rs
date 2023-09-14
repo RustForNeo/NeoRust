@@ -1,14 +1,20 @@
+use std::error::Error;
 use bitcoin::Script;
+use byte_slice_cast::AsByteSlice;
+use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::protocol::core::responses::invocation_result::InvocationResult;
 use crate::protocol::core::responses::neo_response_aliases::NeoInvokeFunction;
 use crate::protocol::core::stack_item::StackItem;
+use crate::protocol::neo_rust::NeoRust;
+use crate::script::interop_service::InteropService;
+use crate::script::op_code::OpCode;
 use crate::script::script_builder::ScriptBuilder;
 use crate::transaction::signer::Signer;
 use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::contract_parameter::ContractParameter;
-use crate::types::hash160::H160;
+use crate::utils::bytes::BytesExtern;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SmartContract {
@@ -36,7 +42,11 @@ impl SmartContract {
         }
 
         let script = ScriptBuilder::new()
-            .contract_call(self.script_hash.clone(), function, params)
+            .contract_call(
+                self.script_hash.clone().as_fixed_bytes(),
+                function,
+                params.as_slice(),
+            )
             .build();
 
         Ok(script)
@@ -52,7 +62,7 @@ impl SmartContract {
     }
 
     pub async fn call_function_returning_int(&self, function: &str, params: Vec<ContractParameter>) -> Result<i32, ContractError> {
-        let output = self.call_invoke_function(function, params).await?.get_result();
+        let output = self.call_invoke_function(function, params, vec![]).await?.get_result();
         self.throw_if_fault_state(&output)?;
 
         let item = output.stack[0].clone();
@@ -71,13 +81,21 @@ impl SmartContract {
 
     // Other methods
 
-    pub async fn call_invoke_function(&self, function: &str, params: Vec<ContractParameter>, signers: Vec<Signer>) -> Result<NeoInvokeFunction, ContractError> {
+    pub async fn call_invoke_function(
+        &self,
+        function: &str,
+        params: Vec<ContractParameter>,
+        signers: Vec<Signer>
+    ) -> Result<NeoInvokeFunction, dyn Error> {
         if function.is_empty() {
             return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()));
         }
 
-        self.neo_rust.invoke_function(self.script_hash.clone(), function, params, signers)
-            .send()
+        NeoRust::instance().invoke_function(
+            &self.script_hash,
+            function.into(),
+            params,
+            signers)
             .await
     }
 
@@ -112,7 +130,7 @@ impl SmartContract {
         let session_id = output.session_id.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))?;
 
         Ok(NeoIterator::new(
-            self.neo_rust.clone(),
+            NeoRust::instance().clone(),
             session_id,
             interface.iterator_id,
             mapper
@@ -121,15 +139,14 @@ impl SmartContract {
 
     pub async fn call_function_and_unwrap_iterator<T>(&self, function: &str, params: Vec<ContractParameter>, max_items: usize, mapper: impl Fn(StackItem) -> T) -> Result<Vec<T>, ContractError> {
 
-        let script = ScriptBuilder::build_contract_call_and_unwrap_iterator(
-            self.script_hash.clone(),
+        let script = ScriptBuilder::new().contract_call(
+            self.script_hash.as_fixed_bytes(),
             function,
-            params,
+            params.iter().filter_map(|p| Some(p)).collect(),
             max_items
         )?;
 
-        let output = self.neo_rust.invoke_script(script.to_hex(), vec![])
-            .send()
+        let output = NeoRust::instance().invoke_script(script.to_bytes().to_hex(), vec![])
             .await?
             .get_result();
 
@@ -144,4 +161,26 @@ impl SmartContract {
         Ok(items)
     }
 
+    pub fn calc_native_contract_hash( contract_name: &str) -> Result<H160, dyn Error> {
+        Self::calc_contract_hash(
+            H160::zero(),
+            0,
+            contract_name
+        )
+    }
+
+    pub fn calc_contract_hash(
+        sender: H160,
+        nef_checksum: u32,
+        contract_name: &str
+    ) -> Result<H160, dyn Error> {
+        let mut script = ScriptBuilder::new()
+            .op_code(OpCode::Abort, &[])
+            .push_data(sender.as_bytes())
+            .push_int(nef_checksum as i64)
+            .unwrap()
+            .push_data(contract_name.as_byte_slice());
+
+        Ok(H160::from_slice(script.to_bytes().as_slice()))
+    }
 }

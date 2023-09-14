@@ -16,6 +16,26 @@ impl BinaryWriter {
         self.data.push(value);
     }
 
+    pub fn write_i16(&mut self, v: i16) {
+        self.write_u16(v as u16);
+    }
+
+    pub fn write_i32(&mut self, v: i32) {
+        self.write_u32(v as u32);
+    }
+
+    pub fn write_i64(&mut self, v: i64) {
+        self.write_u64(v as u64);
+    }
+
+    pub fn write_u16(&mut self, v: u16) {
+        self.data.extend_from_slice(&v.to_be_bytes());
+    }
+
+    pub fn write_u32(&mut self, v: u32) {
+        self.data.extend_from_slice(&v.to_be_bytes());
+    }
+
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         self.data.extend_from_slice(bytes);
     }
@@ -36,6 +56,11 @@ impl BinaryWriter {
         }
     }
 
+    pub fn write_string(&mut self, v: &str) {
+        self.write_bytes(v.as_bytes());
+    }
+
+
     pub fn write_var_bytes(&mut self, bytes: &[u8]) {
         self.write_var_int(bytes.len() as i64);
         self.write_bytes(bytes);
@@ -44,7 +69,7 @@ impl BinaryWriter {
     // Serialization helpers
 
     pub fn write_serializable<S: Serialize>(&mut self, value: &S) {
-        value.serialize(self);
+        value.serialize(self).expect("Failed to serialize value");
     }
 
     pub fn write_serializable_list<S: Serialize>(&mut self, values: &[S]) {
