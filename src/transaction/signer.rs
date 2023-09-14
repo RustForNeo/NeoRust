@@ -1,6 +1,11 @@
 use std::io::Write;
+use bincode::Options;
+use p256::pkcs8::der::Encode;
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use crate::constant::NeoConstants;
 use crate::neo_error::NeoRustError;
+use crate::protocol::core::witness_rule::witness_condition::WitnessCondition;
 use crate::protocol::core::witness_rule::witness_rule::WitnessRule;
 use crate::serialization::binary_reader::BinaryReader;
 use crate::serialization::binary_writer::BinaryWriter;
@@ -39,7 +44,7 @@ impl Signer {
             return Err(NeoRustError::InvalidConfiguration("Cannot set contracts for global scope".to_string()));
         }
 
-        if self.allowed_contracts.len() + contracts.len() > MAX_SIGNER_SUBITEMS as usize {
+        if self.allowed_contracts.len() + contracts.len() > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
             return Err(NeoRustError::InvalidConfiguration("Too many allowed contracts".to_string()));
         }
 
@@ -63,7 +68,7 @@ impl Signer {
             ));
         }
 
-        if self.allowed_groups.len() + groups.len() > MAX_SIGNER_SUBITEMS as usize {
+        if self.allowed_groups.len() + groups.len() > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
             return Err(NeoRustError::InvalidConfiguration(
                 "Too many allowed groups".to_string()
             ));
@@ -87,7 +92,7 @@ impl Signer {
             ));
         }
 
-        if self.rules.len() + rules.len() > MAX_SIGNER_SUBITEMS as usize {
+        if self.rules.len() + rules.len() > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
             return Err(NeoRustError::InvalidConfiguration(
                 "Too many rules".to_string()
             ));
@@ -95,7 +100,7 @@ impl Signer {
 
         // Validate nesting depth
         for rule in &rules {
-            Self::validate_depth(rule, MAX_NESTING_DEPTH)?;
+            Self::validate_depth(rule, NeoConstants::MAX_NESTING_DEPTH)?;
         }
 
         if !self.scopes.contains(&WitnessScope::WitnessRules) {
@@ -130,7 +135,7 @@ impl Signer {
         Ok(())
     }
     fn validate_subitems(count: usize, name: &str) -> Result<(), NeoRustError> {
-        if count > MAX_SIGNER_SUBITEMS as usize {
+        if count > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
             return Err(NeoRustError::InvalidData(format!(
                 "Too many {} in signer", name)));
         }

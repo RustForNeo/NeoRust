@@ -1,7 +1,7 @@
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness_scope::WitnessScope;
-use crate::types::hash160::H160;
 use crate::wallet::account::Account;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::protocol::core::responses::contract_manifest::ContractManifest;
 use crate::protocol::core::responses::contract_nef::ContractNef;
 use crate::protocol::core::stack_item::StackItem;
-use crate::types::H160;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContractState {

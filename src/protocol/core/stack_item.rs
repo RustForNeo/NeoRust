@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use primitive_types::{H160, H256};
 use serde::{Serialize, Deserialize};
-use crate::types::hash160::H160;
-use crate::types::hash256::H256;
+use crate::types::Address;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]

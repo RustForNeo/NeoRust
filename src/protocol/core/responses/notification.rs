@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
+use primitive_types::H160;
 use crate::protocol::core::stack_item::StackItem;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]

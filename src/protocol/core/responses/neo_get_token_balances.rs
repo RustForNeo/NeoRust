@@ -1,6 +1,6 @@
 use std::hash::Hash;
+use primitive_types::H160;
 use serde::{Serialize, Deserialize};
-use crate::types::hash160::H160;
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoGetTokenBalances<T> {

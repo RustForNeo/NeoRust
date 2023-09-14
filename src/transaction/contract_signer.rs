@@ -1,3 +1,4 @@
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::transaction::witness_scope::WitnessScope;
 use crate::types::contract_parameter::ContractParameter;

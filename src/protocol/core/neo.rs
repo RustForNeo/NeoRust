@@ -1,8 +1,9 @@
-use neo_rust::{
-    types::{H160, H256},
-    wallet::{Signer, ContractParameter},
-};
-use crate::types::hash160::H160;
+use bitcoin::PrivateKey;
+use p256::PublicKey;
+use primitive_types::{H160, H256};
+use crate::transaction::signer::Signer;
+use crate::types::contract_parameter::ContractParameter;
+use crate::wallet::account::Account;
 
 pub trait Neo {
 

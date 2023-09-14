@@ -1,8 +1,10 @@
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
-use neon::types::{H256, H160, VMState};
+use primitive_types::{H160, H256};
 use crate::protocol::core::responses::neo_witness::NeoWitness;
-use crate::types::hash256::H256;
+use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
+use crate::protocol::core::responses::transaction_signer::TransactionSigner;
+use crate::types::vm_state::VMState;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Transaction {

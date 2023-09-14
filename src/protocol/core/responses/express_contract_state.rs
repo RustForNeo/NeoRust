@@ -1,6 +1,6 @@
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::protocol::core::responses::contract_manifest::ContractManifest;
-use crate::types::hash160::H160;
 
 #[derive(Serialize, Deserialize, Hash)]
 pub struct ExpressContractState {

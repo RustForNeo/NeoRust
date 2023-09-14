@@ -1,7 +1,7 @@
 use std::sync::Mutex;
-use std::time::Duration;
+use std::task::Poll;
 use reqwest::Client;
-use futures::{StreamExt, stream};
+use futures::{StreamExt, stream, Stream};
 use tokio::time::{interval, Duration};
 
 pub struct BlockIndex {

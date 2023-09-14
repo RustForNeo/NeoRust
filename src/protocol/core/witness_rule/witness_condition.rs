@@ -1,8 +1,8 @@
 use std::io;
 use std::io::Write;
+use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use crate::types::ECPublicKey;
-use crate::types::hash160::H160;
 
 #[derive(Hash, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WitnessCondition {

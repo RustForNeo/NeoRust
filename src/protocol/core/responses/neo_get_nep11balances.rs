@@ -1,5 +1,5 @@
+use primitive_types::H160;
 use serde::{Serialize, Deserialize};
-use crate::types::H160;
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoGetNep11Balances {

@@ -1,5 +1,6 @@
+use primitive_types::H256;
 use serde::{Serialize, Deserialize};
-use crate::types::hash256::H256;
+use crate::protocol::core::responses::neo_witness::NeoWitness;
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoGetStateRoot {

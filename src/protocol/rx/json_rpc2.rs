@@ -2,11 +2,12 @@ use std::time::Duration;
 use serde_json::json;
 use tokio::runtime::Handle;
 use futures::{stream, Stream, StreamExt};
+use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
+use crate::protocol::core::responses::neo_account_state::AccountState;
 use crate::protocol::core::responses::neo_address::NeoAddress;
 use crate::protocol::core::responses::neo_block::NeoBlock;
-use crate::types::{Address, H256, U256};
-use crate::types::hash256::H256;
+use crate::types::Address;
 
 #[derive(Deserialize,Serialize,Debug)]
 #[serde(tag = "notify_type")]
@@ -15,7 +16,7 @@ enum Event {
         #[serde(rename = "from")]
         from: Address,
         #[serde(rename = "to")]
-        to: NeoAddress,
+        to: Address,
         amount: U256,
         asset: H256,
     },
@@ -54,7 +55,7 @@ impl JsonRpc2 {
     }
 
     pub async fn block_index_stream(&self, interval: u64) -> impl Stream<Item = u32> {
-        let mut current = self.neo.get_block_count().await;
+        let mut current = self.get_block_count().await;
 
         stream::unfold(current, |last| async move {
             tokio::time::sleep(Duration::from_secs(interval)).await;

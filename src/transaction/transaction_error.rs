@@ -6,6 +6,7 @@ pub enum TransactionError {
     SignerConfiguration(String),
     InvalidNonce,
     InvalidBlock,
+    InvalidTransaction,
     TooManySigners,
     DuplicateSigner,
     NoSigners,
@@ -28,6 +29,8 @@ impl std::fmt::Display for TransactionError {
                 write!(f, "Invalid nonce"),
             TransactionError::InvalidBlock =>
                 write!(f, "Invalid block"),
+            TransactionError::InvalidTransaction =>
+                write!(f, "Invalid transaction"),
             TransactionError::TooManySigners =>
                 write!(f, "Too many signers"),
             TransactionError::DuplicateSigner =>
@@ -62,6 +65,7 @@ impl std::error::Error for TransactionError {
             TransactionError::SignerConfiguration(msg) => msg,
             TransactionError::InvalidNonce => "Invalid nonce",
             TransactionError::InvalidBlock => "Invalid block",
+            TransactionError::InvalidTransaction => "Invalid transaction",
             TransactionError::TooManySigners => "Too many signers",
             TransactionError::DuplicateSigner => "Duplicate signer",
             TransactionError::NoSigners => "No signers",

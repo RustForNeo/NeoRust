@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
-use crate::types::hash160::H160;
+use primitive_types::H160;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TransactionSendToken {

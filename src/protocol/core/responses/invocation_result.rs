@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
-use crate::protocol::core::responses::diagnostics::Diagnostics;
+use primitive_types::H160;
 use crate::protocol::core::stack_item::StackItem;
 use crate::types::contract_parameter::ContractParameter;
 

@@ -1,5 +1,5 @@
+use primitive_types::H256;
 use serde::{Serialize, Deserialize};
-use crate::types::H256;
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoGetMemPool {

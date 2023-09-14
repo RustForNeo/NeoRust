@@ -1,4 +1,4 @@
-use crate::types::hash256::H256;
+use primitive_types::H256;
 
 #[derive(Debug, Hash, PartialEq, Eq,serde::Serialize, serde::Deserialize, Clone)]
 pub struct NeoSendRawTransaction {

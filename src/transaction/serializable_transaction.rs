@@ -1,8 +1,10 @@
-use bip32::secp256k1::ecdsa::signature::Signer;
 use bitcoin::consensus::ReadExt;
 use serde::{Deserialize, Serialize};
-use crate::constant::MAX_TX_SIZE;
+use tokio::io::AsyncWriteExt;
 use crate::neo_error::NeoRustError;
+use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
+use crate::protocol::neo_rust::NeoRust;
+use crate::transaction::signer::Signer;
 use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness::Witness;
 use crate::types::Bytes;
@@ -13,7 +15,7 @@ pub struct SerializableTransaction {
     version: u8,
     nonce: u32,
     valid_until_block: u32,
-    signers: Vec<Box<dyn Signer>>,
+    signers: Vec<Signer>,
     system_fee: i64,
     network_fee: i64,
     attributes: Vec<TransactionAttribute>,
@@ -31,7 +33,7 @@ impl SerializableTransaction {
         version: u8,
         nonce: u32,
         valid_until_block: u32,
-        signers: Vec<Box<dyn Signer>>,
+        signers: Vec<Signer>,
         system_fee: i64,
         network_fee: i64,
         attributes: Vec<TransactionAttribute>,
@@ -68,7 +70,7 @@ impl SerializableTransaction {
             return Err(TransactionError::InvalidTransaction);
         }
 
-        if self.size() > MAX_TX_SIZE {
+        if self.size() >  MAX_TX_SIZE {
             return Err(TransactionError::TxTooLarge);
         }
 

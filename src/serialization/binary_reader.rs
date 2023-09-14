@@ -2,7 +2,6 @@ use bitcoin::consensus::ReadExt;
 use bitcoin::Script;
 use serde::Deserialize;
 use crate::neo_error::NeoRustError;
-use crate::types::ECPoint;
 
 pub struct BinaryReader<'a> {
     data: &'a [u8],

@@ -1,7 +1,8 @@
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
+use primitive_types::H160;
+use crate::protocol::core::witness_rule::witness_rule::WitnessRule;
 use crate::transaction::witness_scope::WitnessScope;
-use crate::types::hash160::H160;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TransactionSigner {

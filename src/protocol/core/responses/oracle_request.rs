@@ -1,7 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::hash::{Hash, Hasher};
-use crate::types::hash160::H160;
-use crate::types::hash256::H256;
+use primitive_types::{H160, H256};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct OracleRequest {

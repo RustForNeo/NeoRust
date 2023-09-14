@@ -1,10 +1,10 @@
+use primitive_types::H160;
 use secp256k1::ecdsa::Signature;
 use crate::neo_error::NeoRustError;
-use crate::script::op_code;
+use crate::script::op_code::OpCode;
 use crate::script::script_builder::ScriptBuilder;
 use crate::serialization::binary_reader::BinaryReader;
 use crate::types::{Bytes, ECPublicKey};
-use crate::types::hash160::H160;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VerificationScript {
@@ -20,7 +20,7 @@ impl VerificationScript {
     pub fn from_public_key(public_key: &ECPublicKey) -> Self {
         let mut builder = ScriptBuilder::new();
         builder.push_data(public_key.to_bytes());
-        builder.op_code(op_code::Syscall);
+        builder.OpCode(OpCode::Syscall);
         builder.push_data(&ECDSA_CHECKSIG_HASH);
         Self::new(builder.build())
     }
@@ -33,15 +33,15 @@ impl VerificationScript {
             builder.push_data(key.to_bytes());
         }
         builder.push_int(public_keys.len() as i64);
-        builder.op_code(op_code::Syscall);
+        builder.OpCode(OpCode::Syscall);
         builder.push_data(&ECDSA_CHECKMULTISIG_HASH);
         Self::new(builder.build())
     }
 
     pub fn is_single_sig(&self) -> bool {
         self.script.len() == 35
-            && self.script[0] == op_code::PushData1 as u8
-            && self.script[34] == op_code::Syscall as u8
+            && self.script[0] == OpCode::PushData1 as u8
+            && self.script[34] == OpCode::Syscall as u8
     }
 
     pub fn is_multisig(&self) -> bool {
@@ -57,7 +57,7 @@ impl VerificationScript {
         }
 
         let mut m = 0;
-        while reader.read_u8() == Some(op_code::PushData1 as u8) {
+        while reader.read_u8() == Some(OpCode::PushData1 as u8) {
             let len = reader.read_u8().unwrap();
             if len != 33 {
                 return false;
@@ -80,7 +80,7 @@ impl VerificationScript {
             return false;
         }
 
-        if reader.read_u8() != Some(op_code::Syscall as u8) {
+        if reader.read_u8() != Some(OpCode::Syscall as u8) {
             return false;
         }
 
@@ -96,7 +96,7 @@ impl VerificationScript {
         let mut reader = BinaryReader::new(&self.script);
         let mut signatures = vec![];
 
-        while reader.read_u8() == Some(op_code::PushData1 as u8) {
+        while reader.read_u8() == Some(OpCode::PushData1 as u8) {
             let len = reader.read_u8().unwrap();
             let sig = Signature::from_slice(&reader.read_bytes(len as usize).unwrap());
             signatures.push(sig);
@@ -123,7 +123,7 @@ impl VerificationScript {
             reader.read_int().unwrap(); // skip threshold
 
             let mut keys = vec![];
-            while reader.read_u8() == Some(op_code::PushData1 as u8) {
+            while reader.read_u8() == Some(OpCode::PushData1 as u8) {
                 reader.read_u8(); // skip length
                 let mut point = [0; 33];
                 point.copy_from_slice(&reader.read_bytes(33).unwrap());

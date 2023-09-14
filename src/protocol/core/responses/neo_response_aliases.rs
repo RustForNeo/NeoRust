@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use bitcoin::Transaction;
+use primitive_types::H256;
 use crate::protocol::core::responses::contract_state::ContractState;
 use crate::protocol::core::responses::contract_storage_entry::ContractStorageEntry;
 use crate::protocol::core::responses::express_contract_state::ExpressContractState;
@@ -14,7 +15,6 @@ use crate::protocol::core::responses::nep17contract::Nep17Contract;
 use crate::protocol::core::responses::oracle_request::OracleRequest;
 use crate::protocol::core::responses::populated_blocks::PopulatedBlocks;
 use crate::protocol::core::stack_item::StackItem;
-use crate::types::hash256::H256;
 
 #[derive(Debug)]
 pub struct NeoBlockCount {

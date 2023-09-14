@@ -2,7 +2,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::contract::fungible_token::FungibleToken;
-use crate::protocol::core::responses::neo_account_state::NeoAccountState;
+use crate::protocol::core::responses::neo_account_state::AccountState;
 use crate::protocol::core::stack_item::StackItem;
 use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::ECPublicKey;
@@ -121,18 +121,18 @@ impl NeoToken{
         self.invoke_function("setRegisterPrice", vec![register_price.into()])
     }
 
-    async fn get_account_state(&self, account: &H160) -> Result<NeoAccountState, ContractError> {
+    async fn get_account_state(&self, account: &H160) -> Result<AccountState, ContractError> {
         let result = self.call_invoke_function("getAccountState", vec![account.into()])
             .await?.get_result().stack.pop().unwrap();
 
         match result {
-            StackItem::Any => Ok(NeoAccountState::with_no_balance()),
+            StackItem::Any => Ok(AccountState::with_no_balance()),
             StackItem::Array(items) if items.len() >= 3 => {
                 let balance = items[0].as_i64()?;
                 let update_height = items[1].as_i64()?;
                 let public_key = items[2].as_public_key().cloned();
 
-                Ok(NeoAccountState {
+                Ok(AccountState {
                     balance,
                     balance_height: update_height,
                     public_key,

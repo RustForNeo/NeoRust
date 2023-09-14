@@ -1,7 +1,10 @@
-use p256::ecdsa::signature::Signer;
+use serde::__private::de::TagOrContentField::Content;
+use crate::constant::NeoConstants;
+use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
 use crate::transaction::account_signer::AccountSigner;
 use crate::transaction::contract_signer::ContractSigner;
 use crate::transaction::serializable_transaction::SerializableTransaction;
+use crate::transaction::signer::Signer;
 use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness::Witness;
 use crate::types::Bytes;
@@ -71,7 +74,7 @@ impl TransactionBuilder {
     pub fn add_signer(&mut self, signer: &Signer) -> Result<&mut Self, TransactionError> {
 
         // Validate max signers
-        if self.signers.len() >= MAX_SIGNERS {
+        if self.signers.len() >= NeoConstants::MAX_SIGNERS {
             return Err(TransactionError::TooManySigners);
         }
 
@@ -102,7 +105,7 @@ impl TransactionBuilder {
         }
 
 // Check signer limits
-        if self.signers.len() > MAX_SIGNERS {
+        if self.signers.len() > NeoConstants::MAX_SIGNERS {
             return Err(TransactionError::TooManySigners);
         }
 

@@ -1,5 +1,6 @@
 use std::hash::Hasher;
 use serde::{Serialize, Deserialize};
+use tokio::io::AsyncReadExt;
 use crate::protocol::core::responses::oracle_response_code::OracleResponseCode;
 use crate::serialization::binary_reader::BinaryReader;
 use crate::serialization::binary_writer::BinaryWriter;

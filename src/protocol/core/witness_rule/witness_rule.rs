@@ -1,8 +1,8 @@
+use futures::TryStreamExt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeTuple;
 use crate::protocol::core::witness_rule::witness_action::WitnessAction;
 use crate::protocol::core::witness_rule::witness_condition::WitnessCondition;
-use crate::utils::r#enum::ByteEnum;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct WitnessRule {

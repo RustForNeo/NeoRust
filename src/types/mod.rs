@@ -9,7 +9,7 @@ pub mod plugin_type;
 
 // Bring EC types into scope
 
-pub type ECPoint = p256::ecdsa::ECPoint;
+// pub type ECPoin = ECPoint;
 pub type ECPrivateKey = SecretKey;
 pub type ECPublicKey = PublicKey;
 

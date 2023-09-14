@@ -1,7 +1,7 @@
+use primitive_types::H256;
 use serde::{Serialize, Deserialize};
 use crate::protocol::core::responses::invocation_result::Notification;
 use crate::protocol::core::stack_item::StackItem;
-use crate::types::hash256::H256;
 use crate::types::vm_state::VMState;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]

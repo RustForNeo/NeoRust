@@ -1,8 +1,12 @@
-use neo_rust::types::H160;
+use primitive_types::H160;
+use crate::protocol::core::responses::contract_state::ContractState;
+use crate::protocol::core::responses::nep17contract::Nep17Contract;
+use crate::protocol::core::responses::oracle_request::OracleRequest;
+use crate::protocol::core::responses::populated_blocks::PopulatedBlocks;
 
 pub trait NeoExpress {
 
-    fn get_populated_blocks(&self) -> Result<Vec<PopulatedBlock>, Error>;
+    fn get_populated_blocks(&self) -> Result<Vec<PopulatedBlocks>, Error>;
 
     fn get_nep17_contracts(&self) -> Result<Vec<Nep17Contract>, Error>;
 

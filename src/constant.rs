@@ -1,9 +1,6 @@
 // use secp256k1::{Secp256k1, SecretKey};
 
 pub struct NeoConstants {}
-    // Cryptography
-    // secp: Secp256k1,
-
 impl NeoConstants{
 
     // Accounts, Addresses, Keys
@@ -15,6 +12,9 @@ impl NeoConstants{
     pub const SIGNATURE_SIZE: u32 = 64;
     pub const VERIFICATION_SCRIPT_SIZE: u32 = 40;
     pub const MAX_ITERATOR_ITEMS_DEFAULT: u32 = 100;
+
+    pub const  MAX_SUBITEMS:u32 = 16;
+    pub const  MAX_NESTING_DEPTH:u8 = 2;
 
     // Transactions & Contracts
     pub const CURRENT_TX_VERSION: u8 = 0;

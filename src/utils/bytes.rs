@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 use bitcoin::base58;
 use num_bigint::{BigInt, Sign};
+use p256::pkcs8::der::Encode;
 use ripemd::Digest;
 use sha2::Sha256;
 use crate::protocol::neo_config::DEFAULT_ADDRESS_VERSION;
@@ -87,7 +88,7 @@ impl Bytes for [u8] {
     fn hash256(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self);
-        hasher.finalize().to_vec()
+        hasher.finalize().to_vec().unwrap()
     }
 
     fn ripemd160(&self) -> Vec<u8> {

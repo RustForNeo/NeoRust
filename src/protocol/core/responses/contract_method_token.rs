@@ -1,5 +1,5 @@
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use crate::types::hash160::H160;
 
 #[derive(Serialize, Deserialize)]
 pub struct ContractMethodToken {
