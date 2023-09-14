@@ -81,7 +81,7 @@ impl StackItem {
     fn as_string(&self) -> Option<String> {
         match self {
             StackItem::ByteString{value} | StackItem::Buffer{value} => {
-                hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok())?.flatten()
+                hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok())?
             },
             StackItem::Integer{value} => Some(value.to_string()),
             StackItem::Boolean{value} => Some(value.to_string()),

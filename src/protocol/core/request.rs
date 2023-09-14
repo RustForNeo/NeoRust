@@ -7,19 +7,19 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 #[derive(Serialize, Deserialize)]
-pub struct Request<T> {
+pub struct Request<T, U> {
     jsonrpc: &'static str,
     method: String,
     params: Vec<Value>,
     id: u64,
 }
 
-impl<T> Request<T>
+impl<T, U> Request<T, U>
     where
         T: DeserializeOwned,
 {
 
-    fn new(method: &str, params: Vec<Value>) -> Self {
+    pub fn new(method: &str, params: Vec<Value>) -> Self {
         Self {
             jsonrpc: "2.0",
             method: method.to_string(),
@@ -28,12 +28,9 @@ impl<T> Request<T>
         }
     }
 
-    async fn send(&self, client: &Client) -> Result<T, dyn Error> {
-        let response = client.post(self).await?;
-        let result = response.json::<T>().await?;
-        Ok(result)
+    fn to_json(&self) -> String {
+        serde_json::to_string(self).unwrap()
     }
-
 }
 
 // Generate unique ID

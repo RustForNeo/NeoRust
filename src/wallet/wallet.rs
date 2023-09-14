@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 use std::fs::File;
 use std::io::Write;
+use primitive_types::H160;
 
 use crate::crypto::scrypt_parameter::ScryptParams;
 use crate::wallet::account::Account;
@@ -75,7 +76,7 @@ impl Wallet {
         Ok(Self {
             name: nep6.name,
             version: nep6.version,
-            scrypt_params: nep6.scrypt_params,
+            scrypt_params: nep6.scrypt,
             accounts,
             default_account,
         })

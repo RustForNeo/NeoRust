@@ -45,5 +45,4 @@ impl<T> Response<T>
             None => Ok(self.result.unwrap()),
         }
     }
-
 }

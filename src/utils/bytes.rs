@@ -6,7 +6,7 @@ use ripemd::Digest;
 use sha2::Sha256;
 use crate::protocol::neo_config::DEFAULT_ADDRESS_VERSION;
 
-pub trait Bytes {
+pub trait BytesExtern {
 
     fn to_hex(&self) -> String;
 
@@ -36,7 +36,7 @@ fn is_between(byte: u8, min: u8, max: u8) -> bool;
 
 }
 
-impl Bytes for [u8] {
+impl BytesExtern for [u8] {
     fn to_hex(&self) -> String {
         hex::encode(self)
     }
@@ -116,7 +116,7 @@ impl Bytes for [u8] {
     }
 }
 
-impl Bytes for Vec<u8> {
+impl BytesExtern for Vec<u8> {
 
     fn to_hex(&self) -> String {
         hex::encode(self)
@@ -171,7 +171,7 @@ impl Bytes for Vec<u8> {
     fn hash256(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self);
-        hasher.finalize().to_vec()
+        hasher.finalize().to_vec().unwrap()
     }
 
     fn ripemd160(&self) -> Vec<u8> {

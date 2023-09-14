@@ -1,13 +1,14 @@
+use crypto::hmac::Hmac;
+use crypto::pbkdf2::pbkdf2;
 use num_bigint::BigInt;
-use secp256k1::hashes::Hmac;
-use secp256k1::KeyPair;
-use serde::{Deserialize, Serialize};
+use primitive_types::H160;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
+use crate::crypto::key_pair::KeyPair;
 use crate::script::verification_script::VerificationScript;
-use crate::types::ECPoint;
+use crate::types::{Address};
 use crate::wallet::nep6account::NEP6Account;
 use crate::wallet::nep6contract::NEP6Contract;
-use crate::wallet::wallet::Wallet;
 use crate::wallet::wallet_error::WalletError;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy,Serialize, Deserialize)]
@@ -18,7 +19,6 @@ pub struct Account {
     pub verification_script: Option<VerificationScript>,
     pub is_locked: bool,
     pub encrypted_private_key: Option<String>,
-
     pub signing_threshold: Option<u32>,
     pub nr_participants: Option<u32>,
 }
@@ -189,23 +189,38 @@ impl Account {
     }
 }
 
-impl Serializable for Account {
+impl Serialize for Account{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
 
-    fn serialize(&self) -> Result<Vec<u8>, Error> {
-        let mut buf = Vec::new();
-        buf.write_bool(self.is_locked);
-        buf.write_bytes(&self.address.to_bytes()?);
-        // Serialize other fields
-        
-        Ok(buf)
     }
+}
 
-    fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
-        let mut buf = Cursor::new(bytes);
-        let is_locked = buf.read_bool()?;
-        let address = Address::from_bytes(buf.read_bytes(20)?);
-        // Deserialize other fields
-        Ok(Self::new(address, None))
+
+impl Deserialize for Account {
+    fn deserialize<'de, D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+
     }
+}
+
+//
+//
+// impl Serializable for Account {
+//
+//     fn serialize(&self) -> Result<Vec<u8>, Error> {
+//         let mut buf = Vec::new();
+//         buf.write_bool(self.is_locked);
+//         buf.write_bytes(&self.address.to_bytes()?);
+//         // Serialize other fields
+//
+//         Ok(buf)
+//     }
+
+    // fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
+    //     let mut buf = Cursor::new(bytes);
+    //     let is_locked = buf.read_bool()?;
+    //     let address = Address::from_bytes(buf.read_bytes(20)?);
+    //     // Deserialize other fields
+    //     Ok(Self::new(address, None))
+    // }
 
 }

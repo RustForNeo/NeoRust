@@ -1,5 +1,3 @@
-use std::io;
-use std::io::Write;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use crate::types::ECPublicKey;

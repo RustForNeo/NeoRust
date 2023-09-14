@@ -1,124 +1,104 @@
-use bitcoin::base58;
-use crypto::hmac::Hmac;
-use crypto::pbkdf2::pbkdf2;
-use sha2::{Digest, Sha256};
-use crate::crypto::scrypt_parameter::ScryptParams;
+use crypto::digest::Digest;
+use crypto::scrypt::{scrypt, ScryptParams};
+use crypto::sha2::Sha256;
+use futures::TryFutureExt;
+use p256::ecdsa::SigningKey;
+
+const DKLEN: usize = 64;
+const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
+const NEP2_PREFIX_1: u8 = 0x01;
+const NEP2_PREFIX_2: u8 = 0x42;
+const NEP2_FLAGBYTE: u8 = 0xE0;
 
 pub struct NEP2;
 
 impl NEP2 {
 
-    const DKLEN: usize = 64;
+    pub fn decrypt(password: &str, nep2_string: &str) -> Result<SigningKey, &'static str> {
 
-    fn generate_derived_key(password: &[u8], salt: &[u8], params: &ScryptParams) -> Vec<u8> {
-        pbkdf2::<Hmac<Sha256>>(password, salt, params.iterations, Self::DKLEN)
-    }
+        let nep2_data = nep2_string.from_base58check()?;
 
-    fn encrypt(password: &str, private_key: &[u8]) -> String {
-
-        let address = hash_pubkey(private_key);
-        let salt = &address[..4];
-
-        let params = ScryptParams::default();
-        let derived = pbkdf2(password.as_bytes(), salt, params);
-
-        let derived_half1 = &derived[..32];
-        let derived_half2 = &derived[32..];
-
-        let mut encrypted_half1 = private_key[..16].to_vec();
-        xor(&mut encrypted_half1, derived_half1);
-
-        let mut encrypted_half2 = private_key[16..].to_vec();
-        xor(&mut encrypted_half2, derived_half2);
-
-        let nep2 = [0x01, 0x42, 0xe0]
-            .iter()
-            .chain(salt)
-            .chain(encrypted_half1)
-            .chain(encrypted_half2)
-            .collect::<Vec<u8>>();
-
-        base58::encode(nep2.as_slice()).into_string()
-    }
-
-    fn decrypt(password: &str, nep2: &str) -> Vec<u8> {
-
-        let data = base58::decode(nep2)
-            .into_vec()
-            .expect("Invalid nep2 data");
-
-        let salt = &data[3..7];
-        let params = ScryptParams::default();
-
-        let derived = pbkdf2(password.as_bytes(), salt, params);
-        let derived_half1 = &derived[..32];
-        let derived_half2 = &derived[32..];
-
-        let encrypted_half1 = &data[7..23];
-        let mut decrypted_half1 = encrypted_half1.to_vec();
-        xor(&mut decrypted_half1, derived_half1);
-
-        let encrypted_half2 = &data[23..39];
-        let mut decrypted_half2 = encrypted_half2.to_vec();
-        xor(&mut decrypted_half2, derived_half2);
-
-        [decrypted_half1, decrypted_half2].concat()
-    }
-
-}
-
-fn private_key_to_address(private_key: &[u8]) -> Vec<u8> {
-    let public_key = secp256k1::PublicKey::from_secret_key(private_key);
-    let hash = Sha256::digest(public_key.serialize());
-    hash[0..4].to_vec()
-}
-
-// Other helper functions
-fn xor(output: &mut [u8], input: &[u8]) {
-    for (a, b) in output.iter_mut().zip(input) {
-        *a ^= b;
-    }
-}
-
-fn encode_base58check(data: &[u8]) -> String {
-    let checksum = sha2::Sha256::digest(&sha2::Sha256::digest(data));
-    let mut result = data.to_vec();
-    result.extend_from_slice(&checksum[..4]);
-    base58::encode(result.as_slice()).into_string()
-}
-
-fn decode_base58check(data: &str) -> Option<Vec<u8>> {
-    base58::decode(data).into_vec().ok().and_then(|bytes| {
-        if bytes.len() <= 4 {
-            None
-        } else {
-            let checksum = &bytes[bytes.len() - 4..];
-            bytes.truncate(bytes.len() - 4);
-            let expected = &sha2::Sha256::digest(&sha2::Sha256::digest(&bytes))[..4];
-            if expected == checksum {
-                Some(bytes)
-            } else {
-                None
-            }
+        if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
+            return Err("Invalid NEP2 length");
         }
-    })
-}
 
+        if nep2_data[0] != NEP2_PREFIX_1 || nep2_data[1] != NEP2_PREFIX_2 || nep2_data[2] != NEP2_FLAGBYTE {
+            return Err("Invalid NEP2 prefix");
+        }
 
-fn encrypt_aes128_ecb_pkcs7(data: &[u8], key: &[u8]) -> Vec<u8> {
-    let cipher = Aes128::new(&key);
-    let mut padding = Pkcs7::new_pad(data.len()).unwrap();
-    padding.pad(data);
+        let address_hash = &nep2_data[3..7];
+        let encrypted = &nep2_data[7..39];
 
-    let mut block_mode = Ecb::<Aes128>::new(cipher, &padding);
-    let mut result = vec![0; data.len() + padding.added_len()];
-    block_mode
-        .encrypt(&mut result, data)
-        .expect("Encryption failed");
+        let derived_key = derive_scrypt_key(password, address_hash)?;
+        let derived_half1 = &derived_key[..32];
+        let derived_half2 = &derived_key[32..];
 
-    result
-}
+        let decrypted_half1 = aes_decrypt(encrypted[..16], derived_half2)?;
+        let decrypted_half2 = aes_decrypt(&encrypted[16..], derived_half2)?;
 
-fn decrypt_aes128_ecb_pkcs7(data: &[u8], key: &[u8]) -> Vec<u8> {
-    // Implementation omitted
+        let private_key = xor_keys(&decrypted_half1, derived_half1)
+            .chain(xor_keys(&decrypted_half2, derived_half2))
+            .collect::<Vec<_>>();
+
+        let key_pair = SigningKey::new(&Secp256k1::new(), &private_key);
+
+        let new_address_hash = address_hash_from_pubkey(&key_pair.verifying_key)?;
+
+        if new_address_hash != address_hash {
+            return Err("Invalid passphrase");
+        }
+
+        Ok(key_pair)
+    }
+
+    pub fn encrypt(password: &str, key_pair: &SigningKey) -> Result<String, &'static str> {
+
+        let address_hash = address_hash_from_pubkey(&key_pair.verifying_key)?;
+
+        let private_key = key_pair.to_bytes();
+
+        let derived_key = derive_scrypt_key(password, &address_hash)?;
+        let derived_half1 = &derived_key[..32];
+        let derived_half2 = &derived_key[32..];
+
+        let encrypted_half1 = aes_encrypt(xor_keys(&private_key[..16], derived_half1), derived_half2)?;
+        let encrypted_half2 = aes_encrypt(xor_keys(&private_key[16..], derived_half1), derived_half2)?;
+
+        let mut nep2_data = vec![NEP2_PREFIX_1, NEP2_PREFIX_2, NEP2_FLAGBYTE];
+        nep2_data.extend_from_slice(address_hash);
+        nep2_data.extend_from_slice(&encrypted_half1);
+        nep2_data.extend_from_slice(&encrypted_half2);
+
+        let nep2_string = nep2_data.to_base58check();
+
+        Ok(nep2_string)
+    }
+
+    fn derive_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
+        let params = ScryptParams::new(14, 8, 8)?;
+        let mut hash = [0u8; DKLEN];
+        let _ = scrypt(password.as_bytes(), salt, &params, &mut hash).map_err(|_| "Scrypt error");
+        Ok(hash.to_vec())
+    }
+
+    fn aes_encrypt(data: Vec<u8>, key: &[u8]) -> Result<Vec<u8>, &'static str> {
+        let cipher = Aes128::new(key);
+        cipher.encrypt_vec(data).map_err(|_| "AES encrypt error")
+    }
+
+    fn aes_decrypt(data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
+        let cipher = Aes128::new(key);
+        cipher.decrypt_vec(data).map_err(|_| "AES decrypt error")
+    }
+
+    fn xor_keys(a: &[u8], b: &[u8]) -> impl Iterator<Item = u8> {
+        a.iter().zip(b).map(|(x, y)| x ^ y)
+    }
+
+    fn address_hash_from_pubkey(pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {
+        let mut hasher = Sha256::new();
+        hasher.input(pubkey);
+        Ok(hasher.result(&mut [])[..4].to_vec())
+    }
+
 }

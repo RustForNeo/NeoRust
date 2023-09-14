@@ -1,7 +1,13 @@
-use std::sync::MutexGuard;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
+use bincode::Config;
 use futures::{SinkExt, Stream};
 use lazy_static::lazy_static;
+use primitive_types::{H160, H256};
+use reqwest::Url;
+use serde_json::Value;
+use crate::protocol::core::request::Request;
 use crate::protocol::core::responses::contract_state::ContractState;
 use crate::protocol::core::responses::invocation_result::InvocationResult;
 use crate::protocol::core::responses::neo_address::NeoAddress;
@@ -10,6 +16,7 @@ use crate::protocol::core::responses::neo_block::NeoBlock;
 use crate::protocol::core::responses::neo_get_nep17balances::Nep17Balances;
 use crate::protocol::core::responses::neo_get_peers::Peers;
 use crate::protocol::core::responses::neo_get_token_balances::TokenBalance;
+use crate::protocol::core::responses::neo_get_unclaimed_gas::GetUnclaimedGas;
 use crate::protocol::core::responses::neo_get_version::NeoVersion;
 use crate::protocol::core::responses::neo_list_plugins::Plugin;
 use crate::protocol::core::responses::neo_network_fee::NeoNetworkFee;
@@ -17,33 +24,37 @@ use crate::protocol::core::responses::neo_send_raw_transaction::RawTransaction;
 use crate::protocol::core::responses::neo_validate_address::NeoValidateAddress;
 use crate::protocol::core::responses::transaction::Transaction;
 use crate::protocol::core::responses::transaction_signer::TransactionSigner;
+use crate::protocol::http_service::HttpService;
 use crate::protocol::neo_config::NeoConfig;
 use crate::protocol::neo_service::NeoService;
 use crate::protocol::protocol_error::ProtocolError;
 use crate::transaction::signer::Signer;
 use crate::types::Bytes;
 use crate::types::contract_parameter::ContractParameter;
+use crate::utils::bytes::BytesExtern;
 
 lazy_static! {
   pub static ref NEO_RUST_INSTANCE: Mutex<NeoRust> =
        Mutex::new(NeoRust::new());
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct NeoRust {
-    config: NeoConfig,
-    neo_service: dyn NeoService,
+    config: Arc<NeoConfig>,
+    neo_service: Arc<Mutex< dyn NeoService>>,
 }
 
 impl NeoRust {
 
+    pub fn new() -> Self{
+        
+        Self {
+            config: Arc::new(NeoConfig::default()),
+            neo_service: Arc::new(Mutex::new(HttpService::new(Url::from_str("").unwrap(), false))),
+        }
+    }
     pub fn instance() -> MutexGuard<'static, Self> {
         NEO_RUST_INSTANCE.lock().unwrap()
-    }
-    pub fn build(neo_service: Box<dyn NeoService>, config: NeoConfig) -> Self {
-        Self {
-            config,
-            neo_service,
-        }
     }
 
     pub fn get_config(&self) -> &NeoConfig {
@@ -82,20 +93,20 @@ impl NeoRust {
 
     pub async fn get_best_block_hash(&self) -> Result<H256, ProtocolError> {
         self.neo_service
-            .send_request("getbestblockhash", &[])
+            .send("getbestblockhash", &[])
             .await
     }
 
     pub async fn get_block_hash(&self, block_index: i32) -> Result<H256, ProtocolError> {
         self.neo_service
-            .send_request("getblockhash", &[block_index])
+            .send(Request::new("getblockhash", [Value::from(block_index)].to_vec()))
             .await
     }
 
     pub async fn get_block(&self, block_hash: H256, full_tx: bool) -> Result<NeoBlock, ProtocolError> {
         if full_tx {
             self.neo_service
-                .send_request("getblock", &[block_hash.to_string(), 1])
+                .send("getblock", [Value::from(block_hash), Value::from(1)].to_vec())
                 .await
         } else {
             self.get_block_header(block_hash).await
@@ -106,7 +117,7 @@ impl NeoRust {
 
     pub async fn get_nep17_balances(&self, script_hash: H160) -> Result<Nep17Balances, ProtocolError> {
         self.neo_service
-            .send_request("getnep17balances", &[script_hash.to_address()])
+            .send("getnep17balances", [Value::from(script_hash.to_address())].to_vec())
             .await
     }
 
@@ -128,25 +139,25 @@ impl NeoRust {
 
     pub async fn get_connection_count(&self) -> Result<i32, ProtocolError> {
         self.neo_service
-            .send_request("getconnectioncount", &[])
+            .send("getconnectioncount", Vec::new())
             .await
     }
 
     pub async fn get_peers(&self) -> Result<Peers, ProtocolError> {
         self.neo_service
-            .send_request("getpeers", &[])
+            .send("getpeers", Vec::new())
             .await
     }
 
     pub async fn get_version(&self) -> Result<NeoVersion, ProtocolError> {
         self.neo_service
-            .send_request("getversion", &[])
+            .send("getversion", &[])
             .await
     }
 
     pub async fn send_raw_transaction(&self, hex: String) -> Result<RawTransaction, ProtocolError> {
         self.neo_service
-            .send_request("sendrawtransaction", &[hex])
+            .send("sendrawtransaction", &[Value::from(hex)])
             .await
     }
 
@@ -165,7 +176,7 @@ impl NeoRust {
             .collect();
 
         self.neo_service
-            .send_request("invokefunction", &[
+            .send("invokefunction", &[
                 contract_hash.to_string(),
                 method,
                 params,
@@ -181,7 +192,7 @@ impl NeoRust {
             .collect();
 
         self.neo_service
-            .send_request("invokescript", &[hex, signers])
+            .send("invokescript", &[hex, signers])
             .await
     }
 
@@ -189,7 +200,7 @@ impl NeoRust {
 
     pub async fn validate_address(&self, address: String) -> Result<NeoValidateAddress, ProtocolError> {
         self.neo_service
-            .send_request("validateaddress", &[address])
+            .send("validateaddress", &[address])
             .await
     }
 
@@ -197,31 +208,31 @@ impl NeoRust {
 
     pub async fn close_wallet(&self) -> Result<bool, ProtocolError> {
         self.neo_service
-            .send_request("closewallet", &[])
+            .send("closewallet", &[])
             .await
     }
 
     pub async fn dump_private_key(&self, script_hash: H160) -> Result<String, ProtocolError> {
         self.neo_service
-            .send_request("dumpprivkey", &[script_hash.to_address()])
+            .send("dumpprivkey", &[script_hash.to_address()])
             .await
     }
 
     pub async fn get_wallet_balance(&self, token_hash: H160) -> Result<dyn TokenBalance, ProtocolError> {
         self.neo_service
-            .send_request("getwalletbalance", &[token_hash.to_string()])
+            .send("getwalletbalance", &[token_hash.to_string()])
             .await
     }
 
     pub async fn get_new_address(&self) -> Result<String, ProtocolError> {
         self.neo_service
-            .send_request("getnewaddress", &[])
+            .send("getnewaddress", &[])
             .await
     }
 
     pub async fn import_private_key(&self, wif: String) -> Result<NeoAddress, ProtocolError> {
         self.neo_service
-            .send_request("importprivkey", &[wif])
+            .send("importprivkey", &[wif])
             .await
     }
 
@@ -229,7 +240,7 @@ impl NeoRust {
 
     pub async fn get_application_log(&self, tx_hash: H256) -> Result<NeoApplicationLog, ProtocolError> {
         self.neo_service
-            .send_request("getapplicationlog", &[tx_hash.to_string()])
+            .send("getapplicationlog", &[tx_hash.to_string()])
             .await
     }
 
@@ -237,7 +248,7 @@ impl NeoRust {
 
     pub async fn get_proof(&self, root_hash: H256, contract_hash: H160, key: String) -> Result<String, ProtocolError> {
         self.neo_service
-            .send_request("getproof", &[
+            .send("getproof", &[
                 root_hash.to_string(),
                 contract_hash.to_string(),
                 key.as_bytes().to_base64(Config::STANDARD),
@@ -247,10 +258,10 @@ impl NeoRust {
 
     pub async fn get_state(&self, root_hash: H256, contract_hash: H160, key: String) -> Result<String, ProtocolError> {
         self.neo_service
-            .send_request("getstate", &[
+            .send("getstate", &[
                 root_hash.to_string(),
                 contract_hash.to_string(),
-                key.as_bytes().to_base64(Config {}),
+                key.as_bytes().to_base64( Config::STANDARD),
             ])
             .await
     }
@@ -258,25 +269,25 @@ impl NeoRust {
 
     pub async fn get_raw_block(&self, block_hash: H256) -> Result<String, ProtocolError> {
         self.neo_service
-            .send_request("getblock", &[block_hash.to_string(), 0])
+            .send("getblock", &[block_hash.to_string(), 0])
             .await
     }
 
     pub async fn get_block_count(&self) -> Result<i32, ProtocolError> {
         self.neo_service
-            .send_request("getblockcount", &[])
+            .send("getblockcount", &[])
             .await
     }
 
     pub async fn get_block_header(&self, index: i32) -> Result<NeoBlock, ProtocolError> {
         self.neo_service
-            .send_request("getblockheader", &[index, 1])
+            .send("getblockheader", &[index, 1])
             .await
     }
 
     pub async fn get_transaction(&self, hash: H256) -> Result<Transaction, ProtocolError> {
         self.neo_service
-            .send_request("getrawtransaction", &[hash.to_string(), 1])
+            .send("getrawtransaction", &[hash.to_string(), 1])
             .await
     }
 
@@ -284,25 +295,25 @@ impl NeoRust {
 
     pub async fn get_contract_state(&self, hash: H160) -> Result<ContractState, ProtocolError> {
         self.neo_service
-            .send_request("getcontractstate", &[hash.to_string()])
+            .send("getcontractstate", &[hash.to_string()])
             .await
     }
 
-    pub async fn invoke_contract_verify(&self, hash: H160, params: Vec<ContractParameter>, signers: Vec<Signer>) -> Result<sc::InvocationResult, ProtocolError> {
+    pub async fn invoke_contract_verify(&self, hash: H160, params: Vec<ContractParameter>, signers: Vec<Signer>) -> Result<InvocationResult, ProtocolError> {
         let signers = signers
             .into_iter()
             .map(TransactionSigner::from)
             .collect();
 
         self.neo_service
-            .send_request("invokecontractverify", &[hash.to_string(), params, signers])
+            .send("invokecontractverify", &[hash.to_string(), params, signers])
             .await
     }
 // More node methods
 
     pub async fn submit_block(&self, hex: String) -> Result<bool, ProtocolError> {
         self.neo_service
-            .send_request("submitblock", &[hex])
+            .send("submitblock", &[hex])
             .await
     }
 
@@ -310,27 +321,27 @@ impl NeoRust {
 
     pub async fn get_raw_mempool(&self) -> Result<Vec<H256>, ProtocolError> {
         self.neo_service
-            .send_request("getrawmempool", &[])
+            .send("getrawmempool", &[])
             .await
     }
 
     pub async fn get_committee(&self) -> Result<Vec<String>, ProtocolError> {
         self.neo_service
-            .send_request("getcommittee", &[])
+            .send("getcommittee", &[])
             .await
     }
 
 // More smart contract methods
 
-    pub async fn get_unclaimed_gas(&self, hash: H160) -> Result<UnclaimedGas, ProtocolError> {
+    pub async fn get_unclaimed_gas(&self, hash: H160) -> Result<GetUnclaimedGas, ProtocolError> {
         self.neo_service
-            .send_request("getunclaimedgas", &[hash.to_address()])
+            .send("getunclaimedgas", &[hash.as_bytes().scripthash_to_address()])
             .await
     }
 
     pub async fn terminate_session(&self, session_id: String) -> Result<bool, ProtocolError> {
         self.neo_service
-            .send_request("terminatesession", &[session_id])
+            .send("terminatesession", &[session_id])
             .await
     }
 
@@ -338,7 +349,7 @@ impl NeoRust {
 
     pub async fn list_plugins(&self) -> Result<Vec<Plugin>, ProtocolError> {
         self.neo_service
-            .send_request("listplugins", &[])
+            .send("listplugins", &[])
             .await
     }
 
@@ -346,13 +357,13 @@ impl NeoRust {
 
     pub async fn open_wallet(&self, path: String, password: String) -> Result<bool, ProtocolError> {
         self.neo_service
-            .send_request("openwallet", &[path, password])
+            .send("openwallet", &[path, password])
             .await
     }
 
     pub async fn calculate_network_fee(&self, hex: String) -> Result<NeoNetworkFee, ProtocolError> {
         self.neo_service
-            .send_request("calculatenetworkfee", &[hex])
+            .send("calculatenetworkfee", &[hex])
             .await
     }
 }

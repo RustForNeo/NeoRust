@@ -1,60 +1,81 @@
-use reqwest::{Client, Result};
-use std::collections::HashMap;
-use futures::TryFutureExt;
-use crate::protocol::neo_rust::NeoRust;
-use crate::protocol::protocol_error::ProtocolError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+use reqwest::{Client, Response, Url};
+use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use serde_json::Value;
+use crate::protocol::core::request::Request;
+use crate::protocol::neo_rust::NeoRust;
+use crate::protocol::neo_service::NeoService;
+
 pub struct HttpService {
-    client: NeoRust,
-    base_url: String,
+    url: Url,
+    client: reqwest::Client,
     headers: HashMap<String, String>,
-    include_raw: bool,
+    include_raw_responses: bool,
 }
 
 impl HttpService {
+    pub const JSON_MEDIA_TYPE: &'static str = "application/json; charset=utf-8";
+    pub const DEFAULT_URL: &'static str = "http://localhost:10333/";
 
-    pub fn new(base_url: String) -> Self {
-        Self {
-            client: NeoRust ::new(),
-            base_url,
+    pub fn new(url: Url, include_raw_responses: bool) -> Self {
+        HttpService {
+            url,
+            client: Client::new(),
             headers: HashMap::new(),
-            include_raw: false,
+            include_raw_responses,
         }
     }
-    pub fn include_raw_responses(&mut self, enable: bool) {
-        self.include_raw = enable;
+
+    pub fn add_header(&mut self, key: String, value: String) {
+        self.headers.insert(key, value);
     }
 
-    pub fn post<T: serde::de::DeserializeOwned>(&self, payload: &T) -> Result<String> {
-        let url = format!("{}", self.base_url);
+    pub fn add_headers(&mut self, headers: HashMap<String, String>) {
+        self.headers.extend(headers);
+    }
 
-        let mut request = self.client.post(url);
+    pub fn set_client(&mut self, client: Client) {
+        self.client = client;
+    }
+}
 
-        request = request.json(payload);
+impl NeoService for HttpService{
+    async fn send<T, U>(&self,  request: Request<T, U>) -> std::result::Result<T, Err> {
+
+        let mut request = self.client.post(self.url.clone());
+
+        request = request
+            .header("Content-Type", Self::JSON_MEDIA_TYPE)
+            .json(&request);
 
         for (key, value) in &self.headers {
             request = request.header(key, value);
         }
 
-        request.send().and_then(|res| res.text())
+        let response = request.send().await?;
+
+        if response.status().is_success() {
+            let result = response.json::<Response>().await?;
+            Ok(result)
+        } else {
+            let result = response.json::<Value>().await?;
+            Err(result)
+        }
+
+        if self.include_raw_responses {
+            // Return raw response along with bytes
+            // let (bytes, response) = http_service.perform_io(payload).await?;
+
+        }
+
+        Ok(bytes.to_vec())
+
+
     }
 
-    // pub fn post<T>(&self, payload: &T) -> Result<String, ServiceError> {
-    //     self.client.post(url, payload)
-    //         .and_then(|res| res.text())
-    //         .map_err(|e| ServiceError::HttpError(e))
-    // }
-
-    pub async fn post_async<T>(&self, payload: &T) -> Result<String, ProtocolError> {
-        // send post request
-        let res = self.client.post(url, payload).await?;
-
-        // get text responses
-        res.text().await.map_err(ProtocolError::HttpError)
+    fn close(&self) {
+        unimplemented!()
     }
-    pub fn add_header(&mut self, key: &str, value: &str) {
-        self.headers.insert(key.to_string(), value.to_string());
-    }
-
 }

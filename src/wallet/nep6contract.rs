@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::types::contract_parameter_type::ContractParameterType;
 
 #[derive(Serialize, Deserialize)]
 pub struct NEP6Contract {
@@ -17,7 +18,7 @@ pub struct NEP6Parameter {
     #[serde(rename = "name")]
     pub param_name: String,
 
-    pub param_type: ContractParamType,
+    pub param_type: ContractParameterType,
 
 }
 

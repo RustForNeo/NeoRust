@@ -1,49 +1,69 @@
-use std::sync::Mutex;
-use std::task::Poll;
-use reqwest::Client;
-use futures::{StreamExt, stream, Stream};
-use tokio::time::{interval, Duration};
+use std::time::Duration;
+use futures::{Stream, StreamExt, TryStreamExt};
+use tokio::runtime::Handle;
+use tokio::sync::RwLock;
+use crate::protocol::neo_rust::NeoRust;
 
-pub struct BlockIndex {
-    index: Mutex<Option<u32>>,
+struct BlockIndexActor {
+    block_index: RwLock<Option<i32>>,
 }
 
-impl BlockIndex {
-    fn update(&self, index: u32) {
-        let mut lock = self.index.lock().unwrap();
-        *lock = Some(index);
+impl BlockIndexActor {
+
+    async fn set_index(&self, index: i32) {
+        let mut block_index = self.block_index.write().await;
+        *block_index = Some(index);
     }
 
-    fn get(&self) -> Option<u32> {
-        let lock = self.index.lock().unwrap();
-        lock.clone()
+    async fn get_index(&self) -> Option<i32> {
+        self.block_index.read().await.clone()
     }
+
 }
 
-pub async fn block_index_stream(
-    client: &Client,
-    interval: Duration
-) -> impl Stream<Item = u32> {
+pub struct BlockIndexPolling {
+    current_block_index: BlockIndexActor,
+}
 
-    let index = BlockIndex { index: Mutex::new(None) };
+impl BlockIndexPolling {
 
-    let mut interval = interval(interval);
+    pub async fn block_index_publisher(
+        &self,
+        neo_rust: &NeoRust,
+        executor: &Handle,
+        polling_interval: i32,
+    ) -> impl Stream<Item = Result<i32, NeonError>> {
 
-    stream::unfold(index, |index| async move {
+        let interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
 
-        let latest_index = client.get_block_count().await? - 1;
+        interval
+            .map(move |_| {
+                let latest_block_index = neo_rust
+                    .get_block_count()
+                    .execute(executor)
+                    .map(|res| res.get_result() - 1);
 
-        if index.get().is_none() {
-            index.update(latest_index);
-        }
+                async move {
+                    let curr_index = self.current_block_index.get_index().await;
 
-        if latest_index > index.get().unwrap() {
-            let current = index.get().unwrap();
-            index.update(latest_index);
-            return Poll::Ready(Some((current..latest_index).collect(), index)));
-        }
+                    if let Some(latest_index) = latest_block_index.await? {
+                        if curr_index.map(|i| latest_index > i).unwrap_or(true) {
+                            self.current_block_index.set_index(latest_index).await;
+                            Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
+                        } else {
+                            Ok(None)
+                        }
+                    } else {
+                        Err(NeonError::new("Error getting latest block"))
+                    }
+                }
+            })
+            .try_flatten()
+            .filter_map(|x| async move { x })
+            .flat_map(|blocks| {
+                futures::stream::iter(blocks).map(Ok)
+            })
 
-        Poll::Pending
-    }).flat_map(|range| stream::iter(range))
+    }
 
 }

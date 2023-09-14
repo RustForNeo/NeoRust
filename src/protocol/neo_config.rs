@@ -1,6 +1,31 @@
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Handle;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum NeoNetwork {
+    MainNet=0x00746e41,
+    TestNet=0x74746e41,
+    PrivateNet=0x4e454e,
+}
+
+impl NeoNetwork{
+    pub fn to_magic(&self) -> u32 {
+        match self {
+            NeoNetwork::MainNet => 0x00746e41,
+            NeoNetwork::TestNet => 0x74746e41,
+            NeoNetwork::PrivateNet => 0x4e454e,
+        }
+    }
+    pub fn from_magic(magic: u32) -> Option<NeoNetwork> {
+        match magic {
+            0x00746e41 => Some(NeoNetwork::MainNet),
+            0x74746e41 => Some(NeoNetwork::TestNet),
+            0x4e454e => Some(NeoNetwork::PrivateNet),
+            _ => None,
+        }
+    }
+}
+
 pub const DEFAULT_BLOCK_TIME: u64 = 15_000;
 pub const DEFAULT_ADDRESS_VERSION: u8 = 0x35;
 pub const MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE: u64 = 86_400_000;
@@ -46,7 +71,7 @@ impl NeoConfig {
     }
 
     pub fn set_network_magic(&mut self, magic: u32) -> Result<(), &'static str> {
-        if &magic > 0xFFFFFFFF {
+        if &magic > &(0xFFFFFFFFu32) {
             return Err("Network magic must fit in 32 bits");
         }
 

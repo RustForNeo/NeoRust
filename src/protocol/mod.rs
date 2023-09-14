@@ -5,3 +5,4 @@ pub mod protocol_error;
 pub mod neo_config;
 pub mod neo_rust;
 pub mod neo_service;
+pub mod neo_rust_express;

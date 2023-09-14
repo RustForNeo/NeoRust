@@ -15,5 +15,4 @@ pub trait NeoRx {
     fn catch_up_and_subscribe_stream(&self, start_block: u32, full_transactions: bool) -> Pin<Box<dyn Stream<Item = NeoBlock> + Send>>;
 
     fn subscribe_stream(&self, full_transactions: bool) -> Pin<Box<dyn Stream<Item = NeoBlock> + Send>>;
-
 }
