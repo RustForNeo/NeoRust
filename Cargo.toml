@@ -1,0 +1,90 @@
+cargo-features = ["edition2021"]
+[package]
+name = "NeoRust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# For serialization/deserialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+# For base64 encoding
+base64 = "0.21.4"
+
+# For hash function
+sha3 = "0.10.8"
+
+# For hex encoding/decoding
+hex = "0.4"
+
+# For JSON manipulation
+json = "0.12"
+
+# Neo Rust SDK
+#neo = "0.9"
+decimal = "2.1.0"
+# JSON serialization
+
+# Cryptography
+secp256k1 = "0.27.0"
+sha2 = "0.10"
+ripemd = "0.1.3"
+
+# Data structures
+bitvec = "1.0"
+
+# HTTP Client
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+
+# Utilities
+bitcoin = { version = "0.30.1", features = ["serde"] }
+
+#elliptic-curve = "0.13.5"
+p256 = "0.11.1"
+
+# Big integer math
+num-bigint = "0.4"
+
+futures = "0.3.28"
+
+# Byte array utils
+byte-slice-cast = "1.2"
+
+primitive-types = "0.11.1"
+
+# Serialization
+bincode = "1.3"
+
+rand= "0.8.5"
+
+rust-crypto = "0.2"
+
+lazy_static = "1.4.0"
+# Utilities
+#scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+#codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
+#log = { version = "0.4.17", default-features = false }
+#sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-inherents = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-offchain = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-session = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-io = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-transaction-pool = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+#sp-version = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
+
+[features]
+default = [ "std" ]
+std = [
+#    "codec/std",
+#    "log/std",
+#    "scale-info/std",
+#    "sp-core/std",
+#    "sp-io/std",
+#    "sp-runtime/std",
+#    "sp-std/std",
+]
