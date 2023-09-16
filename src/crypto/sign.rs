@@ -1,8 +1,9 @@
-use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
-use p256::ecdsa::signature::{Signature, Signer, SignerMut, Verifier};
+use p256::ecdsa::{Signature};
+use p256::ecdsa::signature::{ Signer, SignerMut, Verifier};
+use p256::{PublicKey, SecretKey};
+use p256::ecdsa::signature::digest::Mac;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use crate::crypto::key_pair;
 use crate::crypto::key_pair::KeyPair;
 use crate::neo_error::NeoError;
 use crate::types::Bytes;
@@ -32,7 +33,7 @@ impl SignatureData {
         concatenated
     }
 
-    pub fn sign_hex_message(hex_message: &str, key_pair: &KeyPair) -> Result<SignatureData, NeoError> {
+    pub fn sign_hex_message(hex_message: &str, key_pair: &mut KeyPair) -> Result<SignatureData, NeoError> {
         let message = hex::decode(hex_message)?;
         let sign = key_pair.private_key.sign(&message);
         Ok(SignatureData::from_bytes(sign.as_bytes()))
@@ -71,12 +72,12 @@ pub fn sign_message(msg: &[u8], kp: &mut KeyPair) -> SignatureData {
 
 
 // Get public key from private key
-pub fn public_key(priv_key: &SigningKey) -> VerifyingKey {
-    VerifyingKey::from(priv_key)
+pub fn public_key(priv_key: &SecretKey) -> PublicKey {
+    PublicKey::from_secret_key(priv_key)
 }
 
 // Verify signature against public key
-pub fn verify(msg: &[u8], sig: &SignatureData, pub_key: &VerifyingKey) -> bool {
+pub fn verify(msg: &[u8], sig: &SignatureData, pub_key: &PublicKey) -> bool {
 
     let sig = Signature::from_scalars(&sig.r, &sig.s).expect("valid sig");
 

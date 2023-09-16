@@ -7,7 +7,6 @@ pub struct BinaryWriter {
 }
 
 impl BinaryWriter {
-
     pub fn new() -> Self {
         Self { data: Vec::new() }
     }
@@ -41,7 +40,6 @@ impl BinaryWriter {
     }
 
     // Other primitive write methods
-
     pub fn write_var_int(&mut self, value: i64) {
         match value {
             0..=0xfd => self.write_u8(value as u8),
@@ -73,8 +71,6 @@ impl BinaryWriter {
         Ok(self.write_bytes(&padded))
     }
 
-
-
     pub fn write_var_bytes(&mut self, bytes: &[u8]) {
         self.write_var_int(bytes.len() as i64);
         self.write_bytes(bytes);
@@ -100,5 +96,4 @@ impl BinaryWriter {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.data.clone()
     }
-
 }

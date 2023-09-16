@@ -1,9 +1,7 @@
-use bitcoin::base58;
 use crypto::hmac::Hmac;
 use crypto::ripemd160::Ripemd160;
 use crypto::sha2::Sha512;
 use sha2::{Sha256, Digest};
-
 
 pub trait HashableForVec {
     fn hash256(&self) -> Vec<u8>;
@@ -17,13 +15,13 @@ impl HashableForVec for [u8] {
     fn hash256(&self) -> Vec<u8> {
         let mut hasher = Sha256::new();
         hasher.update(self);
-        hasher.finalize().to_vec()
+        hasher.finalize().into_bytes().to_vec()
     }
 
     fn ripemd160(&self) -> Vec<u8> {
         let mut hasher = Ripemd160::new();
         hasher.update(self);
-        hasher.finalize().to_vec()
+        hasher.finalize().into_bytes().to_vec()
     }
 
     fn sha256_ripemd160(&self) -> Vec<u8> {
@@ -33,7 +31,7 @@ impl HashableForVec for [u8] {
 
         let mut ripemd160 = Ripemd160::new();
         ripemd160.update(&hash);
-        ripemd160.finalize().to_vec()
+        ripemd160.finalize().into_bytes().to_vec()
     }
 
     fn hmac_sha512(&self, key: &[u8]) -> Vec<u8> {
@@ -76,6 +74,6 @@ impl HashableForString for String {
 
     fn hash160(&self) -> String {
         let hash = self.as_bytes().sha256_ripemd160();
-        base58::encode_check(&hash[..])
+        bs58::encode(&hash[..]).into_string()
     }
 }

@@ -83,7 +83,12 @@ impl<'a> BinaryReader<'a> {
         let mut bytes = self.read_bytes(len)?;
         if negative {
             // Flip sign bit
-            bytes[len - 1] ^= 0x80;
+            if let Some(byte) = bytes.get_mut(len - 1) {
+                *byte ^= 0x80;
+            } else {
+                return Err(NeoError::InvalidFormat);
+            }
+            // bytes.get_mut()[len - 1] ^= 0x80;
         }
 
         Ok(BigInt::from_slice(
