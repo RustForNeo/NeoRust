@@ -1,10 +1,10 @@
 use decimal::d128;
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
 use crate::contract::name_service;
-use crate::contract::name_service::RecordType;
 use crate::contract::nns_name::NNSName;
-use crate::types::hash160::H160;
+use crate::protocol::neo_rust::NeoRust;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Token {
@@ -67,7 +67,7 @@ impl Token {
         Ok(symbol)
     }
 
-    pub async fn to_fractions(&self, amount: d128) -> Result<u64, ContractError> {
+    pub async fn to_fractions(&mut self, amount: d128) -> Result<u64, ContractError> {
         let a = d128!(1.1);
         let decimals = self.get_decimals().await?;
         Self::to_fractions(amount, decimals)
@@ -76,7 +76,7 @@ impl Token {
     pub fn to_fractions_decimal(amount: d128, decimals: u8) -> Result<u64, ContractError> {
 
         if amount.scale() > decimals {
-            return Err(invalid_arg_error("Too many decimal places"));
+            return Err(ContractError::InvalidArgError("Too many decimal places".to_string()));
         }
 
         let scaled = d128::from(10u64.pow(decimals.into())) * amount;
@@ -103,7 +103,7 @@ impl Token {
         let address = NeoRust::instance().as_ref()
             .unwrap()
             .call_contract_func(
-                name_service::CONTRACT_HASH,
+                name_service::NeoNameService::CONTRACT_HASH,
                 "resolve",
                 vec![name.to_param()?, RecordType::Txt.to_param()?]
             )

@@ -1,4 +1,3 @@
-use bitcoin::base58;
 use sha2::{Sha256, Digest};
 
 pub trait Wif {
@@ -20,12 +19,11 @@ impl Wif for &[u8] {
         let hash = Sha256::digest(&Sha256::digest(&extended));
         extended.extend_from_slice(&hash[0..4]);
 
-        base58::encode(extended.as_slice()).into_string()
+        bs58::encode(extended.as_slice()).into_string()
     }
 
     fn from_wif(s: &str) -> Option<Vec<u8>> {
-        let data = base58::decode(s)
-            .unwrap();
+        let data = bs58::decode(s).into_vec().ok()?;
 
         if &data.len() != 38 || &data[0] != 0x80 || &data[33] != 0x01 {
             return None;

@@ -49,7 +49,6 @@ pub struct NameState {
 
 pub struct NeoNameService {
     script_hash: H160,
-    client: NeoRust,
 }
 
 impl NeoNameService {
@@ -76,7 +75,6 @@ impl NeoNameService {
     pub fn new(script_hash: H160, client: Box<NeoRust>) -> Self {
         Self {
             script_hash,
-            client: *client,
         }
     }
 
@@ -203,7 +201,7 @@ impl NeoNameService {
     async fn call_function<T: Decode>(&self, operation: &str, args: Vec<ContractParameter>) -> Result<T, ContractError> {
         let script_hash = &self.script_hash;
 
-        let result = self.client
+        let result = NeoRust::instance()
             .invoke_function(script_hash, operation.to_string(), args, vec![])
             .await?
             .as_interop()?;

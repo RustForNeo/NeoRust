@@ -17,8 +17,7 @@ impl InvocationScript {
     }
 
     pub fn from_signature(signature: Signature) -> Self {
-        let mut builder = ScriptBuilder::new();
-        builder.push_data(signature.to_bytes());
+        let mut builder = ScriptBuilder::new().push_data(signature.to_bytes())?;
         Self::new(builder.build())
     }
 

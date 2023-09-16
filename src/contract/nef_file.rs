@@ -70,7 +70,7 @@ impl NefFile {
 
     fn serialize(&self, writer: &mut BinaryWriter) {
         writer.write_u32(MAGIC);
-        writer.write_fixed_string(&self.compiler.unwrap_or_default(), COMPILER_SIZE);
+        writer.write_fixed_string(&self.compiler, COMPILER_SIZE).expect("Invalid compiler size");
         writer.write_var_string(&self.source_url);
         writer.write_u8(0);
         writer.write_serializable_var(&self.method_tokens);

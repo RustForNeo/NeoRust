@@ -1,5 +1,4 @@
 pub mod key_pair;
-pub mod bip32_eckey_pair;
 pub mod hash;
 pub mod sign;
 pub mod base58_helper;

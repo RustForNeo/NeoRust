@@ -18,7 +18,7 @@ pub struct NEP2;
 
 impl NEP2 {
 
-    pub fn decrypt(&self, password: &str, nep2_string: &str) -> Result<SigningKey, &'static str> {
+    pub fn decrypt(password: &str, nep2_string: &str) -> Result<SigningKey, &'static str> {
 
         let nep2_data = base58check_decode(nep2_string) ;//nep2_string.from_base58check()?;
 
@@ -33,21 +33,21 @@ impl NEP2 {
         let address_hash = &nep2_data[3..7];
         let encrypted = &nep2_data[7..39];
 
-        let derived_key = self.derive_scrypt_key(password, address_hash)?;
+        let derived_key = Self.derive_scrypt_key(password, address_hash)?;
         let derived_half1 = &derived_key[..32];
         let derived_half2 = &derived_key[32..];
 
-        let decrypted_half1 = self.aes_decrypt(encrypted[..16], derived_half2)?;
-        let decrypted_half2 = self.aes_decrypt(&encrypted[16..], derived_half2)?;
+        let decrypted_half1 = Self.aes_decrypt(encrypted[..16], derived_half2)?;
+        let decrypted_half2 = Self.aes_decrypt(&encrypted[16..], derived_half2)?;
 
-        let private_key = self.xor_keys(&decrypted_half1, derived_half1)
-            .chain(self.xor_keys(&decrypted_half2, derived_half2))
+        let private_key = Self.xor_keys(&decrypted_half1, derived_half1)
+            .chain(Self.xor_keys(&decrypted_half2, derived_half2))
             .collect::<Vec<_>>();
 
         let private_key = SigningKey::from_bytes(private_key.as_slice()).unwrap();
         let public_key = VerifyingKey::from(private_key);
 
-        let new_address_hash = self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
+        let new_address_hash = Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
 
         if new_address_hash != address_hash {
             return Err("Invalid passphrase");
@@ -56,19 +56,19 @@ impl NEP2 {
         Ok(private_key.clone())
     }
 
-    pub fn encrypt(&self, password: &str, private_key: &SigningKey) -> Result<String, &'static str> {
+    pub fn encrypt(password: &str, private_key: &SigningKey) -> Result<String, &'static str> {
 
         let public_key = VerifyingKey::from(private_key);
 
-        let address_hash = self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
+        let address_hash = Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
 
 
-        let derived_key = self.derive_scrypt_key(password, &address_hash)?;
+        let derived_key = Self.derive_scrypt_key(password, &address_hash)?;
         let derived_half1 = &derived_key[..32];
         let derived_half2 = &derived_key[32..];
 
-        let encrypted_half1 = self.aes_encrypt(self.xor_keys(&private_key[..16], derived_half1), derived_half2)?;
-        let encrypted_half2 = self.aes_encrypt(self.xor_keys(&private_key[16..], derived_half1), derived_half2)?;
+        let encrypted_half1 = Self.aes_encrypt(Self.xor_keys(&private_key[..16], derived_half1), derived_half2)?;
+        let encrypted_half2 = Self.aes_encrypt(Self.xor_keys(&private_key[16..], derived_half1), derived_half2)?;
 
         let mut nep2_data = vec![NEP2_PREFIX_1, NEP2_PREFIX_2, NEP2_FLAGBYTE];
         nep2_data.extend_from_slice(address_hash.as_slice());
@@ -80,28 +80,28 @@ impl NEP2 {
         Ok(nep2_string)
     }
 
-    fn derive_scrypt_key(&self, password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
+    fn derive_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
         let params = ScryptParams::new(14, 8, 1)?;
         let mut hash = [0u8; DKLEN];
         let _ = scrypt(password.as_bytes(), salt, &params, &mut hash).map_err(|_| "Scrypt error");
         Ok(hash.to_vec())
     }
 
-    fn aes_encrypt(&self, data: Vec<u8>, key: &[u8]) -> Result<Vec<u8>, &'static str> {
+    fn aes_encrypt(data: Vec<u8>, key: &[u8]) -> Result<Vec<u8>, &'static str> {
         let cipher = Aes128::new(key.into());
         cipher.encrypt_vec(data).map_err(|_| "AES encrypt error")
     }
 
-    fn aes_decrypt(&self, data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
+    fn aes_decrypt(data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
         let cipher = Aes128::new(key.into());
         cipher.decrypt_vec(data).map_err(|_| "AES decrypt error")
     }
 
-    fn xor_keys(&self, a: &[u8], b: &[u8]) -> impl Iterator<Item = u8> {
+    fn xor_keys(a: &[u8], b: &[u8]) -> impl Iterator<Item = u8> {
         a.iter().zip(b).map(|(x, y)| x ^ y)
     }
 
-    fn address_hash_from_pubkey(&self, pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {
+    fn address_hash_from_pubkey(pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {
         let mut hasher = Sha256::new();
         hasher.input(pubkey);
         Ok(hasher.result(&mut [])[..4].to_vec())

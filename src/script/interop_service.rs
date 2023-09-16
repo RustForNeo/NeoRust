@@ -1,49 +1,105 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::hash::Hash;
-use crate::utils::bytes::{Bytes, BytesExtern};
+use lazy_static::lazy_static;
+use crate::utils::bytes::{BytesExtern};
+use std::str::FromStr;
+
+lazy_static!(
+    static ref INTEROP_SERVICE_HASHES: Arc<Mutex<HashMap<String, String>>> = {
+        Arc::new(Mutex::new(HashMap::new()))
+    };
+);
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum InteropService {
-    SystemCryptoCheckSig = "System.Crypto.CheckSig".parse().unwrap(),
-    SystemCryptoCheckMultisig = "System.Crypto.CheckMultisig".parse().unwrap(),
-    SystemContractCall = "System.Contract.Call".parse().unwrap(),
-    SystemContractCallNative = "System.Contract.CallNative".parse().unwrap(),
-    SystemContractGetCallFlags = "System.Contract.GetCallFlags".parse().unwrap(),
-    SystemContractCreateStandardAccount = "System.Contract.CreateStandardAccount".parse().unwrap(),
-    SystemContractCreateMultiSigAccount = "System.Contract.CreateMultisigAccount".parse().unwrap(),
-    SystemContractNativeOnPersist = "System.Contract.NativeOnPersist".parse().unwrap(),
-    SystemContractNativePostPersist = "System.Contract.NativePostPersist".parse().unwrap(),
-    SystemIteratorNext = "System.Iterator.Next".parse().unwrap(),
-    SystemIteratorValue = "System.Iterator.Value".parse().unwrap(),
-    SystemRuntimePlatform = "System.Runtime.Platform".parse().unwrap(),
-    SystemRuntimeGetTrigger = "System.Runtime.GetTrigger".parse().unwrap(),
-    SystemRuntimeGetTime = "System.Runtime.GetTime".parse().unwrap(),
-    SystemRuntimeGetScriptContainer = "System.Runtime.GetScriptContainer".parse().unwrap(),
-    SystemRuntimeGetExecutingScriptHash = "System.Runtime.GetExecutingScriptHash".parse().unwrap(),
-    SystemRuntimeGetCallingScriptHash = "System.Runtime.GetCallingScriptHash".parse().unwrap(),
-    SystemRuntimeGetEntryScriptHash = "System.Runtime.GetEntryScriptHash".parse().unwrap(),
-    SystemRuntimeCheckWitness = "System.Runtime.CheckWitness".parse().unwrap(),
-    SystemRuntimeGetInvocationCounter = "System.Runtime.GetInvocationCounter".parse().unwrap(),
-    SystemRuntimeLog = "System.Runtime.Log".parse().unwrap(),
-    SystemRuntimeNotify = "System.Runtime.Notify".parse().unwrap(),
-    SystemRuntimeGetNotifications = "System.Runtime.GetNotifications".parse().unwrap(),
-    SystemRuntimeGasLeft = "System.Runtime.GasLeft".parse().unwrap(),
-    SystemRuntimeBurnGas = "System.Runtime.BurnGas".parse().unwrap(),
-    SystemRuntimeGetNetwork = "System.Runtime.GetNetwork".parse().unwrap(),
-    SystemRuntimeGetRandom = "System.Runtime.GetRandom".parse().unwrap(),
-    SystemStorageGetContext = "System.Storage.GetContext".parse().unwrap(),
-    SystemStorageGetReadOnlyContext = "System.Storage.GetReadOnlyContext".parse().unwrap(),
-    SystemStorageAsReadOnly = "System.Storage.AsReadOnly".parse().unwrap(),
-    SystemStorageGet = "System.Storage.Get".parse().unwrap(),
-    SystemStorageFind = "System.Storage.Find".parse().unwrap(),
-    SystemStoragePut = "System.Storage.Put".parse().unwrap(),
-    SystemStorageDelete = "System.Storage.Delete".parse().unwrap(),
+    SystemCryptoCheckSig,
+    SystemCryptoCheckMultisig,
+    SystemContractCall,
+    SystemContractCallNative,
+    SystemContractGetCallFlags,
+    SystemContractCreateStandardAccount,
+    SystemContractCreateMultiSigAccount,
+    SystemContractNativeOnPersist,
+    SystemContractNativePostPersist,
+    SystemIteratorNext,
+    SystemIteratorValue,
+    SystemRuntimePlatform,
+    SystemRuntimeGetTrigger,
+    SystemRuntimeGetTime,
+    SystemRuntimeGetScriptContainer,
+    SystemRuntimeGetExecutingScriptHash,
+    SystemRuntimeGetCallingScriptHash,
+    SystemRuntimeGetEntryScriptHash,
+    SystemRuntimeCheckWitness,
+    SystemRuntimeGetInvocationCounter,
+    SystemRuntimeLog,
+    SystemRuntimeNotify,
+    SystemRuntimeGetNotifications,
+    SystemRuntimeGasLeft,
+    SystemRuntimeBurnGas,
+    SystemRuntimeGetNetwork,
+    SystemRuntimeGetRandom,
+    SystemStorageGetContext,
+    SystemStorageGetReadOnlyContext,
+    SystemStorageAsReadOnly,
+    SystemStorageGet,
+    SystemStorageFind,
+    SystemStoragePut,
+    SystemStorageDelete,
 }
 
 impl InteropService {
+    pub fn to_string(&self) -> String {
+        match self {
+            InteropService::SystemCryptoCheckSig => "System.Crypto.CheckSig".to_string(),
+            InteropService::SystemCryptoCheckMultisig => "System.Crypto.CheckMultisig".to_string(),
+            InteropService::SystemContractCall => "System.Contract.Call".to_string(),
+            InteropService::SystemContractCallNative => "System.Contract.CallNative".to_string(),
+            InteropService::SystemContractGetCallFlags => "System.Contract.GetCallFlags".to_string(),
+            InteropService::SystemContractCreateStandardAccount => "System.Contract.CreateStandardAccount".to_string(),
+            InteropService::SystemContractCreateMultiSigAccount => "System.Contract.CreateMultisigAccount".to_string(),
+            InteropService::SystemContractNativeOnPersist => "System.Contract.NativeOnPersist".to_string(),
+            InteropService::SystemContractNativePostPersist => "System.Contract.NativePostPersist".to_string(),
+            InteropService::SystemIteratorNext => "System.Iterator.Next".to_string(),
+            InteropService::SystemIteratorValue => "System.Iterator.Value".to_string(),
+            InteropService::SystemRuntimePlatform => "System.Runtime.Platform".to_string(),
+            InteropService::SystemRuntimeGetTrigger => "System.Runtime.GetTrigger".to_string(),
+            InteropService::SystemRuntimeGetTime => "System.Runtime.GetTime".to_string(),
+            InteropService::SystemRuntimeGetScriptContainer => "System.Runtime.GetScriptContainer".to_string(),
+            InteropService::SystemRuntimeGetExecutingScriptHash => "System.Runtime.GetExecutingScriptHash".to_string(),
+            InteropService::SystemRuntimeGetCallingScriptHash => "System.Runtime.GetCallingScriptHash".to_string(),
+            InteropService::SystemRuntimeGetEntryScriptHash => "System.Runtime.GetEntryScriptHash".to_string(),
+            InteropService::SystemRuntimeCheckWitness => "System.Runtime.CheckWitness".to_string(),
+            InteropService::SystemRuntimeGetInvocationCounter => "System.Runtime.GetInvocationCounter".to_string(),
+            InteropService::SystemRuntimeLog => "System.Runtime.Log".to_string(),
+            InteropService::SystemRuntimeNotify => "System.Runtime.Notify".to_string(),
+            InteropService::SystemRuntimeGetNotifications => "System.Runtime.GetNotifications".to_string(),
+            InteropService::SystemRuntimeGasLeft => "System.Runtime.GasLeft".to_string(),
+            InteropService::SystemRuntimeBurnGas => "System.Runtime.BurnGas".to_string(),
+            InteropService::SystemRuntimeGetNetwork => "System.Runtime.GetNetwork".to_string(),
+            InteropService::SystemRuntimeGetRandom => "System.Runtime.GetRandom".to_string(),
+            InteropService::SystemStorageGetContext => "System.Storage.GetContext".to_string(),
+            InteropService::SystemStorageGetReadOnlyContext => "System.Storage.GetReadOnlyContext".to_string(),
+            InteropService::SystemStorageAsReadOnly => "System.Storage.AsReadOnly".to_string(),
+            InteropService::SystemStorageGet => "System.Storage.Get".to_string(),
+            InteropService::SystemStorageFind => "System.Storage.Find".to_string(),
+            InteropService::SystemStoragePut => "System.Storage.Put".to_string(),
+            InteropService::SystemStorageDelete => "System.Storage.Delete".to_string(),
+        }
+    }
+
     pub fn hash(&self) -> String {
-        let bytes = self.to_string().as_bytes();
-        let sha = bytes.to_vec().hash256();
-        hex::encode(sha)[..4].to_string()
+        let mut hashes = INTEROP_SERVICE_HASHES.lock().unwrap();
+        return if let Some(hash) = hashes.get(self.as_str()) {
+            hash.clone()
+        } else {
+            let bytes = self.to_string().as_bytes();
+            let sha = bytes.to_vec().hash256();
+            let hash = hex::encode(sha)[..4].to_string();
+            hashes.insert(self.to_string(), hash.clone());
+            hash
+        }
     }
 
     pub fn price(&self) -> u64 {

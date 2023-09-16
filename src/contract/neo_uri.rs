@@ -8,6 +8,8 @@ use crate::contract::fungible_token::FungibleToken;
 use crate::contract::gas_token::GasToken;
 use crate::contract::neo_token::NeoToken;
 use crate::transaction::transaction_builder::TransactionBuilder;
+use crate::types::contract_parameter::ContractParameterType::String;
+use crate::types::H160Externsion;
 use crate::wallet::account::Account;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,9 +98,9 @@ impl NeoURI {
     // Builders
 
     pub async fn build_transfer_from(&self, sender: &Account) -> Result<TransactionBuilder, dyn Error> {
-        let recipient = self.recipient.ok_or(invalid_state_error("Recipient not set"))?;
-        let amount = self.amount.ok_or(invalid_state_error("Amount not set"))?;
-        let token = self.token.ok_or(invalid_state_error("Token not set"))?;
+        let recipient = self.recipient.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))?;
+        let amount = self.amount.ok_or(ContractError::InvalidStateError("Amount not set".to_string()))?;
+        let token = self.token.ok_or(ContractError::InvalidStateError("Token not set".to_string()))?;
 
         let token = FungibleToken::new(token);
 
@@ -107,16 +109,16 @@ impl NeoURI {
         let amount_scale = amount.scale();
 
         if Self::is_neo_token(&token) && amount_scale > 0 {
-            return Err(invalid_arg_error("NEO does not support decimals"));
+            return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()));
         }
 
         if Self::is_gas_token(&token) && amount_scale > GasToken::decimals() {
-            return Err(invalid_arg_error("Too many decimal places for GAS"));
+            return Err(ContractError::InvalidArgError("Too many decimal places for GAS".to_string()));
         }
 
         let decimals = token.get_decimals().await?;
         if amount_scale > decimals {
-            return Err(invalid_arg_error("Too many decimal places for token"));
+            return Err(ContractError::InvalidArgError("Too many decimal places for token".to_string()));
         }
 
         token.transfer(sender, recipient, token.to_fractions(amount)).await
@@ -158,11 +160,6 @@ impl NeoURI {
         self
     }
 
-    pub fn neo_rust(mut self, neo_rust: NeoRust) -> Self {
-        self.neo_rust = Some(neo_rust);
-        self
-    }
-
     // URI builder
 
     fn build_query(&self) -> String {
@@ -186,7 +183,7 @@ impl NeoURI {
     }
 
     pub fn build_uri(mut self) -> Result<Self, dyn Error> {
-        let recipient = self.recipient.ok_or(invalid_state_error("No recipient set"))?;
+        let recipient = self.recipient.ok_or(ContractError::InvalidStateError("No recipient set".to_string()))?;
 
         let base = format!("{}:{}", Self::NEO_SCHEME, recipient.to_address()?);
         let query = self.build_query();

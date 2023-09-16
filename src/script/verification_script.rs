@@ -1,6 +1,6 @@
+use p256::ecdsa::Signature;
 use primitive_types::H160;
-use secp256k1::ecdsa::Signature;
-use crate::neo_error::NeoRustError;
+use crate::neo_error::NeoError;
 use crate::script::interop_service::InteropService;
 use crate::script::op_code::OpCode;
 use crate::script::script_builder::ScriptBuilder;
@@ -20,9 +20,9 @@ impl VerificationScript {
 
     pub fn from_public_key(public_key: &ECPublicKey) -> Self {
         let mut builder = ScriptBuilder::new();
-        builder.push_data(public_key.to_bytes());
-        builder.OpCode(OpCode::Syscall);
-        builder.push_data(InteropService::SystemCryptoCheckSig.hash().as_bytes());
+        builder.push_data(public_key.to_bytes())
+            .OpCode(OpCode::Syscall)
+            .push_data(InteropService::SystemCryptoCheckSig.hash().as_bytes());
         Self::new(builder.build())
     }
 
@@ -31,11 +31,11 @@ impl VerificationScript {
         let mut builder = ScriptBuilder::new();
         builder.push_int(threshold as i64).expect("Threshold must be between 1 and 16");
         for key in public_keys {
-            builder.push_data(key.to_bytes());
+            builder.push_data(key.to_bytes()).expect("TODO: panic message");
         }
-        builder.push_int(public_keys.len() as i64).expect("Number of public keys must be between 1 and 16");
-        builder.OpCode(OpCode::Syscall);
-        builder.push_data( InteropService::SystemCryptoCheckMultisig.hash().as_bytes());
+        builder.push_int(public_keys.len() as i64)
+            .OpCode(OpCode::Syscall)
+            .push_data( InteropService::SystemCryptoCheckMultisig.hash().as_bytes());
         Self::new(builder.build())
     }
 
@@ -106,7 +106,7 @@ impl VerificationScript {
         signatures
     }
 
-    pub fn get_public_keys(&self) -> Result<Vec<ECPublicKey>, NeoRustError> {
+    pub fn get_public_keys(&self) -> Result<Vec<ECPublicKey>, NeoError> {
         if self.is_single_sig() {
             let mut reader = BinaryReader::new(&self.script);
             reader.read_u8(); // skip pushdata1
@@ -134,6 +134,6 @@ impl VerificationScript {
             Ok(keys)
         }
 
-        Err(NeoRustError::Invalid_script())
+        Err(NeoError::InvalidScript("Invalid verification script".to_string()))
     }
 }

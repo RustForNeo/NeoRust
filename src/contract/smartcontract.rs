@@ -1,5 +1,5 @@
 use std::error::Error;
-use bitcoin::Script;
+use std::iter::Iterator;
 use byte_slice_cast::AsByteSlice;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
@@ -8,13 +8,15 @@ use crate::protocol::core::responses::invocation_result::InvocationResult;
 use crate::protocol::core::responses::neo_response_aliases::NeoInvokeFunction;
 use crate::protocol::core::stack_item::StackItem;
 use crate::protocol::neo_rust::NeoRust;
-use crate::script::interop_service::InteropService;
 use crate::script::op_code::OpCode;
 use crate::script::script_builder::ScriptBuilder;
 use crate::transaction::signer::Signer;
 use crate::transaction::transaction_builder::TransactionBuilder;
+use crate::types::call_flags::CallFlags;
 use crate::types::contract_parameter::ContractParameter;
 use crate::utils::bytes::BytesExtern;
+use crate::contract::iterator::{Iterator};
+use crate::types::H160Externsion;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SmartContract {
@@ -42,12 +44,7 @@ impl SmartContract {
         }
 
         let script = ScriptBuilder::new()
-            .contract_call(
-                self.script_hash.clone().as_fixed_bytes(),
-                function,
-                params.as_slice(),
-            )
-            .build();
+            .contract_call(self.script_hash.clone(), function, params.as_slice(), CallFlags::None).build();
 
         Ok(script)
     }
@@ -85,7 +82,7 @@ impl SmartContract {
         &self,
         function: &str,
         params: Vec<ContractParameter>,
-        signers: Vec<Signer>
+        signers: Vec<dyn Signer>
     ) -> Result<NeoInvokeFunction, dyn Error> {
         if function.is_empty() {
             return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()));
@@ -100,7 +97,7 @@ impl SmartContract {
     }
 
     pub fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
-        if output.has_state_fault {
+        if output.has_state_fault() {
             Err(ContractError::UnexpectedReturnType(output.exception.unwrap(), None))
         } else {
             Ok(())
@@ -129,8 +126,7 @@ impl SmartContract {
 
         let session_id = output.session_id.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))?;
 
-        Ok(NeoIterator::new(
-            NeoRust::instance().clone(),
+        Ok(Iterator::new(
             session_id,
             interface.iterator_id,
             mapper
@@ -140,7 +136,7 @@ impl SmartContract {
     pub async fn call_function_and_unwrap_iterator<T>(&self, function: &str, params: Vec<ContractParameter>, max_items: usize, mapper: impl Fn(StackItem) -> T) -> Result<Vec<T>, ContractError> {
 
         let script = ScriptBuilder::new().contract_call(
-            self.script_hash.as_fixed_bytes(),
+            self.script_hash.clone(),
             function,
             params.iter().filter_map(|p| Some(p)).collect(),
             max_items
@@ -175,11 +171,12 @@ impl SmartContract {
         contract_name: &str
     ) -> Result<H160, dyn Error> {
         let mut script = ScriptBuilder::new()
-            .op_code(OpCode::Abort, &[])
-            .push_data(sender.as_bytes())
-            .push_int(nef_checksum as i64)
+            .op_code( &[OpCode::Abort])
+            .push_data(sender.to_vec())
             .unwrap()
-            .push_data(contract_name.as_byte_slice());
+            .push_integer(nef_checksum as i64)
+            .unwrap()
+            .push_data(contract_name.as_bytes().to_vec());
 
         Ok(H160::from_slice(script.to_bytes().as_slice()))
     }

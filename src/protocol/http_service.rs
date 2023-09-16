@@ -1,11 +1,8 @@
 
 use reqwest::{Client, Response, Url};
-use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use serde_json::Value;
 use crate::protocol::core::request::Request;
-use crate::protocol::neo_rust::NeoRust;
 use crate::protocol::neo_service::NeoService;
 
 pub struct HttpService {

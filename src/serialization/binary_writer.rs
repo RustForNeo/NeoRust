@@ -60,6 +60,20 @@ impl BinaryWriter {
         self.write_bytes(v.as_bytes());
     }
 
+    pub fn write_fixed_string(&mut self, v: &Option<String>, length: usize) -> std::io::Result<()> {
+        let bytes = v.as_deref().unwrap_or_default().as_bytes();
+        if bytes.len() > length {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "String longer than specified length"
+            ));
+        }
+        let mut padded = vec![0; length];
+        padded[0..bytes.len()].copy_from_slice(bytes);
+        Ok(self.write_bytes(&padded))
+    }
+
+
 
     pub fn write_var_bytes(&mut self, bytes: &[u8]) {
         self.write_var_int(bytes.len() as i64);

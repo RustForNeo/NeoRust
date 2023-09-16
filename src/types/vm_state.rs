@@ -7,7 +7,6 @@ pub enum VMState {
 }
 
 impl VMState {
-
     pub fn as_str(&self) -> &str {
         match self {
             Self::None => "NONE",

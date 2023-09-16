@@ -9,7 +9,6 @@ pub struct ContractSigner {
     contract_hash: H160,
     scope: WitnessScope
 }
-
 impl ContractSigner {
 
     fn new(contract_hash: H160, scope: WitnessScope, verify_params: Vec<ContractParameter>) -> Self {

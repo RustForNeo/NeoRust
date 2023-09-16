@@ -1,10 +1,10 @@
 use std::hash::Hash;
-use bip32::secp256k1::ecdsa::RecoveryId;
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
 use p256::ecdsa::signature::{Signer, Verifier};
 use p256::elliptic_curve::rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
+use crate::types::Address;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyPair {
@@ -46,8 +46,8 @@ impl KeyPair {
         self.public_key.verify(hash, &Signature::from_slice(signature).unwrap()).is_ok()
     }
 
-    pub fn get_address(&self) -> PublicKeyAddress {
-        PublicKeyAddress::from_public_key(&self.public_key)
+    pub fn get_address(&self) -> Address {
+        Address::from_public_key(&self.public_key)
     }
 
     fn private_key(&self) -> SigningKey {

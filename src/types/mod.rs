@@ -1,5 +1,11 @@
-use num_bigint::BigInt;
-use p256::{PublicKey, SecretKey};
+use crypto::ripemd160::{Ripemd160,Digest};
+use crypto::sha2::Sha256;
+use hex::FromHexError;
+use p256::{PublicKey};
+use p256::ecdsa::{SigningKey, VerifyingKey};
+use p256::pkcs8::der::{Decode, Encode};
+use primitive_types::H160;
+use sha2::Digest;
 
 pub mod call_flags;
 pub mod contract_parameter;
@@ -10,10 +16,89 @@ pub mod plugin_type;
 // Bring EC types into scope
 
 // pub type ECPoin = ECPoint;
-pub type ECPrivateKey = SecretKey;
-pub type ECPublicKey = PublicKey;
+pub type ECPrivateKey = SigningKey;
+pub type ECPublicKey = VerifyingKey;
 
 pub type Address = String;
 
 pub type Byte = u8;
 pub type Bytes = Vec<u8>;
+
+pub trait H160Externsion{
+
+     fn to_string(&self) -> String;
+
+     fn from_slice(slice: &[u8]) -> Result<Self, &'static str> ;
+
+     fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
+     fn from_address(address: &str) -> Result<Self, &'static str>;
+
+     fn from_public_key(public_key: &PublicKey) -> Self;
+    fn to_address(&self) -> String;
+    fn to_vec(&self) -> Vec<u8>;
+    fn from_script(script: &[u8]) -> Self;
+}
+
+impl H160Externsion for H160 {
+    fn to_string(&self) -> String {
+        bs58::encode(self.0).into_string()
+    }
+
+    fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
+        if slice.len() != 20 {
+            return Err("Invalid length");
+        }
+
+        let mut arr = [0u8; 20];
+        arr.copy_from_slice(slice);
+        Ok(Self(arr))
+    }
+
+    fn from_hex(hex: &str) -> Result<Self, FromHexError> {
+        let bytes = hex::decode(hex)?;
+        Ok(Self::from_slice(&bytes))
+    }
+
+    fn from_address(address: &str) -> Result<Self, &'static str> {
+        let bytes = bs58::decode(address)
+            .into_vec()
+            .map_err(|_| "Invalid address")?;
+
+        Ok(Self::from_slice(&bytes))
+    }
+
+    fn from_public_key(public_key: &PublicKey) -> Self {
+        let mut sha = Sha256::new();
+        sha.update(public_key.as_bytes());
+        let hash = sha.finalize();
+
+        let mut ripemd = Ripemd160::new();
+        ripemd.update(&hash);
+        let result = ripemd.finalize();
+
+        let mut arr = [0u8; 20];
+        arr.copy_from_slice(&result.into_bytes());
+        Self(arr)
+    }
+
+    fn to_address(&self) -> String {
+            bs58::encode(&self.0).into_string()
+        }
+
+         fn to_vec(&self) -> Vec<u8> {
+            self.0.to_vec().unwrap()
+        }
+
+         fn from_script(script: &[u8]) -> Self {
+            let mut hasher = Sha256::new();
+            hasher.update(script);
+            let hash = hasher.finalize();
+
+            let mut ripemd = Ripemd160::new();
+            ripemd.update(&hash);
+            let result = ripemd.finalize();
+            let mut arr = [0u8; 20];
+            arr.copy_from_slice(&result.into_bytes());
+            Self(arr)
+        }
+}

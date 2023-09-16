@@ -47,7 +47,7 @@ impl NeoToken{
     // Unclaimed Gas
 
     async fn unclaimed_gas(&self, account: &Account, block_height: i32) -> Result<i64, ContractError> {
-        self.unclaimed_gas(account.get_script_hash(), block_height).await
+        self.unclaimed_gas(account.get_script_hash().unwrap(), block_height).await
     }
 
     async fn unclaimed_gas_contract(&self, script_hash: &H160, block_height: i32) -> Result<i64, ContractError> {

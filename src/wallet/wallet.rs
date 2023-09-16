@@ -8,6 +8,7 @@ use crate::wallet::account::Account;
 use crate::wallet::nep6wallet::NEP6Wallet;
 use crate::wallet::wallet_error::WalletError;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wallet {
     name: String,
     version: String,

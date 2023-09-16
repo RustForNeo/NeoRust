@@ -1,7 +1,7 @@
 use bitcoin::consensus::ReadExt;
 use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
-use crate::neo_error::NeoRustError;
+use crate::neo_error::NeoError;
 use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
 use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::signer::Signer;
@@ -76,7 +76,7 @@ impl SerializableTransaction {
 
         // Send using NeoRust
         let neo_rust = NeoRust::instance().as_ref()
-            .ok_or(NeoRustError::NeoRustNotInitialized)?;
+            .ok_or(NeoError::NeoRustNotInitialized)?;
 
         neo_rust.send_raw_transaction(hex).await?;
 
