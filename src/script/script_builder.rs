@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use std::error::Error;
 use futures::AsyncWriteExt;
-use num_bigint::BigInt;
 use p256::pkcs8::der::Encode;
 use primitive_types::H160;
 use crate::neo_error::NeoError;
-use crate::protocol::core::request::Request;
 use crate::script::interop_service::InteropService;
 use crate::script::op_code::OpCode;
 use crate::serialization::binary_writer::BinaryWriter;

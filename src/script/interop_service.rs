@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use std::hash::Hash;
 use lazy_static::lazy_static;
 use crate::utils::bytes::{BytesExtern};
-use std::str::FromStr;
 
 lazy_static!(
     static ref INTEROP_SERVICE_HASHES: Arc<Mutex<HashMap<String, String>>> = {
@@ -137,7 +136,6 @@ impl InteropService {
             InteropService::SystemStorageFind |
             InteropService::SystemStoragePut |
             InteropService::SystemStorageDelete => 1 << 15,
-
             _ => 0
         }
     }

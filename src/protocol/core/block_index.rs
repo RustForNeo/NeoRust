@@ -4,7 +4,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::runtime::Handle;
 use tokio::sync::RwLock;
 use crate::neo_error::NeoError;
-use crate::protocol::core::neo_trait::Neo;
+use crate::protocol::core::neo_trait::NeoTrait;
 use crate::protocol::neo_rust::NeoRust;
 
 struct BlockIndexActor {

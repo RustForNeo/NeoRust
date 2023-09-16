@@ -57,6 +57,10 @@ impl TransactionAttribute {
             _ => Err("Invalid attribute type byte"),
         }
     }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string(self).unwrap()
+    }
 }
 
 impl Serialize for TransactionAttribute {

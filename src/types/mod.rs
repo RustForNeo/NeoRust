@@ -1,14 +1,20 @@
-use crypto::ripemd160::{Ripemd160,Digest};
+use base64::Engine;
+use base64::engine::general_purpose;
+use crypto::ripemd160::{Ripemd160, Digest};
 use crypto::sha2::Sha256;
 use futures::TryFutureExt;
 use hex::FromHexError;
 use p256::{PublicKey, SecretKey};
 use p256::elliptic_curve::group::prime::PrimeCurveAffine;
-use p256::elliptic_curve::sec1::FromEncodedPoint;
+use p256::elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
 use p256::pkcs8::der::{Decode, Encode};
-use primitive_types::H160;
+use primitive_types::{H160, H256};
+use serde_json::Value;
 use sha2::Digest;
 use crate::crypto::wif::Wif;
+use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
+use crate::protocol::core::responses::transaction_send_token::TransactionSendToken;
+use crate::utils::bytes::BytesExtern;
 
 pub mod call_flags;
 pub mod contract_parameter;
@@ -179,5 +185,91 @@ impl PrivateKeyExtension for PrivateKey{
     fn from_hex(hex: &str) -> Result<Self, FromHexError> {
         let bytes = hex::decode(hex)?;
         Ok(Self::from_slice(&bytes)?)
+    }
+}
+
+pub trait ValueExtension {
+    fn to_value(&self)->Value;
+}
+
+impl ValueExtension for String{
+    fn to_value(&self) -> Value {
+        Value::String(self.clone())
+    }
+}
+
+impl ValueExtension for H160{
+    fn to_value(&self) -> Value {
+        Value::String(self.to_string())
+    }
+}
+
+impl ValueExtension for PublicKey{
+    fn to_value(&self) -> Value {
+        Value::String(self.to_encoded_point(false).as_bytes().to_hex())
+    }
+}
+
+impl ValueExtension for H256{
+    fn to_value(&self) -> Value {
+        Value::String(self.to_hex())
+    }
+}
+
+impl ValueExtension for u32{
+    fn to_value(&self) -> Value {
+        Value::Number(serde_json::Number::from(*self))
+    }
+}
+
+impl ValueExtension for u64{
+    fn to_value(&self) -> Value {
+        Value::Number(serde_json::Number::from(*self))
+    }
+}
+
+impl ValueExtension for i32{
+    fn to_value(&self) -> Value {
+        Value::Number(serde_json::Number::from(*self))
+    }
+}
+
+impl ValueExtension for i64{
+    fn to_value(&self) -> Value {
+        Value::Number(serde_json::Number::from(*self))
+    }
+}
+
+impl ValueExtension for bool{
+    fn to_value(&self) -> Value {
+        Value::Bool(*self)
+    }
+}
+
+impl ValueExtension for TransactionAttribute {
+    fn to_value(&self) -> Value {
+        Value::String(self.to_json())
+    }
+}
+
+impl ValueExtension for TransactionSendToken{
+    fn to_value(&self) -> Value {
+        Value::String(self.to_json())
+    }
+}
+
+impl ValueExtension for  Vec<TransactionSendToken>{
+    fn to_value(&self) -> Value {
+        self.iter().map(|x| x.to_value()).collect()
+    }
+}
+
+pub trait ExternBase64{
+    fn to_base64(&self) -> String;
+}
+
+impl ExternBase64 for String{
+    fn to_base64(&self) -> String {
+        general_purpose::STANDARD_NO_PAD.encode(self.as_bytes())
     }
 }

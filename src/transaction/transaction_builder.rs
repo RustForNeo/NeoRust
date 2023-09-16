@@ -2,7 +2,7 @@ use std::error::Error;
 use p256::ecdsa::signature::SignerMut;
 use crate::constant::NeoConstants;
 use crate::neo_error::NeoError;
-use crate::protocol::core::neo_trait::Neo;
+use crate::protocol::core::neo_trait::NeoTrait;
 use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
 use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::account_signer::AccountSigner;

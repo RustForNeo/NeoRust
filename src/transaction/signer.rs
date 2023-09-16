@@ -1,27 +1,12 @@
-use std::hash::{Hash, Hasher};
-use std::io::Write;
-use bincode::Options;
-use p256::pkcs8::der::Encode;
+use std::hash::{Hash};
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use crate::constant::NeoConstants;
 use crate::neo_error::NeoError;
 use crate::protocol::core::witness_rule::witness_condition::WitnessCondition;
 use crate::protocol::core::witness_rule::witness_rule::WitnessRule;
-use crate::serialization::binary_reader::BinaryReader;
-use crate::serialization::binary_writer::BinaryWriter;
-use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness_scope::WitnessScope;
-use crate::types::ECPublicKey;
-
-// #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-// pub struct Signer {
-//     pub signer_hash: H160,
-//     scopes: Vec<WitnessScope>,
-//     allowed_contracts: Vec<H160>,
-//     allowed_groups: Vec<ECPublicKey>,
-//     rules: Vec<WitnessRule>,
-// }
 
 pub trait Signer: Clone+PartialEq+Serialize+Deserialize {
     type SignerType;
@@ -74,7 +59,7 @@ pub trait Signer: Clone+PartialEq+Serialize+Deserialize {
 
 
     // Set allowed groups
-    fn set_allowed_groups(&mut self, groups: Vec<ECPublicKey>) -> Result<(), NeoError> {
+    fn set_allowed_groups(&mut self, groups: Vec<PublicKey>) -> Result<(), NeoError> {
 
         if self.get_scopes().contains(&WitnessScope::Global) {
             return Err(NeoError::InvalidConfiguration(

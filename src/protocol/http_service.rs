@@ -1,13 +1,15 @@
 
 use reqwest::{Client, Response, Url};
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use crate::protocol::core::request::Request;
+use crate::protocol::core::request::NeoRequest;
+use crate::protocol::core::response::{NeoResponse, ResponseTrait};
 use crate::protocol::neo_service::NeoService;
 
 pub struct HttpService {
     url: Url,
-    client: reqwest::Client,
+    client: Client,
     headers: HashMap<String, String>,
     include_raw_responses: bool,
 }
@@ -39,37 +41,37 @@ impl HttpService {
 }
 
 impl NeoService for HttpService{
-    async fn send<T, U>(&self,  request: Request<T, U>) -> std::result::Result<T, Err> {
+    async fn send<T, U>(&self, request: &NeoRequest<T, U>) -> Result<T, Err>
+        where T: ResponseTrait<U>,
+              U: Serialize+Deserialize{
 
-        let mut request = self.client.post(self.url.clone());
+        let mut client = self.client.post(self.url.clone());
 
-        request = request
+        client = client
             .header("Content-Type", Self::JSON_MEDIA_TYPE)
             .json(&request);
 
         for (key, value) in &self.headers {
-            request = request.header(key, value);
+            client = client.header(key, value);
         }
+        client = client.body(&request.to_json());
 
-        let response = request.send().await?;
+        let response = client.send().await?;
 
         if response.status().is_success() {
-            let result = response.json::<Response>().await?;
-            Ok(result)
+
+            if self.include_raw_responses {
+                // Return raw response along with bytes
+                // let (bytes, response) = http_service.perform_io(payload).await?;
+                // let result = response.json::<NeoResponse<U>>().await?;
+            }
+
+            let result = response.json::<NeoResponse<U>>().await?;
+            Ok(result.get_result())
         } else {
             let result = response.json::<Value>().await?;
             Err(result)
-        }.expect("Failed to parse response");
-
-        if self.include_raw_responses {
-            // Return raw response along with bytes
-            // let (bytes, response) = http_service.perform_io(payload).await?;
-
-        }
-
-        Ok(bytes.to_vec())
-
-
+        }.expect("Failed to parse response")
     }
 
     fn close(&self) {

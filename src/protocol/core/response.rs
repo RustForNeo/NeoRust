@@ -1,8 +1,13 @@
 use serde::{Serialize, Deserialize};
-use serde::de::DeserializeOwned;
+use crate::neo_error::NeoError;
+
+
+pub trait ResponseTrait<T> where T:Serialize+Deserialize{
+    fn get_result(self) -> Result<T, NeoError>;
+}
 
 #[derive(Serialize, Deserialize)]
-pub struct Response<T> {
+pub struct NeoResponse<T> {
     jsonrpc: &'static str,
     id: u64,
     result: Option<T>,
@@ -16,9 +21,9 @@ pub struct Error {
     data: Option<String>,
 }
 
-impl<T> Response<T>
+impl<T> NeoResponse<T>
     where
-        T: DeserializeOwned,
+        T: Serialize+Deserialize,
 {
 
     fn new(result: T) -> Self {
@@ -33,10 +38,13 @@ impl<T> Response<T>
     fn is_error(&self) -> bool {
         self.error.is_some()
     }
+}
 
-    fn get_result(self) -> Result<T, Error> {
+impl<T> ResponseTrait<T> for NeoResponse<T>
+where T: Serialize+Deserialize{
+    fn get_result(self) -> Result<T, NeoError> {
         match self.error {
-            Some(err) => Err(err),
+            Some(err) => Err(NeoError::InvalidData(err.message)),
             None => Ok(self.result.unwrap()),
         }
     }

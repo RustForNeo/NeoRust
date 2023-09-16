@@ -4,7 +4,7 @@ use tokio::runtime::Handle;
 use tokio::time::interval;
 use crate::neo_error::NeoError;
 use crate::protocol::core::block_index::BlockIndexPolling;
-use crate::protocol::core::neo_trait::Neo;
+use crate::protocol::core::neo_trait::NeoTrait;
 use crate::protocol::core::responses::neo_response_aliases::NeoGetBlock;
 use crate::protocol::neo_rust::NeoRust;
 
