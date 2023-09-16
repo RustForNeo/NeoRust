@@ -146,12 +146,12 @@ where T: Signer+Serialize+Deserialize{
     }
 
     async fn get_block_hash(&self, block_index: i32) -> NeoRequest<NeoBlockHash,H256> {
-        NeoRequest::new("getblockhash", [Value::from(block_index)].to_vec())
+        NeoRequest::new("getblockhash", [block_index.to_value()].to_vec())
     }
 
     async fn get_block(&self, block_hash: H256, full_tx: bool) -> NeoRequest<NeoBlockHash,NeoBlock> {
         if full_tx {
-             NeoRequest::new("getblock", [Value::from(block_hash), Value::from(1)].to_vec())
+             NeoRequest::new("getblock", [block_hash.to_value(), 1].to_vec())
         } else {
             self.get_block_header_hash(block_hash)
         }
@@ -282,7 +282,7 @@ where T: Signer+Serialize+Deserialize{
     }
 
     async fn send_raw_transaction(&self, hex: String) -> NeoRequest<NeoSendRawTransaction,RawTransaction> {
-        NeoRequest::new("sendrawtransaction", vec![Value::from(hex)])
+        NeoRequest::new("sendrawtransaction", vec![hex.to_value()])
     }
 // More node methods
 
@@ -402,7 +402,7 @@ where T: Signer+Serialize+Deserialize{
    }
 
     async fn get_nep17_balances(&self, script_hash: H160) -> NeoRequest<NeoGetNep17Balances,Nep17Balances> {
-         NeoRequest::new("getnep17balances", [Value::from(script_hash.to_address())].to_vec())
+         NeoRequest::new("getnep17balances", [script_hash.to_value()].to_vec())
     }
 
     async fn get_nep17_transfers(&self, script_hash: H160) -> NeoRequest<NeoGetNep17Transfers, Nep17Transfers> {
