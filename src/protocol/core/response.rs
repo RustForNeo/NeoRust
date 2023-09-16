@@ -3,15 +3,10 @@ use serde::de::DeserializeOwned;
 
 #[derive(Serialize, Deserialize)]
 pub struct Response<T> {
-
     jsonrpc: &'static str,
-
     id: u64,
-
     result: Option<T>,
-
     error: Option<Error>,
-
 }
 
 #[derive(Serialize, Deserialize)]

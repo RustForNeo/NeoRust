@@ -3,8 +3,6 @@ use primitive_types::{H160, H256};
 use serde::{Serialize, Deserialize};
 use crate::types::Address;
 
-
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StackItem {

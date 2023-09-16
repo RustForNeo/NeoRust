@@ -5,7 +5,6 @@ use crypto::scrypt::{scrypt, ScryptParams};
 use crypto::sha2::Sha256;
 use futures::TryFutureExt;
 use p256::ecdsa::{SigningKey, VerifyingKey};
-use p256::SecretKey;
 use crate::crypto::base58_helper::base58check_decode;
 
 const DKLEN: usize = 64;
@@ -59,10 +58,7 @@ impl NEP2 {
     pub fn encrypt(password: &str, private_key: &SigningKey) -> Result<String, &'static str> {
 
         let public_key = VerifyingKey::from(private_key);
-
         let address_hash = Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
-
-
         let derived_key = Self.derive_scrypt_key(password, &address_hash)?;
         let derived_half1 = &derived_key[..32];
         let derived_half2 = &derived_key[32..];
@@ -106,5 +102,4 @@ impl NEP2 {
         hasher.input(pubkey);
         Ok(hasher.result(&mut [])[..4].to_vec())
     }
-
 }

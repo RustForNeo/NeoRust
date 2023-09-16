@@ -24,6 +24,7 @@ use crate::types::ECPublicKey;
 // }
 
 pub trait Signer: Clone+PartialEq+Serialize+Deserialize {
+    type SignerType;
 
     fn get_signer_hash(&self) -> &H160;
 
@@ -153,97 +154,5 @@ pub trait Signer: Clone+PartialEq+Serialize+Deserialize {
                 "Too many {} in signer", name)));
         }
         Ok(())
-    }
-}
-
-impl Hash for Signer {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.signer_hash.hash(state);
-        self.scopes.hash(state);
-        self.allowed_contracts.hash(state);
-        self.allowed_groups.hash(state);
-        self.rules.hash(state);
-    }
-}
-
-impl Serialize for Signer {
-    fn serialize(&self, writer: &mut BinaryWriter) {
-
-        // Write signer hash
-        writer.write(&self.signer_hash.to_vec()).expect("Failed to write signer hash");
-
-        // Combine scopes and write byte
-        let combined_scopes = WitnessScope::combine(&self.scopes);
-        writer.write_u8(combined_scopes);
-
-        // Write allowed contracts if needed
-        if self.scopes.contains(&WitnessScope::CustomContracts) {
-            writer.write_serializable_list(&self.allowed_contracts);
-        }
-
-        // Write allowed groups if needed
-        if self.scopes.contains(&WitnessScope::CustomGroups) {
-            writer.write_serializable_list(&self.allowed_groups);
-        }
-
-        // Write rules if needed
-        if self.scopes.contains(&WitnessScope::WitnessRules) {
-            writer.write_serializable_list(&self.rules);
-        }
-
-    }
-    fn serialized_size(&self) -> usize {
-        let mut size = 0;
-        size += self.signer_hash.to_vec().len();
-        size += 1; // scopes
-        if self.scopes.contains(&WitnessScope::CustomContracts) {
-            size += self.allowed_contracts.serialized_size();
-        }
-        if self.scopes.contains(&WitnessScope::CustomGroups) {
-            size += self.allowed_groups.serialized_size();
-        }
-        if self.scopes.contains(&WitnessScope::WitnessRules) {
-            size += self.rules.serialized_size();
-        }
-        size
-    }
-}
-
-
-impl Deserialize for Signer{
-    fn deserialize(reader: &mut BinaryReader) -> Result<Self, TransactionError> {
-        // Read signer hash
-        let signer_hash = reader.read_serializable()?;
-
-        // Read scopes
-        let combined_scopes = reader.read_u8()?;
-        let scopes = WitnessScope::extract(&combined_scopes);
-
-        // Read other fields if scope requires it
-        let mut allowed_contracts = Vec::new();
-        if scopes.contains(&WitnessScope::CustomContracts) {
-            allowed_contracts = reader.read_serializable_list()?;
-            Self::validate_subitems(allowed_contracts.len(), "contracts")?;
-        }
-
-        let mut allowed_groups = Vec::new();
-        if scopes.contains(&WitnessScope::CustomGroups) {
-            allowed_groups = reader.read_serializable_list()?;
-            Self::validate_subitems(allowed_groups.len(), "groups")?;
-        }
-
-        let mut rules = Vec::new();
-        if scopes.contains(&WitnessScope::WitnessRules) {
-            rules = reader.read_serializable_list()?;
-            Self::validate_subitems(rules.len(), "rules")?;
-        }
-
-        Ok(Self {
-            signer_hash,
-            scopes,
-            allowed_contracts,
-            allowed_groups,
-            rules,
-        })
     }
 }

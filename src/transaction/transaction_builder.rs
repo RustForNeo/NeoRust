@@ -1,5 +1,8 @@
+use std::error::Error;
 use p256::ecdsa::signature::SignerMut;
 use crate::constant::NeoConstants;
+use crate::neo_error::NeoError;
+use crate::protocol::core::neo_trait::Neo;
 use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
 use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::account_signer::AccountSigner;
@@ -9,13 +12,14 @@ use crate::transaction::signer::Signer;
 use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness::Witness;
 use crate::types::Bytes;
+use crate::utils::bytes::BytesExtern;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TransactionBuilder {
+pub struct TransactionBuilder<T> where T:Signer {
     version: u8,
     nonce: u32,
     valid_until_block: Option<u32>,
-    signers: Vec<Signer>,
+    signers: Vec<T>,
     additional_network_fee: u64,
     additional_system_fee: u64,
     attributes: Vec<TransactionAttribute>,
@@ -24,7 +28,7 @@ pub struct TransactionBuilder {
     fee_error: Option<TransactionError>,
 }
 
-impl TransactionBuilder {
+impl<T> TransactionBuilder<T> {
 
     // Constructor
     pub fn new() -> Self {
@@ -68,18 +72,6 @@ impl TransactionBuilder {
         }
 
         self.valid_until_block = Some(block);
-        Ok(self)
-    }
-
-    // Add signer
-    pub fn add_signer(&mut self, signer: &Signer) -> Result<&mut Self, TransactionError> {
-
-        // Validate max signers
-        if self.signers.len() >= NeoConstants::MAX_SIGNERS {
-            return Err(TransactionError::TooManySigners);
-        }
-
-        self.signers.push(signer.clone());
         Ok(self)
     }
 
@@ -133,16 +125,22 @@ impl TransactionBuilder {
         }
 
         // Build transaction
-        let tx = SerializableTransaction::new(self.version, self.nonce, self.valid_until_block?, self.clone().signers, system_fee as i64, network_fee as i64, self.clone().attributes, self.clone().script?, vec![]);
-
-        Ok(tx)
-
+        Ok(SerializableTransaction::new(
+            self.version,
+            self.nonce,
+            self.valid_until_block?,
+            self.clone().signers,
+            system_fee as i64,
+            network_fee as i64,
+            self.clone().attributes,
+            self.clone().script?,
+            vec![]))
     }
 
     async fn get_system_fee(&self) -> Result<u64, TransactionError> {
         let script = self.script.as_ref().unwrap();
 
-        let response = NeoRust::instance().invoke_script(script).await?;
+        let response = NeoRust::instance().invoke_script(script.to_hex(), vec![]).await?;
         Ok(response.gas_consumed.) // example
     }
 
@@ -157,32 +155,56 @@ impl TransactionBuilder {
     async fn get_sender_balance(&self) -> Result<u64, TransactionError> {
         // Call network
         let sender = &self.signers[0];
-        let balance = match sender {
-            AccountSigner(account) => NeoRust::instance().get_account_balance(account).await?,
-            _ => return Err(TransactionError::InvalidSender),
-        };
-        Ok(balance)
+
+        if Self::is_account_signer(sender){
+            let balance = NeoRust::instance().get_account_balance(account).await?;
+            return Ok(balance);
+        }
+        Err(TransactionError::InvalidSender)
+    }
+
+    fn is_account_signer<T:Signer>(signer: &T) -> bool {
+        let sig = <T as Signer>::SignerType;
+        if std::any::TypeId::of::<sig>() == std::any::TypeId::of::<AccountSigner>() {
+            return true;
+        }
+        return false;
     }
 
     // Sign transaction
-    pub async fn sign(&mut self) -> Result<SerializableTransaction, TransactionError> {
+    pub async fn sign(&mut self) -> Result<SerializableTransaction, dyn Error> {
+        let mut transaction = self.get_unsigned_transaction().await?;
 
-        let mut tx = self.get_unsigned_tx().await?;
-
-        // Sign all signers
-        for signer in &self.signers {
+        for signer in &mut transaction.signers {
             match signer {
-                AccountSigner(account) => {
-                    let signature = account.sign(&tx).await?;
-                    tx.add_witness(signature);
-                },
-                ContractSigner(params) => {
-                    tx.add_witness(Witness::contract(&params));
+                Signer::ContractSigner(contract_signer) => {
+                    transaction.add_witness(Witness::create_contract_witness(
+                        contract_signer.verify_params.clone(),
+                    ))?;
+                }
+                Signer::AccountSigner(account_signer) => {
+                    let acc = &account_signer.account;
+                    if acc.is_multi_sig() {
+                        return Err(NeoError::IllegalState(
+                            "Transactions with multi-sig signers cannot be signed automatically."
+                                .to_string(),
+                        ));
+                    }
+
+                    let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
+                        NeoError::InvalidConfiguration(
+                            "Cannot create transaction signature because account does not hold a private key."
+                                .to_string(),
+                        )
+                    })?;
+
+                    let tx_bytes = transaction.get_hash_data().await?;
+                    transaction.add_witness(Witness::create(tx_bytes, key_pair))?;
                 }
             }
         }
 
-        Ok(tx)
+        Ok(transaction)
     }
 
 }

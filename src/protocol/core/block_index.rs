@@ -1,7 +1,10 @@
+use std::error::Error;
 use std::time::Duration;
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::runtime::Handle;
 use tokio::sync::RwLock;
+use crate::neo_error::NeoError;
+use crate::protocol::core::neo_trait::Neo;
 use crate::protocol::neo_rust::NeoRust;
 
 struct BlockIndexActor {
@@ -29,16 +32,15 @@ impl BlockIndexPolling {
 
     pub async fn block_index_publisher(
         &self,
-        neo_rust: &NeoRust,
         executor: &Handle,
         polling_interval: i32,
-    ) -> impl Stream<Item = Result<i32, NeonError>> {
+    ) -> impl Stream<Item = Result<i32, dyn Error>> {
 
         let interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
 
         interval
             .map(move |_| {
-                let latest_block_index = neo_rust
+                let latest_block_index = NeoRust::instance()
                     .get_block_count()
                     .execute(executor)
                     .map(|res| res.get_result() - 1);
@@ -54,7 +56,7 @@ impl BlockIndexPolling {
                             Ok(None)
                         }
                     } else {
-                        Err(NeonError::new("Error getting latest block"))
+                        Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
                     }
                 }
             })
@@ -63,7 +65,5 @@ impl BlockIndexPolling {
             .flat_map(|blocks| {
                 futures::stream::iter(blocks).map(Ok)
             })
-
     }
-
 }

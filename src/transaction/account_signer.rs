@@ -4,7 +4,7 @@ use crate::protocol::core::witness_rule::witness_rule::WitnessRule;
 use crate::transaction::signer::Signer;
 use crate::transaction::transaction_error::TransactionError;
 use crate::transaction::witness_scope::WitnessScope;
-use crate::types::ECPublicKey;
+use crate::types::{ECPublicKey, H160Externsion};
 use crate::wallet::account::Account;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
@@ -19,6 +19,8 @@ pub struct AccountSigner {
 }
 
 impl Signer for AccountSigner{
+    type SignerType = AccountSigner;
+
     fn get_signer_hash(&self) -> &H160 {
         &self.signer_hash
     }
@@ -42,7 +44,7 @@ impl Signer for AccountSigner{
 
 impl AccountSigner {
 
-    fn new(account: Account, scope: WitnessScope, signer_hash: H160, scope: WitnessScope) -> Self {
+    fn new(account: Account, scope: WitnessScope) -> Self {
         Self {
             signer_hash: account.getScriptHash(),
             scopes: vec![],
@@ -59,7 +61,7 @@ impl AccountSigner {
     }
 
     pub fn none_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-        let account = Account::from_address(account_hash.to_address());
+        let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
         Ok(Self::new(account, WitnessScope::None))
     }
 
@@ -68,7 +70,7 @@ impl AccountSigner {
     }
 
     pub fn called_by_entry_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-        let account = Account::from_address(account_hash.to_address());
+        let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
         Ok(Self::new(account, WitnessScope::CalledByEntry))
     }
 
@@ -77,7 +79,7 @@ impl AccountSigner {
     }
 
     pub fn global_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-        let account = Account::from_address(account_hash.to_address());
+        let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
         Ok(Self::new(account, WitnessScope::Global))
     }
 

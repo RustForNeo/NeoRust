@@ -1,85 +1,124 @@
-use secp256k1::ecdsa::Signature;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::crypto::key_pair::ECKeyPair;
+use serde::{Deserialize, Serialize};
+use crate::crypto::key_pair::KeyPair;
+use crate::neo_error::NeoError;
 use crate::script::invocation_script::InvocationScript;
+use crate::script::script_builder::ScriptBuilder;
 use crate::script::verification_script::VerificationScript;
-use crate::serialization::binary_reader::BinaryReader;
-use crate::serialization::binary_writer::BinaryWriter;
-use crate::transaction::transaction_error::TransactionError;
-use crate::types::Bytes;
 use crate::types::contract_parameter::ContractParameter;
+use crate::types::{Bytes, ECPublicKey};
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Hash)]
 pub struct Witness {
     pub invocation_script: InvocationScript,
-    pub verification_script: VerificationScript,
+    pub verification_script: VerificationScript
 }
 
 impl Witness {
 
-    pub fn new(invocation_script: InvocationScript, verification_script: VerificationScript) -> Self {
+    pub fn new() -> Self {
+        Self {
+            invocation_script: InvocationScript::new(),
+            verification_script: VerificationScript::new()
+        }
+    }
+
+    pub fn from_scripts(invocation_script: Bytes, verification_script: Bytes) -> Self {
+        Self {
+            invocation_script: InvocationScript::from(invocation_script),
+            verification_script: VerificationScript::from(verification_script)
+        }
+    }
+
+    pub fn from_scripts_obj(invocation_script: InvocationScript, verification_script: VerificationScript) -> Self {
         Self {
             invocation_script,
             verification_script
         }
     }
 
-    pub fn create(message: Bytes, keypair: ECKeyPair) -> Result<Self, TransactionError> {
-        let invocation_script = InvocationScript::from_message_and_keypair(message, keypair)?;
-        let verification_script = VerificationScript::from_pubkey(keypair.public_key);
+    pub fn create(message_to_sign: Bytes, key_pair: &KeyPair) -> Result<Self, NeoError> {
+        let invocation_script = InvocationScript::from_message_and_key_pair(message_to_sign, key_pair)?;
+        let verification_script = VerificationScript::from(&key_pair.public_key);
         Ok(Self { invocation_script, verification_script })
     }
 
-    pub fn create_multisig(signatures: Vec<Signature>, verification_script: VerificationScript) -> Result<Self, TransactionError> {
-        let invocation_script = InvocationScript::from_signatures(signatures)?;
+    pub fn create_multisig_witness(signing_threshold: u8, signatures: Vec<Sign::SignatureData>, public_keys: Vec<ECPublicKey>) -> Result<Self, NeoError> {
+        let verification_script = VerificationScript::multisig(public_keys, signing_threshold)?;
+        Self::create_multisig_witness(signatures, verification_script)
+    }
+
+    pub fn create_multisig_witness(signatures: Vec<Sign::SignatureData>, verification_script: VerificationScript) -> Result<Self, NeoError> {
+        let threshold = verification_script.get_signing_threshold()?;
+        if signatures.len() < threshold as usize {
+            return Err(NeoError::IllegalArgument("Not enough signatures provided for the required signing threshold.".to_string()));
+        }
+
+        let invocation_script = InvocationScript::from_signatures(&signatures[..threshold as usize]);
         Ok(Self { invocation_script, verification_script})
     }
 
-    // Other constructors
-    pub fn empty() -> Self {
-        Self {
-            invocation_script: InvocationScript::default(),
-            verification_script: VerificationScript::default()
+    pub fn create_contract_witness(params: Vec<ContractParameter>) -> Result<Self, NeoError> {
+        if params.is_empty() {
+            return Ok(Self::new());
         }
-    }
 
-    pub fn from_scripts(invocation_script: InvocationScript, verification_script: VerificationScript) -> Self {
-        Self {
-            invocation_script,
-            verification_script
+        let mut builder = ScriptBuilder::new();
+        for param in params {
+            builder.push_param(param)?;
         }
-    }
+        let invocation_script = builder.into_bytes();
 
-    pub fn contract_witness(params: &[ContractParameter]) -> Self {
-        let invocation_script = InvocationScript::from_params(params);
-        Self {
-            invocation_script,
-            verification_script: VerificationScript::default()
-        }
-    }
-}
-
-impl Serialize for Witness {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut writer = BinaryWriter::new();
-        // self.serialize(&mut writer);
-        self.invocation_script.serialize(&writer);
-        self.verification_script.serialize(&writer);
-        let bytes = writer.to_bytes();
-        serializer.serialize_bytes(&bytes)
-    }
-}
-
-impl Deserialize for Witness{
-    fn deserialize<'de, D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        let bytes = <&[u8]>::deserialize(deserializer)?;
-        let mut reader = BinaryReader::from_bytes(bytes);
-        // Self::deserialize(&mut reader)
-        let invocation_script = InvocationScript::deserialize(&mut reader).map_err(|e| serde::de::Error::custom(e.to_string()))?;
-        let verification_script = VerificationScript::deserialize(&mut reader).map_err(|e| serde::de::Error::custom(e.to_string()))?;
         Ok(Self {
             invocation_script,
-            verification_script
+            verification_script: VerificationScript::new()
         })
     }
+
 }
+impl Serialize for Witness {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+
+        let mut strukt = serializer.serialize_struct("Witness", 2)?;
+        strukt.serialize_field("invocation_script", &self.invocation_script)?;
+        strukt.serialize_field("verification_script", &self.verification_script)?;
+        strukt.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Witness {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+    {
+        struct WitnessVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for WitnessVisitor {
+            type Value = Witness;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("struct Witness")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+            {
+                let invocation_script = seq.next_element()?
+                    .ok_or(serde::de::Error::invalid_length(0, &self))?;
+                let verification_script = seq.next_element()?
+                    .ok_or(serde::de::Error::invalid_length(1, &self))?;
+
+                Ok(Witness {
+                    invocation_script,
+                    verification_script
+                })
+            }
+        }
+
+        deserializer.deserialize_struct("Witness", &["invocation_script", "verification_script"], WitnessVisitor)
+    }
+}}

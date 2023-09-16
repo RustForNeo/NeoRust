@@ -11,6 +11,7 @@ pub enum NeoError {
     Transaction(String),
     InvalidScript(String),
     InvalidFormat,
+    NeoRustNotInitialized
 }
 
 impl std::fmt::Display for NeoError {
@@ -49,7 +50,9 @@ impl std::fmt::Display for NeoError {
             NeoError::InvalidFormat => {
                 write!(f, "Invalid format")
             },
-
+            NeoError::NeoRustNotInitialized => {
+                write!(f, "NeoRust not initialized")
+            },
         }
     }
 }
@@ -74,6 +77,7 @@ impl std::error::Error for NeoError {
             NeoError::Transaction(msg) => msg,
             NeoError::InvalidScript(msg) => msg,
             NeoError::InvalidFormat => "Invalid format",
+            NeoError::NeoRustNotInitialized => "NeoRust not initialized",
         }
     }
 

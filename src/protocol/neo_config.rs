@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use primitive_types::H160;
 use tokio::runtime::Handle;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -38,7 +39,7 @@ pub struct NeoConfig {
     pub polling_interval: u64,
     executor: Handle,
     pub allows_transmission_on_fault: bool,
-    pub nns_resolver: [u8; 20],
+    pub nns_resolver: H160,
 }
 
 impl Default for NeoConfig {
@@ -50,7 +51,7 @@ impl Default for NeoConfig {
             polling_interval: DEFAULT_BLOCK_TIME,
             executor: Handle::current(),
             allows_transmission_on_fault: false,
-            nns_resolver: [0x50, 0xac, 0x1c, 0x37, 0x69, 0x0c, 0xc2, 0xc5, 0x8f, 0xc5, 0x94, 0x47, 0x28, 0x33, 0xcf, 0x57, 0x50, 0x5d, 0x5f, 0x46],
+            nns_resolver:H160::from_slice([0x50, 0xac, 0x1c, 0x37, 0x69, 0x0c, 0xc2, 0xc5, 0x8f, 0xc5, 0x94, 0x47, 0x28, 0x33, 0xcf, 0x57, 0x50, 0x5d, 0x5f, 0x46].as_slice()),
         }
     }
 }

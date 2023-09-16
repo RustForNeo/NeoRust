@@ -1,13 +1,11 @@
 #![feature(atomic_from_ptr, pointer_is_aligned)]
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::error::Error;
-use reqwest::Client;
 use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-
+use crate::protocol::core::response::Response;
 #[derive(Serialize, Deserialize)]
-pub struct Request<T, U> {
+pub struct Request<T, U> where T: Response<U>{
     jsonrpc: &'static str,
     method: String,
     params: Vec<Value>,

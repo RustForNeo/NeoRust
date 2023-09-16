@@ -59,7 +59,7 @@ impl NeoService for HttpService{
         } else {
             let result = response.json::<Value>().await?;
             Err(result)
-        }
+        }.expect("Failed to parse response");
 
         if self.include_raw_responses {
             // Return raw response along with bytes

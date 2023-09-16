@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use bitcoin::Transaction;
 use primitive_types::H256;
 use crate::protocol::core::responses::contract_state::ContractState;
 use crate::protocol::core::responses::contract_storage_entry::ContractStorageEntry;
@@ -14,6 +13,7 @@ use crate::protocol::core::responses::neo_network_fee::NeoNetworkFee;
 use crate::protocol::core::responses::nep17contract::Nep17Contract;
 use crate::protocol::core::responses::oracle_request::OracleRequest;
 use crate::protocol::core::responses::populated_blocks::PopulatedBlocks;
+use crate::protocol::core::responses::transaction::Transaction;
 use crate::protocol::core::stack_item::StackItem;
 
 #[derive(Debug)]

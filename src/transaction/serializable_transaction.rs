@@ -1,7 +1,8 @@
-use bitcoin::consensus::ReadExt;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::constant::NeoConstants;
 use crate::neo_error::NeoError;
+use crate::protocol::core::responses::neo_response_aliases::NeoExpressCreateOracleResponseTx;
 use crate::protocol::core::responses::transaction_attribute::TransactionAttribute;
 use crate::protocol::neo_rust::NeoRust;
 use crate::transaction::signer::Signer;
@@ -14,7 +15,7 @@ pub struct SerializableTransaction {
     version: u8,
     nonce: u32,
     valid_until_block: u32,
-    signers: Vec<Signer>,
+    signers: Vec<dyn Signer>,
     system_fee: i64,
     network_fee: i64,
     attributes: Vec<TransactionAttribute>,
@@ -31,7 +32,7 @@ impl SerializableTransaction {
         version: u8,
         nonce: u32,
         valid_until_block: u32,
-        signers: Vec<Signer>,
+        signers: Vec<dyn Signer>,
         system_fee: i64,
         network_fee: i64,
         attributes: Vec<TransactionAttribute>,
@@ -67,7 +68,7 @@ impl SerializableTransaction {
             return Err(TransactionError::InvalidTransaction);
         }
 
-        if self.size() >  Constent::MAX_TX_SIZE {
+        if self.size() >  NeoConstants::MAX_TRANSACTION_SIZE {
             return Err(TransactionError::TxTooLarge);
         }
 
@@ -89,7 +90,7 @@ impl SerializableTransaction {
     pub fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
 
         let neo_rust = NeoRust::instance().as_ref()
-            .ok_or(TransactionError::NeoRustNotInitialized)?;
+            .ok_or(NeoError::NeoRustNotInitialized)?;
 
         let network_magic = neo_rust.get_network_magic()?;
         let data = self.serialize_without_witnesses();
@@ -164,7 +165,5 @@ impl SerializableTransaction {
             witnesses: vec![],
             block_count_when_sent: None,
         })
-
     }
-
 }

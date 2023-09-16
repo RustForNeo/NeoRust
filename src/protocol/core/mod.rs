@@ -1,6 +1,6 @@
 
 pub mod responses;
-pub mod neo;
+pub mod neo_trait;
 pub mod neo_express;
 pub mod record_type;
 pub mod request;
