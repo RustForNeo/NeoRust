@@ -63,11 +63,11 @@ impl<T> SerializableTransaction<T> {
 	pub async fn send(&mut self) -> Result<(), TransactionError> {
 		// Validate transaction
 		if self.signers.len() != self.witnesses.len() {
-			return Err(TransactionError::InvalidTransaction)
+			return Err(TransactionError::InvalidTransaction);
 		}
 
 		if self.size() > NeoConstants::MAX_TRANSACTION_SIZE {
-			return Err(TransactionError::TxTooLarge)
+			return Err(TransactionError::TxTooLarge);
 		}
 
 		// Get hex encoding

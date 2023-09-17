@@ -100,8 +100,9 @@ impl StackItem {
 
 	fn as_string(&self) -> Option<String> {
 		match self {
-			StackItem::ByteString { value } | StackItem::Buffer { value } =>
-				hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok())?,
+			StackItem::ByteString { value } | StackItem::Buffer { value } => {
+				hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok())?
+			},
 			StackItem::Integer { value } => Some(value.to_string()),
 			StackItem::Boolean { value } => Some(value.to_string()),
 			_ => None,
@@ -140,8 +141,9 @@ impl StackItem {
 
 	fn as_bytes(&self) -> Option<Vec<u8>> {
 		match self {
-			StackItem::ByteString { value } | StackItem::Buffer { value } =>
-				hex::decode(value).ok(),
+			StackItem::ByteString { value } | StackItem::Buffer { value } => {
+				hex::decode(value).ok()
+			},
 			StackItem::Integer { value } => {
 				let mut bytes = value.to_be_bytes().to_vec();
 				bytes.reverse();

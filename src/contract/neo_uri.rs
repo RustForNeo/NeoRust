@@ -41,7 +41,7 @@ impl NeoURI {
 			|| base_parts[0] != Self::NEO_SCHEME
 			|| uri_string.len() < Self::MIN_NEP9_URI_LENGTH
 		{
-			return Err(ContractError::InvalidNeoName("Invalid NEP-9 URI".to_string()))
+			return Err(ContractError::InvalidNeoName("Invalid NEP-9 URI".to_string()));
 		}
 
 		let mut neo_uri = Self::new().to(H160::from_address(base_parts[1])?);
@@ -50,7 +50,7 @@ impl NeoURI {
 			for part in query_str.split("&") {
 				let kv: Vec<&str> = part.split("=").collect();
 				if kv.len() != 2 {
-					return Err(ContractError::InvalidNeoName("Invalid query".to_string()))
+					return Err(ContractError::InvalidNeoName("Invalid query".to_string()));
 				}
 
 				match kv[0] {
@@ -109,20 +109,20 @@ impl NeoURI {
 		let amount_scale = amount.scale();
 
 		if Self::is_neo_token(&token) && amount_scale > 0 {
-			return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()))
+			return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()));
 		}
 
 		if Self::is_gas_token(&token) && amount_scale > GasToken::decimals() {
 			return Err(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
-			))
+			));
 		}
 
 		let decimals = token.get_decimals().await?;
 		if amount_scale > decimals {
 			return Err(ContractError::InvalidArgError(
 				"Too many decimal places for token".to_string(),
-			))
+			));
 		}
 
 		token.transfer(sender, recipient, token.to_fractions(amount)).await

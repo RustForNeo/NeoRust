@@ -52,42 +52,42 @@ impl VerificationScript {
 
 	pub fn is_multisig(&self) -> bool {
 		if self.script.len() < 37 {
-			return false
+			return false;
 		}
 
 		let mut reader = BinaryReader::new(&self.script);
 
 		let n = reader.read_var_int().unwrap();
 		if !(1..16).contains(&n) {
-			return false
+			return false;
 		}
 
 		let mut m = 0;
 		while reader.read_u8() == Some(OpCode::PushData1 as u8) {
 			let len = reader.read_u8().unwrap();
 			if len != 33 {
-				return false
+				return false;
 			}
 			let _ = reader.skip(33);
 			m += 1;
 		}
 
 		if !(m >= n && m <= 16) {
-			return false
+			return false;
 		}
 
 		// additional checks
 		let service_bytes = &self.script[self.script.len() - 4..];
 		if service_bytes != &InteropService::SystemCryptoCheckMultisig.hash().into_bytes() {
-			return false
+			return false;
 		}
 
 		if m != reader.read_var_int().unwrap() {
-			return false
+			return false;
 		}
 
 		if reader.read_u8() != Some(OpCode::Syscall as u8) {
-			return false
+			return false;
 		}
 
 		true
@@ -121,7 +121,7 @@ impl VerificationScript {
 			point.copy_from_slice(&reader.read_bytes(33).unwrap());
 
 			let key = PublicKey::from_bytes(&point)?;
-			return Ok(vec![key])
+			return Ok(vec![key]);
 		}
 
 		if self.is_multisig() {

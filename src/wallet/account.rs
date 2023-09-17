@@ -154,7 +154,7 @@ impl Account {
 
 	pub fn decrypt_private_key(&mut self, password: &str) -> Result<(), WalletError> {
 		if self.key_pair.is_some() {
-			return Ok(())
+			return Ok(());
 		}
 
 		let encrypted_private_key = self
@@ -204,7 +204,7 @@ impl Account {
 		if self.key_pair.is_some() && self.encrypted_private_key.is_none() {
 			return Err(WalletError::AccountState(
 				"Account private key is decrypted but not encrypted".to_string(),
-			))
+			));
 		}
 
 		let contract = match &self.verification_script {

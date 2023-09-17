@@ -1,7 +1,4 @@
-#![feature(is_some_and)]
 extern crate core;
-extern crate core;
-
 pub mod constant;
 pub mod contract;
 pub mod crypto;

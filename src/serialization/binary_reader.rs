@@ -80,7 +80,7 @@ impl<'a> BinaryReader<'a> {
 			if let Some(byte) = bytes.get_mut(len - 1) {
 				*byte ^= 0x80;
 			} else {
-				return Err(NeoError::InvalidFormat)
+				return Err(NeoError::InvalidFormat);
 			}
 			// bytes.get_mut()[len - 1] ^= 0x80;
 		}
@@ -132,7 +132,7 @@ impl<'a> BinaryReader<'a> {
 			Ok(s) => s,
 			Err(e) => {
 				// Handle invalid UTF-8
-				return Err(Error::InvalidStringEncoding(e))
+				return Err(Error::InvalidStringEncoding(e));
 			},
 		};
 

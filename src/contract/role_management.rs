@@ -41,7 +41,7 @@ impl RoleManagement {
 
 	async fn check_block_index_validity(&self, block_index: i32) -> Result<(), ContractError> {
 		if block_index < 0 {
-			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
+			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()));
 		}
 
 		let current_block_count = NeoRust::instance().get_block_count().await?.get_result();
@@ -50,7 +50,7 @@ impl RoleManagement {
 			return Err(ContractError::InvalidNeoName(format!(
 				"Block index {} exceeds current block count {}",
 				block_index, current_block_count
-			)))
+			)));
 		}
 
 		Ok(())
@@ -64,7 +64,7 @@ impl RoleManagement {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),
-			))
+			));
 		}
 
 		let params: Vec<_> = pub_keys

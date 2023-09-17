@@ -99,8 +99,11 @@ impl ScriptBuilder {
 
 						self.push_map(&map)?
 					},
-					_ =>
-						return Err(Error::IllegalArgument("Unsupported parameter type".to_string())),
+					_ => {
+						return Err(Error::IllegalArgument(
+							"Unsupported parameter type".to_string(),
+						))
+					},
 				}
 			},
 		}
@@ -132,7 +135,7 @@ impl ScriptBuilder {
 	fn pad_number(n: i128, size: usize) -> Bytes {
 		let mut bytes = n.to_signed_bytes();
 		if bytes.len() == size {
-			return bytes
+			return bytes;
 		}
 		let pad_byte = if n.is_negative() { 0xff } else { 0 };
 		if n.is_negative() {

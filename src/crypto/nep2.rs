@@ -21,14 +21,14 @@ impl NEP2 {
 		let nep2_data = base58check_decode(nep2_string); //nep2_string.from_base58check()?;
 
 		if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
-			return Err("Invalid NEP2 length")
+			return Err("Invalid NEP2 length");
 		}
 
 		if nep2_data[0] != NEP2_PREFIX_1
 			|| nep2_data[1] != NEP2_PREFIX_2
 			|| nep2_data[2] != NEP2_FLAGBYTE
 		{
-			return Err("Invalid NEP2 prefix")
+			return Err("Invalid NEP2 prefix");
 		}
 
 		let address_hash = &nep2_data[3..7];
@@ -53,7 +53,7 @@ impl NEP2 {
 			Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
 
 		if new_address_hash != address_hash {
-			return Err("Invalid passphrase")
+			return Err("Invalid passphrase");
 		}
 
 		Ok(private_key.clone())

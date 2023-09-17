@@ -46,7 +46,7 @@ impl SmartContract {
 		params: Vec<Option<ContractParameter>>,
 	) -> Result<Script, ContractError> {
 		if function.is_empty() {
-			return Err(ContractError::InvalidNeoName("Function name cannot be empty".to_string()))
+			return Err(ContractError::InvalidNeoName("Function name cannot be empty".to_string()));
 		}
 
 		let script = ScriptBuilder::new()
@@ -104,7 +104,7 @@ impl SmartContract {
 		signers: Vec<dyn Signer>,
 	) -> Result<NeoInvokeFunction, dyn Error> {
 		if function.is_empty() {
-			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()))
+			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()));
 		}
 
 		NeoRust::instance()

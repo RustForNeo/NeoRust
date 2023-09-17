@@ -44,13 +44,13 @@ pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
 		if self.get_scopes().contains(&WitnessScope::Global) {
 			return Err(NeoError::InvalidConfiguration(
 				"Cannot set contracts for global scope".to_string(),
-			))
+			));
 		}
 
 		if self.get_allowed_contracts().len() + contracts.len()
 			> NeoConstants::MAX_SIGNER_SUBITEMS as usize
 		{
-			return Err(NeoError::InvalidConfiguration("Too many allowed contracts".to_string()))
+			return Err(NeoError::InvalidConfiguration("Too many allowed contracts".to_string()));
 		}
 
 		// Update state
@@ -68,13 +68,13 @@ pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
 		if self.get_scopes().contains(&WitnessScope::Global) {
 			return Err(NeoError::InvalidConfiguration(
 				"Cannot set groups for global scope".to_string(),
-			))
+			));
 		}
 
 		if self.get_allowed_groups().len() + groups.len()
 			> NeoConstants::MAX_SIGNER_SUBITEMS as usize
 		{
-			return Err(NeoError::InvalidConfiguration("Too many allowed groups".to_string()))
+			return Err(NeoError::InvalidConfiguration("Too many allowed groups".to_string()));
 		}
 
 		if !self.get_scopes().contains(&WitnessScope::CustomGroups) {
@@ -91,11 +91,11 @@ pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
 		if self.get_scopes().contains(&WitnessScope::Global) {
 			return Err(NeoError::InvalidConfiguration(
 				"Cannot set rules for global scope".to_string(),
-			))
+			));
 		}
 
 		if self.get_rules().len() + rules.len() > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
-			return Err(NeoError::InvalidConfiguration("Too many rules".to_string()))
+			return Err(NeoError::InvalidConfiguration("Too many rules".to_string()));
 		}
 
 		// Validate nesting depth
@@ -116,7 +116,7 @@ pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
 	fn validate_depth(rule: &WitnessCondition, depth: u8) -> Result<(), NeoError> {
 		// Depth exceeded
 		if depth == 0 {
-			return Err(NeoError::InvalidConfiguration("Max nesting depth exceeded".to_string()))
+			return Err(NeoError::InvalidConfiguration("Max nesting depth exceeded".to_string()));
 		}
 
 		match &rule {
@@ -132,7 +132,7 @@ pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
 	}
 	fn validate_subitems(count: usize, name: &str) -> Result<(), NeoError> {
 		if count > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
-			return Err(NeoError::InvalidData(format!("Too many {} in signer", name)))
+			return Err(NeoError::InvalidData(format!("Too many {} in signer", name)));
 		}
 		Ok(())
 	}

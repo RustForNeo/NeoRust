@@ -34,10 +34,10 @@ pub const MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE: u64 = 86_400_000;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct NeoConfig {
 	pub network_magic: Option<u32>,
-	pub block_interval: u64,
-	pub max_valid_until_block_increment: u64,
-	pub polling_interval: u64,
-	executor: Handle,
+	pub block_interval: u32,
+	pub max_valid_until_block_increment: u32,
+	pub polling_interval: u32,
+	pub executor: Arc<Mutex<Handle>>,
 	pub allows_transmission_on_fault: bool,
 	pub nns_resolver: H160,
 }
@@ -46,11 +46,11 @@ impl Default for NeoConfig {
 	fn default() -> Self {
 		NeoConfig {
 			network_magic: None,
-			block_interval: DEFAULT_BLOCK_TIME,
-			max_valid_until_block_increment: MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE
-				/ DEFAULT_BLOCK_TIME,
-			polling_interval: DEFAULT_BLOCK_TIME,
-			executor: Handle::current(),
+			block_interval: DEFAULT_BLOCK_TIME as u32,
+			max_valid_until_block_increment: (MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE
+				/ DEFAULT_BLOCK_TIME) as u32,
+			polling_interval: DEFAULT_BLOCK_TIME as u32,
+			executor: Arc::new(Mutex::new(tokio::runtime::Handle::current())),
 			allows_transmission_on_fault: false,
 			nns_resolver: H160::from_slice(
 				[
@@ -65,22 +65,38 @@ impl Default for NeoConfig {
 
 impl NeoConfig {
 	// constructor
-	pub fn new() -> Self {
-		Default::default()
+	pub fn new(
+		network_magic: Option<u32>,
+		block_interval: u32,
+		max_valid_until_block_increment: u32,
+		polling_interval: u32,
+		scheduled_executor_service: Arc<Mutex<Handle>>,
+		allows_transmission_on_fault: bool,
+		nns_resolver: [u8; 20],
+	) -> Self {
+		NeoConfig {
+			network_magic,
+			block_interval,
+			max_valid_until_block_increment,
+			polling_interval,
+			executor: scheduled_executor_service,
+			allows_transmission_on_fault,
+			nns_resolver: H160::from_slice(nns_resolver.as_slice()),
+		}
 	}
 
 	// setters
-	pub fn set_polling_interval(&mut self, interval: u64) {
+	pub fn set_polling_interval(&mut self, interval: u32) {
 		self.polling_interval = interval;
 	}
 
-	pub fn set_executor(&mut self, executor: tokio::runtime::Handle) {
+	pub fn set_executor(&mut self, executor: Arc<Mutex<Handle>>) {
 		self.executor = executor;
 	}
 
 	pub fn set_network_magic(&mut self, magic: u32) -> Result<(), &'static str> {
 		if &magic > &(0xFFFFFFFFu32) {
-			return Err("Network magic must fit in 32 bits")
+			return Err("Network magic must fit in 32 bits");
 		}
 
 		self.network_magic = Some(magic);

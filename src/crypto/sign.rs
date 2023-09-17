@@ -55,7 +55,7 @@ impl SignatureData {
 			{
 				if key == key_pair.public_key {
 					rec_id = Some(i);
-					break
+					break;
 				}
 			}
 		}

@@ -8,7 +8,7 @@ pub trait Wif {
 impl Wif for &[u8] {
 	fn to_wif(&self) -> String {
 		if self.len() != 32 {
-			return String::new()
+			return String::new();
 		}
 
 		let mut extended = vec![0x80];
@@ -25,12 +25,12 @@ impl Wif for &[u8] {
 		let data = bs58::decode(s).into_vec().ok()?;
 
 		if &data.len() != 38 || &data[0] != 0x80 || &data[33] != 0x01 {
-			return None
+			return None;
 		}
 
 		let checksum = &Sha256::digest(&Sha256::digest(&data[0..34]))[0..4];
 		if checksum != &data[34..] {
-			return None
+			return None;
 		}
 
 		Some(data[1..33].to_vec())

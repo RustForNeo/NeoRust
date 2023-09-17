@@ -92,8 +92,9 @@ impl WitnessCondition {
 
 	pub fn script_hash(&self) -> Option<&H160> {
 		match self {
-			WitnessCondition::ScriptHash(hash) | WitnessCondition::CalledByContract(hash) =>
-				Some(hash),
+			WitnessCondition::ScriptHash(hash) | WitnessCondition::CalledByContract(hash) => {
+				Some(hash)
+			},
 			_ => None,
 		}
 	}
@@ -118,12 +119,15 @@ impl Serialize for WitnessCondition {
 		match self {
 			WitnessCondition::Boolean(b) => tuple.serialize_element(b),
 			WitnessCondition::Not(exp) => tuple.serialize_element(&exp.serialize(serializer)?),
-			WitnessCondition::And(exps) | WitnessCondition::Or(exps) =>
-				tuple.serialize_element(&exps.serialize(serializer)?),
-			WitnessCondition::ScriptHash(hash) | WitnessCondition::CalledByContract(hash) =>
-				tuple.serialize_element(&hash.serialize(serializer)?),
-			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) =>
-				tuple.serialize_element(&group.serialize(serializer)?),
+			WitnessCondition::And(exps) | WitnessCondition::Or(exps) => {
+				tuple.serialize_element(&exps.serialize(serializer)?)
+			},
+			WitnessCondition::ScriptHash(hash) | WitnessCondition::CalledByContract(hash) => {
+				tuple.serialize_element(&hash.serialize(serializer)?)
+			},
+			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) => {
+				tuple.serialize_element(&group.serialize(serializer)?)
+			},
 			WitnessCondition::CalledByEntry => {},
 		}
 		tuple.end()
@@ -152,10 +156,12 @@ impl<'de> Deserialize<'de> for WitnessCondition {
 					WitnessCondition::Or(exp_vec)
 				}
 			},
-			WitnessCondition::SCRIPT_HASH_VALUE | WitnessCondition::CALLED_BY_CONTRACT_VALUE =>
-				WitnessCondition::ScriptHash(value.unwrap()),
-			WitnessCondition::GROUP_VALUE | WitnessCondition::CALLED_BY_GROUP_VALUE =>
-				WitnessCondition::Group(value.unwrap()),
+			WitnessCondition::SCRIPT_HASH_VALUE | WitnessCondition::CALLED_BY_CONTRACT_VALUE => {
+				WitnessCondition::ScriptHash(value.unwrap())
+			},
+			WitnessCondition::GROUP_VALUE | WitnessCondition::CALLED_BY_GROUP_VALUE => {
+				WitnessCondition::Group(value.unwrap())
+			},
 			WitnessCondition::CALLED_BY_ENTRY_VALUE => WitnessCondition::CalledByEntry,
 			_ => return Err(Error::custom("invalid type")),
 		};

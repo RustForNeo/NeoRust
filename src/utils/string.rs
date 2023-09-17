@@ -1,39 +1,97 @@
-// String.rs
+use bs58;
+use hex::{FromHex, ToHex};
+use sha2::{Digest, Sha256};
 
-use base64::{decode, encode};
-use hex::FromHex;
-use primitive_types::H160;
-trait NeoString {
-	fn to_vec(&self) -> Vec<u8>;
-	fn to_hex(&self) -> String;
-	fn base64_decode(&self) -> Vec<u8>;
-	fn base64_encode(&self) -> String;
+trait StringExt {
+	fn bytes_from_hex(&self) -> Result<Vec<u8>, hex::FromHexError>;
+
+	fn base64_decoded(&self) -> Result<Vec<u8>, base64::DecodeError>;
+
+	fn base64_encoded(&self) -> String;
+
+	fn base58_decoded(&self) -> Option<Vec<u8>>;
+
+	fn base58_check_decoded(&self) -> Option<Vec<u8>>;
+
+	fn base58_encoded(&self) -> String;
+
 	fn var_size(&self) -> usize;
+
+	fn is_valid_address(&self) -> bool;
+
 	fn is_valid_hex(&self) -> bool;
+
+	fn address_to_scripthash(&self) -> Result<Vec<u8>, &'static str>;
+
+	fn reversed_hex(&self) -> String;
 }
 
-impl NeoString for String {
-	fn to_vec(&self) -> Vec<u8> {
-		Vec::from_hex(self).unwrap()
+impl StringExt for String {
+	fn bytes_from_hex(&self) -> Result<Vec<u8>, hex::FromHexError> {
+		hex::decode(self.trim_start_matches("0x"))
 	}
 
-	fn to_hex(&self) -> String {
-		hex::encode(self)
+	fn base64_decoded(&self) -> Result<Vec<u8>, base64::DecodeError> {
+		base64::decode(self)
 	}
 
-	fn base64_decode(&self) -> Vec<u8> {
-		decode(self).unwrap()
+	fn base64_encoded(&self) -> String {
+		base64::encode(self.as_bytes())
 	}
 
-	fn base64_encode(&self) -> String {
-		encode(self)
+	fn base58_decoded(&self) -> Option<Vec<u8>> {
+		bs58::decode(self).into_vec().ok()
+	}
+
+	fn base58_check_decoded(&self) -> Option<Vec<u8>> {
+		bs58::decode(self).into_vec().ok()
+	}
+
+	fn base58_encoded(&self) -> String {
+		bs58::encode(self.as_bytes()).into_string()
 	}
 
 	fn var_size(&self) -> usize {
-		self.len()
+		let bytes = self.as_bytes();
+		match bytes.len() {
+			0...0xFD => 1,
+			0xFD...0xFFFF => 3,
+			0xFFFF...0xFFFFFFFF => 5,
+			_ => 9,
+		}
+	}
+
+	fn is_valid_address(&self) -> bool {
+		if let Some(data) = self.base58_decoded() {
+			if data.len() == 25 && data[0] == 0x17 {
+				let checksum = &Sha256::digest(&Sha256::digest(&data[..21]))[..4];
+				checksum == &data[21..]
+			} else {
+				false
+			}
+		} else {
+			false
+		}
 	}
 
 	fn is_valid_hex(&self) -> bool {
-		self.from_hex().is_ok()
+		self.len() % 2 == 0 && self.chars().all(|c| c.is_ascii_hexdigit())
+	}
+
+	fn address_to_scripthash(&self) -> Result<Vec<u8>, &'static str> {
+		if self.is_valid_address() {
+			let data = self.base58_decoded().ok_or("Invalid address")?;
+			let mut scripthash = data[1..21].to_vec();
+			scripthash.reverse();
+			Ok(scripthash)
+		} else {
+			Err("Not a valid address")
+		}
+	}
+
+	fn reversed_hex(&self) -> String {
+		let mut bytes = self.bytes_from_hex().unwrap();
+		bytes.reverse();
+		ToHex::encode(&bytes)
 	}
 }

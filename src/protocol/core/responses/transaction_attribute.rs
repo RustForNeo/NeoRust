@@ -37,7 +37,7 @@ impl TransactionAttribute {
 			0x01 => Ok(TransactionAttribute::HighPriority),
 			0x11 => {
 				if bytes.len() < 9 {
-					return Err("Not enough bytes for OracleResponse")
+					return Err("Not enough bytes for OracleResponse");
 				}
 				let id = u64::from_be_bytes(
 					[0; 8 - bytes[1..9].len()].concat(bytes[1..9].try_into().unwrap()),
@@ -72,7 +72,7 @@ impl<'de> Deserialize<'de> for TransactionAttribute {
 	where
 		D: Deserializer<'de>,
 	{
-		let bytes = ByteBuf::deserialize(deserializer)?;
+		let bytes = serde::__private::de::Content(deserializer)?;
 		TransactionAttribute::from_bytes(&bytes).map_err(serde::de::Error::custom)
 	}
 }

@@ -1,239 +1,317 @@
+use crate::contract::contract_error::ContractError;
+use crate::contract::nns_name::NNSName;
+use crate::contract::token::Token;
+use crate::protocol::core::neo_trait::NeoTrait;
+use crate::protocol::core::responses::invocation_result::InvocationResult;
+use crate::protocol::core::stack_item::StackItem;
+use crate::protocol::neo_rust::NeoRust;
+use crate::transaction::signer::Signer;
+use crate::types::Bytes;
 use crate::{
-	contract::contract_error::ContractError, transaction::transaction_builder::TransactionBuilder,
+	transaction::transaction_builder::TransactionBuilder,
 	types::contract_parameter::ContractParameter, wallet::account::Account,
 };
-use primitive_types::{H160, H256};
+use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::{
-	collections::{HashMap, HashSet},
-	rc::Rc,
-	sync::Mutex,
-};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NonFungibleToken {
 	script_hash: H160,
-	name: Option<String>,
+	total_supply: Option<u64>,
 	symbol: Option<String>,
-	decimals: u8,
-
-	owner_of_cache: Mutex<HashMap<H256, H160>>,
-	tokens_of_cache: Mutex<HashMap<H160, HashSet<H256>>>,
-
-	on_transfer_handler: Option<Rc<dyn FnMut(H160, H160, H256, ContractParameter) + 'static>>,
-
-	admin: H160,
-	max_supply: Option<u32>,
+	decimals: Option<u8>,
 }
-impl NonFungibleToken {
+impl<T> NonFungibleToken
+where
+	T: Signer,
+{
 	// Constants
 	const OWNER_OF: &'static str = "ownerOf";
 	const TRANSFER: &'static str = "transfer";
 
 	// Methods
+	fn balance_of(&self, owner: H160) -> Result<i32, ContractError> {
+		let result = self.call_function("balanceOf", [owner.into()])?;
 
-	async fn mint(
+		Ok(result.as_int()?)
+	}
+
+	fn tokens_of(&self, owner: H160) -> Result<dyn Iterator<Item = Bytes>, ContractError> {
+		let results = self.call_function("tokensOf", [owner.into()])?;
+
+		let tokens = results.as_array()?.iter().map(|item| Bytes::from(item.as_bytes()?)).collect();
+
+		Ok(tokens.into_iter())
+	}
+
+	fn transfer(
 		&mut self,
-		to: &H160,
-		token_id: &H256,
-	) -> Result<TransactionBuilder, ContractError> {
-		// Enforce max supply if set
-		if let Some(max_supply) = &self.max_supply {
-			let total_supply = self.total_supply().await?;
-			if &total_supply >= max_supply {
-				return Err(ContractError::RuntimeError("Max supply reached".to_string()))
+		from: Account,
+		to: H160,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let params = [to.into(), token_id.into(), data.unwrap_or_default().into()];
+
+		let tx_builder = self.invoke_function("transfer", params)?;
+
+		Ok(tx_builder.signers(from))
+	}
+
+	fn transfer_from_account(
+		&mut self,
+		from: Account,
+		to: H160,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let tx_builder = self.transfer(from, to, token_id, data)?;
+		Ok(tx_builder)
+	}
+
+	fn transfer_to_name(
+		&mut self,
+		to: NNSName,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let to_address = self.resolve_nns_name(&to)?;
+		let tx_builder = self.transfer(from, to_address, token_id, data)?;
+		Ok(tx_builder)
+	}
+
+	fn build_transfer_script(
+		&self,
+		to: H160,
+		token_id: Bytes,
+		data: ContractParameter,
+	) -> Result<Bytes, ContractError> {
+		let script = self
+			.build_invoke_function_script("transfer", [to.into(), token_id.into(), data.into()])?;
+
+		Ok(script)
+	}
+
+	fn owner_of(&self, token_id: Bytes) -> Result<H160, ContractError> {
+		let owner = self.call_function("ownerOf", [token_id.into()])?.as_address()?;
+
+		Ok(H160::from(owner))
+	}
+
+	async fn throw_if_divisible(&mut self) -> Result<(), ContractError> {
+		let decimals = self.get_decimals().await?;
+		if decimals != 0 {
+			return Err(ContractError::InvalidStateError(
+				"This method is only for non-divisible NFTs".to_string(),
+			));
+		}
+		Ok(())
+	}
+
+	fn throw_if_not_owner(&self, from: H160, token_id: Bytes) -> Result<(), ContractError> {
+		let owner = self.owner_of(token_id)?;
+		if from != owner {
+			return Err(ContractError::InvalidArgError(
+				"Provided account is not owner of token".to_string(),
+			));
+		}
+		Ok(())
+	}
+	fn transfer_divisible(
+		&mut self,
+		from: Account,
+		to: H160,
+		amount: i32,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let params = [
+			from.into(),
+			to.into(),
+			amount.into(),
+			token_id.into(),
+			data.unwrap_or_default().into(),
+		];
+
+		let tx = self.invoke_function("transferDivisible", params)?;
+		Ok(tx)
+	}
+
+	fn transfer_divisible_from(
+		&mut self,
+		from: H160,
+		to: H160,
+		amount: i32,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let params = [
+			from.into(),
+			to.into(),
+			amount.into(),
+			token_id.into(),
+			data.unwrap_or_default().into(),
+		];
+
+		let tx = self.invoke_function("transferDivisible", params)?;
+		Ok(tx)
+	}
+
+	fn transfer_divisible_to_name(
+		&mut self,
+		from: H160,
+		to: NNSName,
+		amount: i32,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
+		let to_addr = self.resolve_nns_name(&to)?;
+
+		let params = [
+			from.into(),
+			to_addr.into(),
+			amount.into(),
+			token_id.into(),
+			data.unwrap_or_default().into(),
+		];
+
+		let tx = self.invoke_function("transferDivisible", params)?;
+		Ok(tx)
+	}
+
+	fn build_divisible_transfer_script(
+		&self,
+		from: H160,
+		to: H160,
+		amount: i32,
+		token_id: Bytes,
+		data: Option<ContractParameter>,
+	) -> Result<Bytes, ContractError> {
+		let params = [
+			from.into(),
+			to.into(),
+			amount.into(),
+			token_id.into(),
+			data.unwrap_or_default().into(),
+		];
+
+		let script = self.build_invoke_function_script("transferDivisible", params)?;
+		Ok(script)
+	}
+
+	fn owners_of(&self, token_id: Bytes) -> Result<dyn Iterator<Item = ()>, ContractError> {
+		let results = self.call_function("ownersOf", [token_id.into()])?;
+
+		let owners =
+			results.as_array()?.iter().map(|item| H160::from(item.as_address()?)).collect();
+
+		Ok(owners.into_iter())
+	}
+
+	fn throw_if_not_divisible(&mut self) -> Result<(), ContractError> {
+		let decimals = self.get_decimals()?;
+		if decimals == 0 {
+			return Err(ContractError::InvalidStateError(
+				"This method is only for divisible NFTs".to_string(),
+			));
+		}
+		Ok(())
+	}
+
+	fn balance_of_divisible(&self, owner: H160, token_id: Bytes) -> Result<i32, ContractError> {
+		let balance = self
+			.call_function("balanceOfDivisible", [owner.into(), token_id.into()])?
+			.as_int()?;
+		Ok(balance)
+	}
+
+	fn tokens(&self) -> Result<dyn Iterator<Item = Bytes>, ContractError> {
+		let results = self.call_function("tokens", [])?;
+		let tokens = results.as_array()?.iter().map(|item| Bytes::from(item.as_bytes()?)).collect();
+		Ok(tokens.into_iter())
+	}
+
+	fn properties(&self, token_id: Bytes) -> Result<HashMap<String, String>, ContractError> {
+		let result = self.call_function("properties", [token_id.into()])?.as_map()?;
+
+		let mut map = HashMap::new();
+		for (key, value) in result {
+			map.insert(key.as_string()?, value.as_string()?);
+		}
+
+		Ok(map)
+	}
+
+	fn custom_properties(
+		&self,
+		token_id: Bytes,
+	) -> Result<HashMap<String, StackItem>, ContractError> {
+		let result = NeoRust::instance().invoke_function(
+			&self.script_hash,
+			"customProperties".to_string(),
+			vec![token_id],
+		);
+
+		let mut map = HashMap::new();
+		if let StackItem::Map(items) = result {
+			for item in items {
+				if let StackItem::Array(key) = item.key {
+					map.insert(key.to_hex(), item.value);
+				}
 			}
 		}
 
-		// Build transaction
-		let tx = self.invoke_function("mint", vec![to.into(), token_id.into()])?;
-
-		// Update caches
-		self.owner_of_cache.lock().insert(*token_id, *to);
-		self.tokens_of_cache.lock().entry(*to).or_default().insert(*token_id);
-
-		Ok(tx)
+		Ok(map)
 	}
 
-	async fn name(&mut self) -> Result<String, ContractError> {
-		if let Some(name) = &self.name {
-			return Ok(name.clone())
-		}
-
-		let name = self.call_contract_method("name").await?;
-		self.name = Some(name.clone());
-		Ok(name)
-	}
-
-	async fn symbol(&mut self) -> Result<String, ContractError> {
-		if let Some(symbol) = &self.symbol {
-			return Ok(symbol.clone())
-		}
-
-		let symbol = self.call_contract_method("symbol").await?;
-		self.symbol = Some(symbol.clone());
-		Ok(symbol)
-	}
-
-	async fn decimals(&self) -> Result<u8, ContractError> {
-		Ok(self.clone().decimals)
-	}
-
-	async fn total_supply(&self) -> Result<u32, ContractError> {
-		self.call_contract_method("totalSupply").await
-	}
-
-	async fn owner_of(&self, token_id: &H256) -> Result<H160, ContractError> {
-		if let Some(owner) = self.owner_of_cache.lock().get(token_id) {
-			return Ok(owner.clone())
-		}
-
-		let owner = self.call_contract_method("ownerOf", vec![token_id.into()]).await?;
-		self.owner_of_cache.lock().insert(*token_id, owner.clone());
-		Ok(owner)
-	}
-
-	// pub async fn owner_of(&self, token_id: Vec<u8>) -> Result<H160, ContractError> {
-	//     self.throw_if_divisible().await?;
-	//
-	//     let owner_addr = self
-	//         .call_function_returning_address(Self::OWNER_OF, vec![token_id.into()])
-	//         .await?;
-	//
-	//     H160::from_address(&owner_addr)
-	// }
-
-	async fn balance_of(&self, owner: &H160) -> Result<u32, ContractError> {
-		let tokens = self.tokens_of(owner).await?;
-		Ok(tokens.len() as u32)
-	}
-
-	async fn tokens_of(&self, owner: &H160) -> Result<Vec<H256>, ContractError> {
-		if let Some(tokens) = self.tokens_of_cache.lock().get(owner) {
-			return Ok(tokens.iter().cloned().collect())
-		}
-
-		let tokens = self
-			.call_contract_method("tokensOf", vec![owner.into()])
-			.await?
-			.to_array()?
-			.iter()
-			.map(|token| token.as_bytes().to_vec().into())
-			.collect();
-
-		self.tokens_of_cache.lock().insert(*owner, tokens.clone());
-
-		Ok(tokens)
-	}
-
-	pub async fn transfer(
+	fn map_stack_item(
 		&self,
-		from: &Account,
-		to: &H160,
-		token_id: Vec<u8>,
-		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer(to, token_id, data).await?.signer(from.to_signer())
-	}
+		invocation_result: InvocationResult,
+	) -> Result<StackItem, ContractError> {
+		let stack_item = invocation_result.get_first_stack_item()?;
 
-	pub async fn transfer(
-		&self,
-		to: &H160,
-		token_id: Vec<u8>,
-		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
-		self.throw_if_divisible().await?;
-
-		self.invoke_function(
-			Self::TRANSFER,
-			vec![to.to_stack_item(), token_id.into(), data.unwrap_or_default().into()],
-		)
-	}
-
-	async fn transfer(
-		&mut self,
-		from: &H160,
-		to: &H160,
-		token_id: &H256,
-	) -> Result<TransactionBuilder, ContractError> {
-		// Verify from owns token
-		assert_eq!(self.owner_of(token_id).await?, *from, "Not owner");
-
-		// Build transaction
-		let tx = self.invoke_function("transfer", vec![from.into(), to.into(), token_id.into()])?;
-
-		// Update caches
-		self.owner_of_cache.lock().insert(*token_id, *to);
-		self.tokens_of_cache.lock().entry(*from).and_modify(|tokens| {
-			tokens.remove(token_id);
-		});
-		self.tokens_of_cache.lock().entry(*to).or_default().insert(*token_id);
-
-		// Call handler
-		if let Some(handler) = &self.on_transfer_handler {
-			handler(from.clone(), to.clone(), token_id.clone(), None);
-		}
-
-		Ok(tx)
-	}
-	async fn throw_if_divisible(&self) -> Result<(), ContractError> {
-		if self.get_decimals().await? != 0 {
-			Err(ContractError::InvalidArgError("Divisible NFT".to_string()))
+		if let StackItem::Map = stack_item {
+			Ok(stack_item.clone())
 		} else {
-			Ok(())
+			Err(ContractError::UnexpectedReturnType(
+				stack_item.to_string(),
+				Some(vec![StackItem::Map.to_string()]),
+			))
 		}
-	}
-
-	// Other methods
-
-	pub async fn tokens_of(&self, owner: &H160) -> Result<Iterator<Vec<u8>>, ContractError> {
-		self.call_function_returning_iterator(
-			Self::TOKENS_OF,
-			vec![owner.to_stack_item()],
-			|item| item.as_bytes(),
-		)
-		.await
-	}
-
-	pub async fn properties(
-		&self,
-		token_id: Vec<u8>,
-	) -> Result<HashMap<String, String>, ContractError> {
-		let result = self
-			.call_invoke_function(Self::PROPERTIES, vec![token_id.into()])
-			.await?
-			.get_result();
-
-		let map = result.to_map()?;
-		let props = map
-			.iter()
-			.filter_map(|(k, v)| v.as_str().map(|v| (k.clone(), v.to_owned())))
-			.collect();
-
-		Ok(props)
 	}
 }
 
 impl Token for NonFungibleToken {
-	fn new(script_hash: H160) -> Self {
-		Self {
-			script_hash,
-			name: None,
-			symbol: None,
-			decimals: 0,
-
-			owner_of_cache: Default::default(),
-			tokens_of_cache: Default::default(),
-
-			on_transfer_handler: None,
-
-			admin: script_hash, // Admin is deployer by default
-			max_supply: None,
-		}
+	fn script_hash(&self) -> H160 {
+		self.script_hash
 	}
 
-	async fn balance_of(&self, owner: &H160) -> Result<i32, ContractError> {
-		self.call_function_returning_int(Self::BALANCE_OF, vec![owner.to_stack_item()])
-			.await
+	fn set_script_hash(&mut self, script_hash: H160) {
+		self.script_hash = script_hash;
+	}
+
+	fn total_supply(&self) -> Option<u64> {
+		self.total_supply
+	}
+
+	fn set_total_supply(&mut self, total_supply: u64) {
+		self.total_supply = Some(total_supply);
+	}
+
+	fn decimals(&self) -> Option<u8> {
+		self.decimals
+	}
+
+	fn set_decimals(&mut self, decimals: u8) {
+		self.decimals = Some(decimals);
+	}
+
+	fn symbol(&self) -> Option<String> {
+		self.symbol.clone()
+	}
+
+	fn set_symbol(&mut self, symbol: String) {
+		self.symbol = Some(symbol);
 	}
 }

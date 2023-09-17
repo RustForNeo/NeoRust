@@ -22,8 +22,9 @@ impl std::fmt::Display for TransactionError {
 		match self {
 			TransactionError::ScriptFormat(msg) => write!(f, "Script format error: {}", msg),
 
-			TransactionError::SignerConfiguration(msg) =>
-				write!(f, "Signer configuration error: {}", msg),
+			TransactionError::SignerConfiguration(msg) => {
+				write!(f, "Signer configuration error: {}", msg)
+			},
 			TransactionError::InvalidNonce => write!(f, "Invalid nonce"),
 			TransactionError::InvalidBlock => write!(f, "Invalid block"),
 			TransactionError::InvalidTransaction => write!(f, "Invalid transaction"),
@@ -34,8 +35,9 @@ impl std::fmt::Display for TransactionError {
 			TransactionError::EmptyScript => write!(f, "Empty script"),
 			TransactionError::InvalidSender => write!(f, "Invalid sender"),
 			TransactionError::TxTooLarge => write!(f, "Transaction too large"),
-			TransactionError::TransactionConfiguration(msg) =>
-				write!(f, "Transaction configuration error: {}", msg),
+			TransactionError::TransactionConfiguration(msg) => {
+				write!(f, "Transaction configuration error: {}", msg)
+			},
 		}
 	}
 }

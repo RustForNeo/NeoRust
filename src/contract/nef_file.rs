@@ -48,7 +48,7 @@ impl NefFile {
 	fn read_from_file(file: &str) -> Result<Self, ContractError> {
 		let file_bytes = std::fs::read(file)?;
 		if file_bytes.len() > 0x100000 {
-			return Err(ContractError::InvalidArgError("NEF file is too large".to_string()))
+			return Err(ContractError::InvalidArgError("NEF file is too large".to_string()));
 		}
 
 		let mut reader = BinaryReader::new(&file_bytes);
@@ -85,7 +85,7 @@ impl NefFile {
 	fn deserialize(reader: &mut BinaryReader) -> Result<Self, ContractError> {
 		let magic = reader.read_u32();
 		if magic != MAGIC {
-			return Err(ContractError::InvalidArgError("Invalid magic number".to_string()))
+			return Err(ContractError::InvalidArgError("Invalid magic number".to_string()));
 		}
 
 		let compiler_bytes = reader.read_bytes(COMPILER_SIZE)?;
@@ -96,11 +96,13 @@ impl NefFile {
 			return Err(ContractError::InvalidArgError(format!(
 				"Source URL too long. Max {} bytes",
 				MAX_SOURCE_URL_SIZE
-			)))
+			)));
 		}
 
 		if reader.read_u8()? != 0 {
-			return Err(ContractError::InvalidArgError("Expected reserved byte to be 0".to_string()))
+			return Err(ContractError::InvalidArgError(
+				"Expected reserved byte to be 0".to_string(),
+			));
 		}
 
 		let method_tokens = reader.read_serializable_list()?;
@@ -108,12 +110,12 @@ impl NefFile {
 		if reader.read_u16()? != 0 {
 			return Err(ContractError::InvalidArgError(
 				"Expected reserved bytes to be 0".to_string(),
-			))
+			));
 		}
 
 		let script = reader.read_var_bytes()?;
 		if script.is_empty() {
-			return Err(ContractError::InvalidArgError("Script cannot be empty".to_string()))
+			return Err(ContractError::InvalidArgError("Script cannot be empty".to_string()));
 		}
 
 		let mut nef = NefFile {
@@ -128,7 +130,7 @@ impl NefFile {
 
 		let checksum = reader.read_bytes(CHECKSUM_SIZE)?;
 		if nef.checksum != checksum {
-			return Err(ContractError::InvalidArgError("Invalid checksum".to_string()))
+			return Err(ContractError::InvalidArgError("Invalid checksum".to_string()));
 		}
 		Ok(nef)
 	}
@@ -185,31 +187,31 @@ impl<'de> Deserialize<'de> for NefFile {
 					match key {
 						Field::Compiler => {
 							if compiler.is_some() {
-								return Err(de::Error::duplicate_field("compiler"))
+								return Err(de::Error::duplicate_field("compiler"));
 							}
 							compiler = Some(map.next_value()?);
 						},
 						Field::SourceUrl => {
 							if !source_url.is_empty() {
-								return Err(de::Error::duplicate_field("source_url"))
+								return Err(de::Error::duplicate_field("source_url"));
 							}
 							source_url = map.next_value()?;
 						},
 						Field::MethodTokens => {
 							if !method_tokens.is_empty() {
-								return Err(de::Error::duplicate_field("method_tokens"))
+								return Err(de::Error::duplicate_field("method_tokens"));
 							}
 							method_tokens = map.next_value()?;
 						},
 						Field::Script => {
 							if !script.is_empty() {
-								return Err(de::Error::duplicate_field("script"))
+								return Err(de::Error::duplicate_field("script"));
 							}
 							script = map.next_value()?;
 						},
 						Field::Checksum => {
 							if !checksum.is_empty() {
-								return Err(de::Error::duplicate_field("checksum"))
+								return Err(de::Error::duplicate_field("checksum"));
 							}
 							checksum = map.next_value()?;
 						},

@@ -3,7 +3,6 @@ use crate::{
 	protocol::core::responses::{
 		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
-	utils::bytes::BytesExtern,
 };
 use base64::{engine::general_purpose, Engine};
 use crypto::{
@@ -60,7 +59,7 @@ impl H160Externsion for H160 {
 
 	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
 		if slice.len() != 20 {
-			return Err("Invalid length")
+			return Err("Invalid length");
 		}
 
 		let mut arr = [0u8; 20];
@@ -145,7 +144,7 @@ impl PublicKeyExtension for PublicKey {
 
 	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
 		if slice.len() != 64 {
-			return Err("Invalid length")
+			return Err("Invalid length");
 		}
 
 		let mut arr = [0u8; 64];
@@ -178,7 +177,7 @@ impl PrivateKeyExtension for PrivateKey {
 
 	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
 		if slice.len() != 32 {
-			return Err("Invalid length")
+			return Err("Invalid length");
 		}
 
 		let mut arr = [0u8; 32];
@@ -194,6 +193,12 @@ impl PrivateKeyExtension for PrivateKey {
 
 pub trait ValueExtension {
 	fn to_value(&self) -> Value;
+}
+
+impl ValueExtension for Bytes {
+	fn to_value(&self) -> Value {
+		Value::String(self.to_hex())
+	}
 }
 
 impl ValueExtension for String {
