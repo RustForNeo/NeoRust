@@ -1,96 +1,93 @@
-use serde::{Deserialize, Serialize};
 use crate::contract::contract_error::ContractError;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NNSName {
-    name: String,
+	name: String,
 }
 
 impl NNSName {
+	pub fn new(name: &str) -> Result<Self, ContractError> {
+		Self::validate(name, true)?;
+		Ok(Self { name: name.to_owned() })
+	}
 
-    pub fn new(name: &str) -> Result<Self, ContractError> {
-        Self::validate(name, true)?;
-        Ok(Self { name: name.to_owned() })
-    }
+	pub fn is_valid(name: &str, allow_multi_fragments: bool) -> Result<(), ContractError> {
+		if name.len() < 3 || name.len() > 255 {
+			return Err(ContractError::InvalidNeoName("Invalid name length".to_string()))
+		}
 
-    pub fn is_valid(name: &str, allow_multi_fragments: bool) -> Result<(), ContractError> {
-        if name.len() < 3 || name.len() > 255 {
-            return Err(ContractError::InvalidNeoName("Invalid name length".to_string()));
-        }
+		let fragments: Vec<&str> = name.split('.').collect();
+		if fragments.len() < 2 || fragments.len() > 8 {
+			return Err(ContractError::InvalidNeoName("Invalid fragment count".to_string()))
+		}
 
-        let fragments: Vec<&str> = name.split('.').collect();
-        if fragments.len() < 2 || fragments.len() > 8 {
-            return Err(ContractError::InvalidNeoName("Invalid fragment count".to_string()));
-        }
+		if fragments.len() > 2 && !allow_multi_fragments {
+			return Err(ContractError::InvalidNeoName("Multiple fragments not allowed".to_string()))
+		}
 
-        if fragments.len() > 2 && !allow_multi_fragments {
-            return Err(ContractError::InvalidNeoName("Multiple fragments not allowed".to_string()));
-        }
+		for fragment in &fragments {
+			Self::validate_fragment(fragment, fragment == fragments.last().unwrap())?;
+		}
 
-        for fragment in &fragments {
-            Self::validate_fragment(fragment, fragment == fragments.last().unwrap())?;
-        }
+		Ok(())
+	}
 
-        Ok(())
-    }
+	fn validate_fragment(fragment: &str, is_root: bool) -> Result<(), ContractError> {
+		let max_len = if is_root { 16 } else { 63 };
+		if fragment.is_empty() || fragment.len() > max_len {
+			return Err(ContractError::InvalidNeoName("Invalid fragment length".to_string()))
+		}
 
-    fn validate_fragment(fragment: &str, is_root: bool) -> Result<(), ContractError> {
-        let max_len = if is_root { 16 } else { 63 };
-        if fragment.is_empty() || fragment.len() > max_len {
-            return Err(ContractError::InvalidNeoName("Invalid fragment length".to_string()));
-        }
+		let first = fragment.chars().next().unwrap();
+		if &is_root && !&first.is_ascii_alphabetic() {
+			return Err(ContractError::InvalidNeoName("Root must start with letter".to_string()))
+		} else if !&is_root && &!(&first.is_ascii_alphanumeric() || &(first == '-'.into())) {
+			return Err(ContractError::InvalidNeoName("Invalid start character".to_string()))
+		}
 
-        let first = fragment.chars().next().unwrap();
-        if &is_root && !&first.is_ascii_alphabetic() {
-            return Err(ContractError::InvalidNeoName("Root must start with letter".to_string()));
-        } else if !&is_root && &!(&first.is_ascii_alphanumeric() || &(first == '-'.into())) {
-            return Err(ContractError::InvalidNeoName("Invalid start character".to_string()));
-        }
+		if fragment.len() == 1 {
+			return Ok(())
+		}
 
-        if fragment.len() == 1 {
-            return Ok(());
-        }
+		if fragment[1..].chars().any(|c| !(c.is_ascii_alphanumeric() || c.into() == '-')) {
+			return Err(ContractError::InvalidNeoName("Invalid character in fragment".to_string()))
+		}
 
-        if fragment[1..].chars().any(|c| !(c.is_ascii_alphanumeric() || c.into() == '-')) {
-            return Err(ContractError::InvalidNeoName("Invalid character in fragment".to_string()));
-        }
+		let last = fragment.chars().last().unwrap();
+		if !(last.is_ascii_alphanumeric()) {
+			return Err(ContractError::InvalidNeoName("Must end with alphanumeric".to_string()))
+		}
 
-        let last = fragment.chars().last().unwrap();
-        if !(last.is_ascii_alphanumeric()) {
-            return Err(ContractError::InvalidNeoName("Must end with alphanumeric".to_string()));
-        }
+		Ok(())
+	}
 
-        Ok(())
-    }
+	pub fn validate(name: &str, allow_multi_fragments: bool) -> Result<(), ContractError> {
+		Self::is_valid(name, allow_multi_fragments)?;
+		Ok(())
+	}
 
-    pub fn validate(name: &str, allow_multi_fragments: bool) -> Result<(), ContractError> {
-        Self::is_valid(name, allow_multi_fragments)?;
-        Ok(())
-    }
+	pub fn bytes(&self) -> Vec<u8> {
+		self.name.as_bytes().to_vec()
+	}
 
-    pub fn bytes(&self) -> Vec<u8> {
-        self.name.as_bytes().to_vec()
-    }
-
-    pub fn is_second_level_domain(&self) -> bool {
-        Self::is_valid(&self.name, false).is_ok()
-    }
-
+	pub fn is_second_level_domain(&self) -> bool {
+		Self::is_valid(&self.name, false).is_ok()
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NNSRoot {
-    root: String,
+	root: String,
 }
 
 impl NNSRoot {
-    pub fn new(root: &str) -> Result<Self, ContractError> {
-        Self::validate(root)?;
-        Ok(Self { root: root.to_owned() })
-    }
+	pub fn new(root: &str) -> Result<Self, ContractError> {
+		Self::validate(root)?;
+		Ok(Self { root: root.to_owned() })
+	}
 
-    fn validate(root: &str) -> Result<(), ContractError> {
-        NNSName::validate_fragment(root, true)
-    }
-
+	fn validate(root: &str) -> Result<(), ContractError> {
+		NNSName::validate_fragment(root, true)
+	}
 }

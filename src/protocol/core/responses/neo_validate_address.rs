@@ -1,21 +1,18 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoValidateAddress {
-    pub validation: Option<Result>,
+	pub validation: Option<ValidateAddress>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Result {
-    pub address: String,
-    pub is_valid: bool,
+pub struct ValidateAddress {
+	pub address: String,
+	pub is_valid: bool,
 }
 
-impl Result {
-    pub fn new(address: String, is_valid: bool) -> Self {
-        Self {
-            address,
-            is_valid,
-        }
-    }
+impl ValidateAddress {
+	pub fn new(address: String, is_valid: bool) -> Self {
+		Self { address, is_valid }
+	}
 }
