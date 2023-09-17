@@ -8,8 +8,8 @@ use std::{
 
 lazy_static! {
 	static ref INTEROP_SERVICE_HASHES: Arc<Mutex<HashMap<String, String>>> =
-		{ Arc::new(Mutex::new(HashMap::new())) };
-};
+		Arc::new(Mutex::new(HashMap::new()));
+}
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum InteropService {

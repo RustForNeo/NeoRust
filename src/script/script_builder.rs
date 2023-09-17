@@ -166,9 +166,7 @@ impl ScriptBuilder {
 				self.writer.write_u32(data.len() as u32);
 				let _ = self.writer.write(&data);
 			},
-			_ => {
-				return Err(NeoError::IllegalArgument("Data too long".to_string()))
-			},
+			_ => return Err(NeoError::IllegalArgument("Data too long".to_string())),
 		}
 		Ok(self)
 	}

@@ -157,9 +157,7 @@ impl<'de> Deserialize<'de> for WitnessCondition {
 			WitnessCondition::GROUP_VALUE | WitnessCondition::CALLED_BY_GROUP_VALUE =>
 				WitnessCondition::Group(value.unwrap()),
 			WitnessCondition::CALLED_BY_ENTRY_VALUE => WitnessCondition::CalledByEntry,
-			_ => {
-				return Err(Error::custom("invalid type"))
-			},
+			_ => return Err(Error::custom("invalid type")),
 		};
 
 		Ok(condition)

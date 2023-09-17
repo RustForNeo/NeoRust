@@ -94,12 +94,15 @@ impl<T> SerializableTransaction<T> {
 	}
 	// Serialization
 
-	pub fn serialize(&self) -> Bytes {
+	pub async fn serialize(&self) -> Bytes {
 		let mut writer = Bytes::new();
 
-		writer.write_u8(self.version);
-		writer.write_u32(self.nonce);
-		writer.write_u32(self.valid_until_block);
+		writer.write_u8(self.version).await.expect("Failed to write version");
+		writer.write_u32(self.nonce).await.expect("Failed to write nonce");
+		writer
+			.write_u32(self.valid_until_block)
+			.await
+			.expect("Failed to write valid_until_block");
 
 		// Write signers
 		let signers_len = self.signers.len() as u32;
