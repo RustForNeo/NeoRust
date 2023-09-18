@@ -1,3 +1,4 @@
+use crate::crypto::key_pair::KeyPair;
 use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode},
@@ -9,7 +10,9 @@ use crate::{
 	},
 };
 use futures::AsyncWriteExt;
+use p256::elliptic_curve::sec1::ToEncodedPoint;
 use p256::pkcs8::der::Encode;
+use p256::PublicKey;
 use primitive_types::H160;
 use std::{collections::HashMap, error::Error};
 
@@ -37,7 +40,7 @@ impl ScriptBuilder {
 
 	pub fn contract_call(
 		&mut self,
-		hash160: H160,
+		hash160: &H160,
 		method: &str,
 		params: &[Option<ContractParameter>],
 		call_flags: CallFlags,
@@ -119,7 +122,7 @@ impl ScriptBuilder {
 			self.op_code(&[OpCode::from_u8(OpCode::Push0.into() + n as u8).unwrap()]);
 		} else {
 			let mut bytes = n.to_be_bytes();
-			match bytes.len() {
+			match self.writer.size() {
 				1 => self.op_code_with_arg(OpCode::PushInt8, bytes.to_vec().unwrap()),
 				2 => self.op_code_with_arg(OpCode::PushInt16, bytes.to_vec().unwrap()),
 				4 => self.op_code_with_arg(OpCode::PushInt32, bytes.to_vec().unwrap()),
@@ -132,15 +135,15 @@ impl ScriptBuilder {
 		Ok(self)
 	}
 
-	fn pad_number(n: i128, size: usize) -> Bytes {
+	fn pad_number(&self, n: i128, size: usize) -> Bytes {
 		let mut bytes = n.to_signed_bytes();
-		if bytes.len() == size {
+		if self.writer.size() == size {
 			return bytes;
 		}
 		let pad_byte = if n.is_negative() { 0xff } else { 0 };
 		if n.is_negative() {
 			let mut padding =
-				Bytes::from_iter(std::iter::repeat(pad_byte).take(size - bytes.len()));
+				Bytes::from_iter(std::iter::repeat(pad_byte).take(size - &self.writer.size()));
 			padding.append(&mut bytes);
 			padding
 		} else {
@@ -223,11 +226,89 @@ impl ScriptBuilder {
 		self.writer.into_bytes()
 	}
 
-	pub fn build_verification_script(pub_key: Bytes) -> Bytes {
-		ScriptBuilder::new()
-			.push_data(pub_key)?
-			.sys_call(InteropService::SystemCryptoCheckSig)
-			.to_bytes()
+	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {
+		let mut sb = ScriptBuilder::new();
+		sb.push_data(pub_key.to_encoded_point(false).as_bytes().to_vec())?
+			.sys_call(InteropService::SystemCryptoCheckSig);
+		sb.to_bytes()
+	}
+
+	pub fn build_multisig_script(pubkeys: &[KeyPair], threshold: u8) -> Result<Bytes, NeoError> {
+		let mut sb = ScriptBuilder::new();
+		sb.push_int(threshold as i64)?;
+		for pk in pubkeys
+			.iter()
+			.sorted_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)))
+		{
+			sb.push_data(pk.to_encoded_point(true))?;
+		}
+		sb.push_int(pubkeys.len() as i64)?;
+		sb.sys_call(InteropService::SystemCryptoCheckMultisig);
+		Ok(sb.to_bytes())
+	}
+
+	pub fn build_contract_script(
+		sender: &H160,
+		nef_checksum: u32,
+		name: &str,
+	) -> Result<Bytes, NeoError> {
+		let mut sb = ScriptBuilder::new();
+		sb.op_code(&[OpCode::Abort])?
+			.push_data(sender.to_array()?.as_slice())?
+			.push_int(nef_checksum as i64)?
+			.push_data(name.as_bytes())?;
+		Ok(sb.to_bytes())
+	}
+	pub fn build_contract_call_and_unwrap_iterator(
+		contract_hash: &H160,
+		method: &str,
+		params: &[Option<ContractParameter>],
+		max_items: u32,
+		call_flags: CallFlags,
+	) -> Result<Bytes, NeoError> {
+		let mut sb = Self::new();
+		sb.push_int(max_items as i64)?;
+
+		sb.contract_call(contract_hash, method, params, call_flags)?;
+
+		sb.op_code(&[OpCode::NewArray])?;
+
+		let cycle_start = sb.writer.size();
+		sb.op_code(&[OpCode::Over])?;
+		sb.sys_call(InteropService::SystemIteratorNext)?;
+
+		let jmp_if_not = sb.writer.size();
+		sb.op_code_arg(OpCode::JmpIf, &[0])?;
+
+		sb.op_code(&[OpCode::Dup, OpCode::Push2, OpCode::Pick])
+			.sys_call(InteropService::SystemIteratorValue)
+			.op_code(&[
+				OpCode::Append,
+				OpCode::Dup,
+				OpCode::Size,
+				OpCode::Push3,
+				OpCode::Pick,
+				OpCode::Ge,
+			])?;
+
+		let jmp_if_max = sb.writer.size();
+		sb.op_code_arg(OpCode::JmpIf, &[0])?;
+
+		let jmp_offset = sb.writer.size();
+		let jmp_bytes = (cycle_start - jmp_offset) as i8;
+		sb.op_code_arg(OpCode::Jmp, &[jmp_bytes])?;
+
+		let load_result = sb.writer.size();
+		sb.op_code(&[OpCode::Nip, OpCode::Nip])?;
+
+		let mut script = sb.to_bytes();
+		let jmp_not_bytes = (load_result - jmp_if_not) as i8;
+		script[jmp_if_not + 1] = jmp_not_bytes as u8;
+
+		let jmp_max_bytes = (load_result - jmp_if_max) as i8;
+		script[jmp_if_max + 1] = jmp_max_bytes as u8;
+
+		Ok(script)
 	}
 
 	// Other static helper methods

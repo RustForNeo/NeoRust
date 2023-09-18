@@ -11,6 +11,10 @@ impl BinaryWriter {
 		Self { data: Vec::new() }
 	}
 
+	pub fn size(&self) -> usize {
+		self.data.len()
+	}
+
 	pub fn write_u8(&mut self, value: u8) {
 		self.data.push(value);
 	}

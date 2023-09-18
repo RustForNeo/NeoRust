@@ -10,7 +10,7 @@ pub struct Wallet {
 	version: String,
 	scrypt_params: ScryptParams,
 
-	accounts: HashMap<H160, Account>,
+	pub(crate) accounts: HashMap<H160, Account>,
 	default_account: H160,
 }
 

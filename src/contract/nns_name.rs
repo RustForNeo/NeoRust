@@ -23,7 +23,9 @@ impl NNSName {
 		}
 
 		if fragments.len() > 2 && !allow_multi_fragments {
-			return Err(ContractError::InvalidNeoName("Multiple fragments not allowed".to_string()));
+			return Err(ContractError::InvalidNeoName(
+				"Multiple fragments not allowed".to_string(),
+			));
 		}
 
 		for fragment in &fragments {

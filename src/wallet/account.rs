@@ -1,11 +1,10 @@
+use crate::protocol::core::neo_trait::NeoTrait;
+use crate::types::PrivateKey;
 use crate::{
 	crypto::{key_pair::KeyPair, nep2::NEP2},
 	protocol::neo_rust::NeoRust,
 	script::verification_script::VerificationScript,
-	types::{
-		contract_parameter_type::ContractParameterType, Address, ECPrivateKey, ECPublicKey,
-		H160Externsion,
-	},
+	types::{contract_parameter_type::ContractParameterType, Address, H160Externsion},
 	wallet::{
 		nep6account::NEP6Account,
 		nep6contract::{NEP6Contract, NEP6Parameter},
@@ -13,10 +12,12 @@ use crate::{
 		wallet_error::WalletError,
 	},
 };
-use p256::ecdsa::SigningKey;
+use p256::PublicKey;
 use primitive_types::H160;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct Account {
 	pub(crate) key_pair: Option<KeyPair>,
 	address: Address,
@@ -96,7 +97,7 @@ impl Account {
 	}
 
 	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
-		let private_key = SigningKey::from_private_key_wif(wif)?;
+		let private_key = PrivateKey::from_private_key_wif(wif)?;
 		let key_pair = KeyPair::from_private_key(private_key)?;
 		Self::from_key_pair(key_pair, None, None)
 	}
@@ -191,8 +192,8 @@ impl Account {
 			.ok_or_else(|| WalletError::AccountState("Account is not multisig".to_string()))
 	}
 
-	pub fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
-		let balances = NeoRust::instance().get_nep17_balances(self.get_script_hash()?)?;
+	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
+		let balances = NeoRust::instance().get_nep17_balances(self.get_script_hash()?).await;
 		let mut nep17_balances = HashMap::new();
 		for balance in balances {
 			nep17_balances.insert(balance.asset_hash, balance.amount.to_i32()?);
@@ -268,7 +269,7 @@ impl Account {
 		})
 	}
 
-	pub fn from_public_key(public_key: &ECPublicKey) -> Result<Self, WalletError> {
+	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
 		let script = VerificationScript::from_public_key(public_key)?;
 		let address = H160::from_script(&script.to_bytes()?).to_address();
 
@@ -281,7 +282,7 @@ impl Account {
 	}
 
 	pub fn create_multisig(
-		public_keys: &[ECPublicKey],
+		public_keys: &[PublicKey],
 		signing_threshold: i32,
 	) -> Result<Self, WalletError> {
 		let script = VerificationScript::multisig(public_keys, signing_threshold)?;

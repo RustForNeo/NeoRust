@@ -1,3 +1,4 @@
+use crate::types::PrivateKey;
 use crate::{
 	crypto::wif::Wif, neo_error::NeoError, script::script_builder::ScriptBuilder,
 	types::H160Externsion,
@@ -5,8 +6,7 @@ use crate::{
 use p256::{
 	ecdsa::{signature::SignerMut, Signature},
 	elliptic_curve::sec1::ToEncodedPoint,
-	pkcs8::der::Encode,
-	PublicKey, SecretKey,
+	PublicKey,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -15,22 +15,22 @@ use std::{error::Error, hash::Hash};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyPair {
-	pub private_key: SecretKey,
+	pub private_key: PrivateKey,
 	pub public_key: PublicKey,
 }
 
 impl KeyPair {
-	pub fn new(private_key: SecretKey, public_key: PublicKey) -> Self {
+	pub fn new(private_key: PrivateKey, public_key: PublicKey) -> Self {
 		Self { private_key, public_key }
 	}
-	pub fn from_private_key(private_key: SecretKey) -> Self {
+	pub fn from_private_key(private_key: PrivateKey) -> Self {
 		let public_key = p256::PublicKey::from_secret_key(&private_key);
 		Self { private_key, public_key }
 	}
 
 	pub fn generate() -> Self {
 		let mut rng = rand::thread_rng();
-		let private_key = SecretKey::random(&mut rng);
+		let private_key = PrivateKey::random(&mut rng);
 		Self::from_private_key(private_key)
 	}
 
@@ -42,7 +42,7 @@ impl KeyPair {
 
 	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
 		let public_key = self.public_key.to_encoded_point(true);
-		let script = ScriptBuilder::build_verification_script(public_key.to_vec().unwrap())?;
+		let script = ScriptBuilder::build_verification_script(&public_key)?;
 		Ok(H160::from_script(&script)?)
 	}
 

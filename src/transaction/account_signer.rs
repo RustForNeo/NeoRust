@@ -3,9 +3,10 @@ use crate::{
 	transaction::{
 		signer::Signer, transaction_error::TransactionError, witness_scope::WitnessScope,
 	},
-	types::{ECPublicKey, H160Externsion},
+	types::H160Externsion,
 	wallet::account::Account,
 };
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -14,9 +15,9 @@ pub struct AccountSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
 	allowed_contracts: Vec<H160>,
-	allowed_groups: Vec<ECPublicKey>,
+	allowed_groups: Vec<PublicKey>,
 	rules: Vec<WitnessRule>,
-	pub(crate) account: Account,
+	pub account: Account,
 	scope: WitnessScope,
 }
 
@@ -45,42 +46,42 @@ impl Signer for AccountSigner {
 }
 
 impl AccountSigner {
-	fn new(account: Account, scope: WitnessScope) -> Self {
+	fn new(account: &Account, scope: WitnessScope) -> Self {
 		Self {
 			signer_hash: account.getScriptHash(),
 			scopes: vec![],
 			allowed_contracts: vec![],
 			allowed_groups: vec![],
 			rules: vec![],
-			account,
+			account: account.clone(),
 			scope,
 		}
 	}
 
-	pub fn none(account: Account) -> Result<Self, TransactionError> {
+	pub fn none(account: &Account) -> Result<Self, TransactionError> {
 		Ok(Self::new(account, WitnessScope::None))
 	}
 
 	pub fn none_hash160(account_hash: H160) -> Result<Self, TransactionError> {
 		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
-		Ok(Self::new(account, WitnessScope::None))
+		Ok(Self::new(&account, WitnessScope::None))
 	}
 
-	pub fn called_by_entry(account: Account) -> Result<Self, TransactionError> {
+	pub fn called_by_entry(account: &Account) -> Result<Self, TransactionError> {
 		Ok(Self::new(account, WitnessScope::CalledByEntry))
 	}
 
 	pub fn called_by_entry_hash160(account_hash: H160) -> Result<Self, TransactionError> {
 		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
-		Ok(Self::new(account, WitnessScope::CalledByEntry))
+		Ok(Self::new(&account, WitnessScope::CalledByEntry))
 	}
 
 	pub fn global(account: Account) -> Result<Self, TransactionError> {
-		Ok(Self::new(account, WitnessScope::Global))
+		Ok(Self::new(&account, WitnessScope::Global))
 	}
 
 	pub fn global_hash160(account_hash: H160) -> Result<Self, TransactionError> {
 		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
-		Ok(Self::new(account, WitnessScope::Global))
+		Ok(Self::new(&account, WitnessScope::Global))
 	}
 }

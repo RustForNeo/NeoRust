@@ -3,13 +3,13 @@ use crate::{
 	protocol::core::stack_item::StackItem,
 	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
 	types::Bytes,
-	utils::bytes::BytesExtern,
 };
 use p256::pkcs8::der::Encode;
 use primitive_types::H160;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::hash::Hasher;
 use tokio::io::AsyncReadExt;
+use crate::crypto::hash::HashableForVec;
 
 const MAGIC: u32 = 0x3346454E;
 const MAGIC_SIZE: usize = 4;

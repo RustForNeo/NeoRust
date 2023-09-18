@@ -17,7 +17,7 @@ use p256::{
 		sec1::{FromEncodedPoint, ToEncodedPoint},
 	},
 	pkcs8::der::{Decode, Encode},
-	PublicKey, SecretKey,
+	PublicKey,
 };
 use primitive_types::{H160, H256};
 use serde_json::Value;
@@ -31,7 +31,7 @@ pub mod vm_state;
 
 // Bring EC types into scope
 
-pub type PrivateKey = SecretKey;
+pub type PrivateKey = PrivateKey;
 
 pub type Address = String;
 
@@ -72,7 +72,7 @@ impl H160Externsion for H160 {
 		Ok(Self::from_slice(&bytes))
 	}
 
-	fn from_address(address: &str) -> Result<Self, &'static str> {
+	fn from_address(address: &str) -> Result<Self, Err> {
 		let bytes = bs58::decode(address).into_vec().map_err(|_| "Invalid address")?;
 
 		Ok(Self::from_slice(&bytes))
@@ -120,7 +120,7 @@ trait PublicKeyExtension {
 
 	fn from_slice(slice: &[u8]) -> Result<Self, &'static str>;
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
-	fn from_private_key(private_key: &SecretKey) -> Self;
+	fn from_private_key(private_key: &PrivateKey) -> Self;
 }
 
 trait PrivateKeyExtension {
@@ -157,7 +157,7 @@ impl PublicKeyExtension for PublicKey {
 		Ok(Self::from_slice(&bytes)?)
 	}
 
-	fn from_private_key(private_key: &SecretKey) -> Self {
+	fn from_private_key(private_key: &PrivateKey) -> Self {
 		private_key.public_key()
 	}
 }

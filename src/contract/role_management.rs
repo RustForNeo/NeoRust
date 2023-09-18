@@ -1,8 +1,7 @@
 use crate::{
-	contract::{contract_error::ContractError, smartcontract::SmartContract},
+	contract::contract_error::ContractError,
 	protocol::{core::stack_item::StackItem, neo_rust::NeoRust},
 	transaction::transaction_builder::TransactionBuilder,
-	types::ECPublicKey,
 };
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;

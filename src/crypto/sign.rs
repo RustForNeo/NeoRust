@@ -4,7 +4,7 @@ use p256::{
 		signature::{digest::Mac, Signer, SignerMut, Verifier},
 		Signature,
 	},
-	PublicKey, SecretKey,
+	PrivateKey, PublicKey,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -79,7 +79,7 @@ pub fn sign_message(msg: &[u8], kp: &mut KeyPair) -> SignatureData {
 }
 
 // Get public key from private key
-pub fn public_key(priv_key: &SecretKey) -> PublicKey {
+pub fn public_key(priv_key: &PrivateKey) -> PublicKey {
 	PublicKey::from_secret_key(priv_key)
 }
 

@@ -1,16 +1,17 @@
 // iterator
 
+use crate::protocol::core::neo_trait::NeoTrait;
 use crate::protocol::{core::stack_item::StackItem, neo_rust::NeoRust};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Iterator<T> {
+pub struct NeoIterator<T> {
 	session_id: String,
 	iterator_id: String,
 	mapper: fn(StackItem) -> T,
 }
 
-impl<T> Iterator<T> {
+impl<T> NeoIterator<T> {
 	pub fn new(session_id: String, iterator_id: String, mapper: fn(StackItem) -> T) -> Self {
 		Self { session_id, iterator_id, mapper }
 	}
@@ -23,7 +24,7 @@ impl<T> Iterator<T> {
 		items.into_iter().map(|item| (self.mapper)(item)).collect()
 	}
 
-	pub async fn close(&self) -> Result<(), Err> {
-		NeoRust::instance().terminate_session(&self.session_id).await
+	pub async fn close(&self) -> Result<bool, Err> {
+		NeoRust::instance().terminate_session(&self.session_id).await.request()
 	}
 }

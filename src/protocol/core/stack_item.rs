@@ -139,7 +139,7 @@ impl StackItem {
 		}
 	}
 
-	fn as_bytes(&self) -> Option<Vec<u8>> {
+	pub fn as_bytes(&self) -> Option<Vec<u8>> {
 		match self {
 			StackItem::ByteString { value } | StackItem::Buffer { value } => {
 				hex::decode(value).ok()

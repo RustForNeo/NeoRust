@@ -1,4 +1,6 @@
 use crate::crypto::base58_helper::base58check_decode;
+use crate::types::contract_parameter::ContractParameterType::PublicKey;
+use crate::types::PrivateKey;
 use aes::{cipher::KeyInit, Aes128};
 use crypto::{
 	digest::Digest,
@@ -6,7 +8,6 @@ use crypto::{
 	sha2::Sha256,
 };
 use futures::TryFutureExt;
-use p256::ecdsa::{SigningKey, VerifyingKey};
 
 const DKLEN: usize = 64;
 const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
@@ -17,7 +18,7 @@ const NEP2_FLAGBYTE: u8 = 0xE0;
 pub struct NEP2;
 
 impl NEP2 {
-	pub fn decrypt(password: &str, nep2_string: &str) -> Result<SigningKey, &'static str> {
+	pub fn decrypt(password: &str, nep2_string: &str) -> Result<PrivateKey, &'static str> {
 		let nep2_data = base58check_decode(nep2_string); //nep2_string.from_base58check()?;
 
 		if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
@@ -46,8 +47,8 @@ impl NEP2 {
 			.chain(Self.xor_keys(&decrypted_half2, derived_half2))
 			.collect::<Vec<_>>();
 
-		let private_key = SigningKey::from_bytes(private_key.as_slice()).unwrap();
-		let public_key = VerifyingKey::from(private_key);
+		let private_key = PrivateKey::from_bytes(private_key.as_slice()).unwrap();
+		let public_key = PublicKey::from(private_key);
 
 		let new_address_hash =
 			Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
@@ -59,8 +60,8 @@ impl NEP2 {
 		Ok(private_key.clone())
 	}
 
-	pub fn encrypt(password: &str, private_key: &SigningKey) -> Result<String, &'static str> {
-		let public_key = VerifyingKey::from(private_key);
+	pub fn encrypt(password: &str, private_key: &PrivateKey) -> Result<String, &'static str> {
+		let public_key = PublicKey::from(private_key);
 		let address_hash =
 			Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
 		let derived_key = Self.derive_scrypt_key(password, &address_hash)?;

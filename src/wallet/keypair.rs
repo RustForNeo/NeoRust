@@ -1,7 +1,7 @@
 use p256::{
 	ecdsa::{
 		signature::{SignerMut, Verifier},
-		Signature, SigningKey, VerifyingKey,
+		PrivateKey, Signature, VerifyingKey,
 	},
 	elliptic_curve::rand_core::OsRng,
 	U256,
@@ -11,14 +11,14 @@ use serde::{Deserialize, Serialize};
 // Define a struct to represent the secp256r1 keypair
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Secp256r1Keypair {
-	private_key: SigningKey,
+	private_key: PrivateKey,
 	public_key: VerifyingKey,
 }
 
 impl Secp256r1Keypair {
 	// Constructor to generate a new keypair
 	pub fn generate() -> Self {
-		let private_key = SigningKey::random(&mut OsRng);
+		let private_key = PrivateKey::random(&mut OsRng);
 		let public_key = VerifyingKey::from(&private_key); //.to_encoded_point(false).as_bytes().to_owned();
 
 		Self { private_key, public_key }

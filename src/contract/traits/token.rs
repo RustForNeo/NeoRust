@@ -1,3 +1,4 @@
+use crate::contract::traits::smartcontract::SmartContractTrait;
 use crate::protocol::core::record_type::RecordType;
 use crate::types::H160Externsion;
 use crate::{
@@ -6,23 +7,12 @@ use crate::{
 };
 use decimal::d128;
 use primitive_types::H160;
-use serde::{Deserialize, Serialize};
 
-// #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-// pub struct Token {
-// 	script_hash: H160,
-// 	total_supply: Option<u64>,
-// 	decimals: Option<u8>,
-// 	symbol: Option<String>,
-// }
-
-pub trait Token {
+pub trait TokenTrait<T>: SmartContractTrait<T> {
 	const TOTAL_SUPPLY: &'static str = "totalSupply";
 	const SYMBOL: &'static str = "symbol";
 	const DECIMALS: &'static str = "decimals";
 
-	fn script_hash(&self) -> H160;
-	fn set_script_hash(&self, script_hash: H160);
 	fn total_supply(&self) -> Option<u64>;
 
 	fn set_total_supply(&self, total_supply: u64);
@@ -34,10 +24,6 @@ pub trait Token {
 	fn symbol(&self) -> Option<String>;
 
 	fn set_symbol(&self, symbol: String);
-
-	// fn new(script_hash: H160) -> Self {
-	// 	Self { script_hash, total_supply: None, decimals: None, symbol: None }
-	// }
 
 	async fn get_total_supply(&mut self) -> Result<u64, ContractError> {
 		if let Some(supply) = &self.total_supply() {

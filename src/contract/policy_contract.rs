@@ -1,6 +1,5 @@
 use crate::{
-	contract::{contract_error::ContractError, smartcontract::SmartContract},
-	transaction::transaction_builder::TransactionBuilder,
+	contract::contract_error::ContractError, transaction::transaction_builder::TransactionBuilder,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -12,7 +11,7 @@ pub struct PolicyContract {
 
 impl PolicyContract {
 	pub const NAME: &'static str = "PolicyContract";
-	pub const SCRIPT_HASH: H160 = SmartContract::calc_native_contract_hash(Self::NAME).unwrap();
+	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 
 	pub fn new() -> Self {
 		Self { script_hash: Self::SCRIPT_HASH }

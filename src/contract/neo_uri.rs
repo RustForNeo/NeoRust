@@ -1,8 +1,5 @@
 use crate::{
-	contract::{
-		contract_error::ContractError, fungible_token::FungibleToken, gas_token::GasToken,
-		neo_token::NeoToken,
-	},
+	contract::{contract_error::ContractError, gas_token::GasToken, neo_token::NeoToken},
 	transaction::transaction_builder::TransactionBuilder,
 	types::{contract_parameter::ContractParameterType::String, H160Externsion},
 	wallet::account::Account,
@@ -109,7 +106,9 @@ impl NeoURI {
 		let amount_scale = amount.scale();
 
 		if Self::is_neo_token(&token) && amount_scale > 0 {
-			return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()));
+			return Err(ContractError::InvalidArgError(
+				"NEO does not support decimals".to_string(),
+			));
 		}
 
 		if Self::is_gas_token(&token) && amount_scale > GasToken::decimals() {
