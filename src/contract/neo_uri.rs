@@ -1,3 +1,5 @@
+use crate::contract::traits::smartcontract::SmartContractTrait;
+use crate::contract::traits::token::TokenTrait;
 use crate::{
 	contract::{contract_error::ContractError, gas_token::GasToken, neo_token::NeoToken},
 	transaction::transaction_builder::TransactionBuilder,
@@ -18,7 +20,7 @@ pub struct NeoURI {
 	amount: Option<d128>,
 }
 
-impl NeoURI {
+impl<T> NeoURI {
 	const NEO_SCHEME: &'static str = "neo";
 	const MIN_NEP9_URI_LENGTH: usize = 38;
 	const NEO_TOKEN_STRING: &'static str = "neo";
@@ -88,7 +90,7 @@ impl NeoURI {
 	pub async fn build_transfer_from(
 		&self,
 		sender: &Account,
-	) -> Result<TransactionBuilder, dyn Error> {
+	) -> Result<TransactionBuilder<T>, dyn Error> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))?;
@@ -111,7 +113,7 @@ impl NeoURI {
 			));
 		}
 
-		if Self::is_gas_token(&token) && amount_scale > GasToken::decimals() {
+		if Self::is_gas_token(&token) && amount_scale > GasToken::decimals(&()) {
 			return Err(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
 			));

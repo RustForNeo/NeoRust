@@ -74,7 +74,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 	) -> Result<TransactionBuilder<T>, ContractError> {
 		self.throw_if_sender_is_not_owner(from.script_hash(), &token_id).await?;
 
-		self.transfer_inner(H160::from_str(to)?, token_id, data)
+		self.transfer_inner(H160::from_address(to)?, token_id, data)
 			.signers(vec![AccountSigner::called_by_entry(from)])
 	}
 

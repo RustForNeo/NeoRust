@@ -3,12 +3,7 @@ use crate::types::Bytes;
 use crate::{
 	contract::{contract_error::ContractError, iterator::NeoIterator},
 	protocol::{
-		core::{
-			responses::{
-				invocation_result::InvocationResult, neo_response_aliases::NeoInvokeFunction,
-			},
-			stack_item::StackItem,
-		},
+		core::{responses::invocation_result::InvocationResult, stack_item::StackItem},
 		neo_rust::NeoRust,
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},

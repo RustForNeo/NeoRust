@@ -1,5 +1,6 @@
 // contract_management
 
+use crate::contract::traits::smartcontract::SmartContractTrait;
 use crate::{
 	contract::{contract_error::ContractError, nef_file::NefFile},
 	protocol::{
@@ -17,7 +18,7 @@ pub struct ContractManagement {
 	script_hash: H160,
 }
 
-impl ContractManagement {
+impl<T> ContractManagement {
 	pub fn new(script_hash: H160) -> Self {
 		Self { script_hash }
 	}
@@ -79,7 +80,7 @@ impl ContractManagement {
 		nef: &NefFile,
 		manifest: &[u8],
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, Err> {
+	) -> Result<TransactionBuilder<T>, Err> {
 		let params = vec![nef.into(), manifest.into(), data];
 		let tx = TransactionBuilder::call_function(self.script_hash.clone(), "deploy", params);
 		Ok(tx)
@@ -87,3 +88,13 @@ impl ContractManagement {
 }
 
 // Other types and helpers
+
+impl<T> SmartContractTrait<T> for ContractManagement {
+	fn script_hash(&self) -> H160 {
+		self.script_hash.clone()
+	}
+
+	fn set_script_hash(&mut self, script_hash: H160) {
+		self.script_hash = script_hash;
+	}
+}

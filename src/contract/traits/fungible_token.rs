@@ -14,7 +14,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 	const TRANSFER: &'static str = "transfer";
 
 	async fn get_balance_of(&self, account: &Account) -> Result<i32, ContractError> {
-		self.get_balance_of_hash160(account.get_script_hash()).await
+		self.get_balance_of_hash160(account.get_script_hash()?).await
 	}
 
 	async fn get_balance_of_hash160(&self, script_hash: H160) -> Result<i32, ContractError> {
@@ -24,7 +24,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 
 	async fn get_total_balance(&self, wallet: &Wallet) -> Result<i32, ContractError> {
 		let mut sum = 0;
-		for account in &wallet.accounts {
+		for (_, account) in &wallet.accounts {
 			sum += self.get_balance_of(account).await?;
 		}
 		Ok(sum)
@@ -37,7 +37,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder<T>, ContractError> {
-		self.transfer_from_hash160(from.get_script_hash(), to, amount, data)
+		self.transfer_from_hash160(from.get_script_hash()?, to, amount, data)
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
 
@@ -80,7 +80,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder<T>, ContractError> {
-		self.transfer_from_hash160_to_nns(from.get_script_hash(), to, amount, data)
+		self.transfer_from_hash160_to_nns(from.get_script_hash()?, to, amount, data)
 			.await
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}

@@ -20,7 +20,12 @@ impl GasToken {
 	pub const SYMBOL: &'static str = "GAS";
 
 	pub fn new() -> Self {
-		Self { script_hash: Self::SCRIPT_HASH, total_supply: None, decimals: None, symbol: None }
+		Self {
+			script_hash: Self::SCRIPT_HASH,
+			total_supply: None,
+			decimals: Some(Self::DECIMALS),
+			symbol: Some(Self::SYMBOL.to_string()),
+		}
 	}
 }
 

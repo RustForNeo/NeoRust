@@ -1,18 +1,20 @@
+use crate::contract::traits::smartcontract::SmartContractTrait;
+use crate::protocol::core::neo_trait::NeoTrait;
 use crate::{
 	contract::contract_error::ContractError,
 	protocol::{core::stack_item::StackItem, neo_rust::NeoRust},
 	transaction::transaction_builder::TransactionBuilder,
 };
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
 use primitive_types::H160;
 
 pub struct RoleManagement {
 	script_hash: H160,
 }
 
-impl RoleManagement {
+impl<T> RoleManagement {
 	const NAME: &'static str = "RoleManagement";
-	const SCRIPT_HASH: H160 = SmartContract::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
+	const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
 	pub fn new() -> Self {
 		Self { script_hash: Self::SCRIPT_HASH }
@@ -22,11 +24,15 @@ impl RoleManagement {
 		&self,
 		role: Role,
 		block_index: i32,
-	) -> Result<Vec<ECPublicKey>, ContractError> {
+	) -> Result<Vec<PublicKey>, ContractError> {
 		self.check_block_index_validity(block_index).await?;
 
 		let invocation = self
-			.call_invoke_function("getDesignatedByRole", vec![role.into(), block_index.into()])
+			.call_invoke_function(
+				"getDesignatedByRole",
+				vec![role.into(), block_index.into()],
+				vec![],
+			)
 			.await?;
 
 		let designated = invocation.get_result().stack[0]
@@ -58,8 +64,8 @@ impl RoleManagement {
 	pub fn designate_as_role(
 		&self,
 		role: Role,
-		pub_keys: Vec<ECPublicKey>,
-	) -> Result<TransactionBuilder, ContractError> {
+		pub_keys: Vec<PublicKey>,
+	) -> Result<TransactionBuilder<T>, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),
@@ -72,6 +78,16 @@ impl RoleManagement {
 			.collect();
 
 		self.invoke_function("designateAsRole", vec![role.into(), params.into()])
+	}
+}
+
+impl<T> SmartContractTrait<T> for RoleManagement {
+	fn script_hash(&self) -> H160 {
+		self.script_hash.clone()
+	}
+
+	fn set_script_hash(&mut self, script_hash: H160) {
+		self.script_hash = script_hash;
 	}
 }
 

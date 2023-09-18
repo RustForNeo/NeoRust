@@ -29,26 +29,10 @@ impl<T> NeoToken {
 	fn new() -> Self {
 		NeoToken {
 			script_hash: Self::SCRIPT_HASH,
-			total_supply: None,
-			decimals: None,
-			symbol: None,
+			total_supply: Some(Self::TOTAL_SUPPLY),
+			decimals: Some(Self::DECIMALS),
+			symbol: Some(Self::SYMBOL.to_string()),
 		}
-	}
-
-	async fn get_name(&self) -> Result<Option<String>, ContractError> {
-		Ok(Some(Self::NAME.to_string()))
-	}
-
-	async fn get_symbol(&self) -> Result<String, ContractError> {
-		Ok(Self::SYMBOL.to_string())
-	}
-
-	async fn get_decimals(&self) -> Result<u8, ContractError> {
-		Ok(Self::DECIMALS)
-	}
-
-	async fn get_total_supply(&self) -> Result<u64, ContractError> {
-		Ok(Self::TOTAL_SUPPLY)
 	}
 
 	// Unclaimed Gas
@@ -58,7 +42,7 @@ impl<T> NeoToken {
 		account: &Account,
 		block_height: i32,
 	) -> Result<i64, ContractError> {
-		self.unclaimed_gas(account.get_script_hash().unwrap(), block_height).await
+		self.unclaimed_gas(account, block_height).await
 	}
 
 	async fn unclaimed_gas_contract(
@@ -66,11 +50,13 @@ impl<T> NeoToken {
 		script_hash: &H160,
 		block_height: i32,
 	) -> Result<i64, ContractError> {
-		self.call_function_returning_int(
-			"unclaimedGas",
-			vec![script_hash.into(), block_height.into()],
-		)
-		.await
+		Ok(self
+			.call_function_returning_int(
+				"unclaimedGas",
+				vec![script_hash.into(), block_height.into()],
+			)
+			.await
+			.unwrap() as i64)
 	}
 
 	// Candidate Registration
@@ -139,7 +125,7 @@ impl<T> NeoToken {
 	// Network Settings
 
 	async fn get_gas_per_block(&self) -> Result<i32, ContractError> {
-		self.call_function_returning_int("getGasPerBlock").await
+		self.call_function_returning_int("getGasPerBlock", vec![]).await
 	}
 
 	fn set_gas_per_block(
@@ -150,7 +136,7 @@ impl<T> NeoToken {
 	}
 
 	async fn get_register_price(&self) -> Result<i32, ContractError> {
-		self.call_function_returning_int("getRegisterPrice").await
+		self.call_function_returning_int("getRegisterPrice", vec![]).await
 	}
 
 	fn set_register_price(
@@ -162,7 +148,7 @@ impl<T> NeoToken {
 
 	async fn get_account_state(&self, account: &H160) -> Result<AccountState, ContractError> {
 		let result = self
-			.call_invoke_function("getAccountState", vec![account.into()])
+			.call_invoke_function("getAccountState", vec![account.into()], vec![])
 			.await?
 			.get_result()
 			.stack
