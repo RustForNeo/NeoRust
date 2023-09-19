@@ -1,7 +1,4 @@
 use num_bigint::BigInt;
-use num_traits::{FromPrimitive, ToPrimitive};
-
-use std::mem::size_of;
 
 pub trait ToBytesPadded {
 	fn to_bytes_padded(&self, length: usize) -> Vec<u8>;

@@ -14,14 +14,19 @@ use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
 use primitive_types::H160;
 use std::{collections::HashMap, error::Error};
 
+#[derive(Debug, PartialEq, Eq, Hash, CopyGetters, Setters, Default)]
+#[getset(get_copy, set)]
+#[derive(educe::Educe)]
+// note `new` below: generate `new()` that calls Default
+#[educe(Default(new))]
 pub struct ScriptBuilder {
 	writer: BinaryWriter,
 }
 
 impl ScriptBuilder {
-	pub fn new() -> Self {
-		Self { writer: BinaryWriter::new() }
-	}
+	// pub fn new() -> Self {
+	// 	Self { writer: BinaryWriter::new() }
+	// }
 
 	pub fn op_code(&mut self, op_codes: &[OpCode]) -> &mut Self {
 		for opcode in op_codes {

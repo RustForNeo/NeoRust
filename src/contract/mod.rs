@@ -1,4 +1,4 @@
-mod contract_error;
+pub mod contract_error;
 pub mod contract_management;
 pub mod gas_token;
 pub mod iterator;

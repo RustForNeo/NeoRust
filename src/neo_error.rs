@@ -1,4 +1,7 @@
-use crate::transaction::transaction_error::TransactionError;
+use crate::{
+	contract::contract_error::ContractError, crypto::sign_error::SignError,
+	transaction::transaction_error::TransactionError, wallet::wallet_error::WalletError,
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,6 +30,12 @@ pub enum NeoError {
 	InvalidFormat,
 	#[error("NeoRust not initialized")]
 	NeoRustNotInitialized,
+	#[error("Contract error: {0}")]
+	ContractError(#[from] ContractError),
+	#[error("Wallet error: {0}")]
+	WalletError(#[from] WalletError),
+	#[error("Sign error: {0}")]
+	SignError(#[from] SignError),
 }
 
 impl Into<TransactionError> for NeoError {

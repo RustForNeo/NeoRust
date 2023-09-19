@@ -1,15 +1,20 @@
 use crate::wallet::nep6account::NEP6Account;
 use crypto::scrypt::ScryptParams;
+use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[macro_use]
+extern crate getset;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Getters, CopyGetters, Default)]
+#[getset(get = "pub", set = "pub")]
 pub struct NEP6Wallet {
-	pub name: String,
-	pub version: String,
-	pub scrypt: ScryptParams,
-	pub accounts: Vec<NEP6Account>,
-	pub extra: Option<HashMap<String, String>>,
+	name: String,
+	version: String,
+	scrypt: ScryptParams,
+	accounts: Vec<NEP6Account>,
+	extra: Option<HashMap<String, String>>,
 }
 
 impl PartialEq for NEP6Wallet {

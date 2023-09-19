@@ -1,8 +1,9 @@
 use base64::{engine::general_purpose, Engine as Base64Engine};
 use std::{ops::BitXor, str::FromStr};
 
-use bs58::{decode as bs58_decode, encode as bs58_encode};
-use hex::{decode as hex_decode, encode as hex_encode};
+use bs58::encode as bs58_encode;
+use derive_more::{AsRef, Deref, Display, Index, IndexMut, IntoIterator};
+use hex::encode as hex_encode;
 use sha2::{Digest, Sha256};
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, AsRef, Deref, IntoIterator, Index, IndexMut, Display)]
 struct Bytes(Vec<u8>);
 
 impl Bytes {

@@ -8,15 +8,14 @@ use crate::{
 	},
 	serialization::binary_reader::BinaryReader,
 	types::Bytes,
-	utils::bytes::BytesExtern,
 };
-use std::error::Error;
+use std::{error::Error, hash::Hash};
 
 pub struct ScriptReader;
 
 impl ScriptReader {
 	pub fn get_interop_service_code(_hash: String) -> Option<InteropService> {
-		InteropService::iter().find(|service| service.hash() == _hash)
+		InteropService::from_hash(_hash)
 	}
 
 	pub fn convert_to_op_code_string(script: &Bytes) -> String {

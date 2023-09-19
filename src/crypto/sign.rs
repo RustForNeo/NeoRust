@@ -8,7 +8,7 @@ use p256::{
 		signature::{digest::Mac, Signer, SignerMut, Verifier},
 		Signature,
 	},
-	PrivateKey, PublicKey,
+	PublicKey,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -42,7 +42,7 @@ impl SignatureData {
 		key_pair: &mut KeyPair,
 	) -> Result<SignatureData, NeoError> {
 		let message = hex::decode(hex_message)?;
-		let sign = key_pair.private_key.sign(&message);
+		let sign = key_pair.private_key().sign(&message);
 		Ok(SignatureData::from_bytes(sign.as_bytes()))
 	}
 
@@ -50,14 +50,14 @@ impl SignatureData {
 		message: &Bytes,
 		key_pair: &mut KeyPair,
 	) -> Result<SignatureData, NeoError> {
-		let signature = key_pair.private_key.sign(&Sha256::digest(message));
+		let signature = key_pair.private_key().sign(&Sha256::digest(message));
 
 		let mut rec_id = None;
 		for i in 0..4 {
 			if let Some(key) =
-				key_pair.public_key.recover(&i, &signature, &Sha256::digest(message))?
+				key_pair.public_key().recover(&i, &signature, &Sha256::digest(message))?
 			{
-				if key == key_pair.public_key {
+				if key == key_pair.public_key() {
 					rec_id = Some(i);
 					break
 				}

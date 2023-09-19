@@ -1,9 +1,25 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use derive_more::{AsRef, Deref, Display, Index, IndexMut, IntoIterator};
+use getset::{CopyGetters, Getters};
 use std::{convert::TryFrom, str::FromStr};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(
+	Debug,
+	Serialize,
+	Deserialize,
+	AsRef,
+	Deref,
+	IntoIterator,
+	Index,
+	IndexMut,
+	Display,
+	Getters,
+	CopyGetters,
+	Default,
+)]
+#[getset(get = "pub", set = "pub")]
 struct Bytes(Vec<u8>);
 
 impl FromStr for Bytes {

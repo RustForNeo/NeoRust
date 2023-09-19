@@ -15,5 +15,5 @@ pub enum ProtocolError {
 	#[error("Illegal state: {message}")]
 	IllegalState { message: String },
 	#[error("HTTP error: {0}")]
-	HttpError(reqwest::Error),
+	HttpError(#[from] reqwest::Error),
 }

@@ -5,14 +5,15 @@ use std::{
 	hash::Hash,
 	sync::{Arc, Mutex},
 };
-use strum_macros::{Display, EnumString};
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter, EnumString};
 
 lazy_static! {
 	static ref INTEROP_SERVICE_HASHES: Arc<Mutex<HashMap<String, String>>> =
 		Arc::new(Mutex::new(HashMap::new()));
 }
 
-#[derive(EnumString, Display, Copy, Clone, PartialEq, Eq)]
+#[derive(EnumString, EnumIter, Display, Copy, Clone, PartialEq, Eq)]
 pub enum InteropService {
 	#[strum(serialize = "System.Crypto.CheckSig")]
 	SystemCryptoCheckSig,
@@ -98,6 +99,9 @@ impl InteropService {
 		}
 	}
 
+	pub fn from_hash(hash: String) -> Option<InteropService> {
+		InteropService::iter().find(|service| service.hash() == hash)
+	}
 	pub fn price(&self) -> u64 {
 		match self {
 			InteropService::SystemRuntimePlatform

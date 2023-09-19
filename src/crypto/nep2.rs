@@ -9,6 +9,7 @@ use crypto::{
 	sha2::Sha256,
 };
 use futures::TryFutureExt;
+use rayon::prelude::*;
 
 const DKLEN: usize = 64;
 const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
@@ -102,7 +103,7 @@ impl NEP2 {
 	}
 
 	fn xor_keys(a: &[u8], b: &[u8]) -> impl Iterator<Item = u8> {
-		a.iter().zip(b).map(|(x, y)| x ^ y)
+		a.par_iter().zip(b).map(|(x, y)| x ^ y)
 	}
 
 	fn address_hash_from_pubkey(pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {

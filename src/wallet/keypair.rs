@@ -1,17 +1,35 @@
 use p256::{
 	ecdsa::{
 		signature::{SignerMut, Verifier},
-		PrivateKey, Signature, VerifyingKey,
+		Signature, VerifyingKey,
 	},
 	elliptic_curve::rand_core::OsRng,
 	U256,
 };
 use serde::{Deserialize, Serialize};
 
+use crate::types::PrivateKey;
+use getset::{CopyGetters, Getters, MutGetters, Setters};
+
 // Define a struct to represent the secp256r1 keypair
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+	Debug,
+	PartialEq,
+	Eq,
+	Clone,
+	Copy,
+	Serialize,
+	Deserialize,
+	Getters,
+	Setters,
+	MutGetters,
+	CopyGetters,
+	Default,
+)]
 pub struct Secp256r1Keypair {
+	#[getset(get = "pub", set = "pub", get_mut = "pub")]
 	private_key: PrivateKey,
+	#[getset(get_copy = "pub", set = "pub", get_mut = "pub")]
 	public_key: VerifyingKey,
 }
 

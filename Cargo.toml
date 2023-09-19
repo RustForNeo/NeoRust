@@ -68,7 +68,11 @@ chrono = "0.4.31"
 strum = "0.25.0"
 strum_macros = "0.25.2"
 num_enum = { version = "0.7.0", features = [] }
-
+derive_more = "0.99.17"
+rayon = "1.7.0"
+indexmap = "2.0.0"
+getset = "0.1.2"
+educe = "0.4.23"
 # Utilities
 #scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 #codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }

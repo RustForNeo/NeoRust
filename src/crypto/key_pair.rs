@@ -4,6 +4,7 @@ use crate::{
 	script::script_builder::ScriptBuilder,
 	types::{H160Externsion, PrivateKey},
 };
+use getset::{CopyGetters, Getters};
 use p256::{
 	ecdsa::{signature::SignerMut, Signature},
 	elliptic_curve::sec1::ToEncodedPoint,
@@ -14,16 +15,22 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{error::Error, hash::Hash};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+	Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, Default, educe::Educe,
+)]
+#[educe(Default(new))]
 pub struct KeyPair {
-	pub private_key: PrivateKey,
-	pub public_key: PublicKey,
+	#[getset(get = "pub", set = "pub")]
+	private_key: PrivateKey,
+	#[getset(get = "pub", set = "pub")]
+	public_key: PublicKey,
 }
 
 impl KeyPair {
-	pub fn new(private_key: PrivateKey, public_key: PublicKey) -> Self {
-		Self { private_key, public_key }
-	}
+	// pub fn new(private_key: PrivateKey, public_key: PublicKey) -> Self {
+	// 	Self { private_key, public_key }
+	// }
+
 	pub fn from_private_key(private_key: PrivateKey) -> Self {
 		let public_key = p256::PublicKey::from_secret_key(&private_key);
 		Self { private_key, public_key }
