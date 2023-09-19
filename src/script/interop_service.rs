@@ -95,7 +95,7 @@ impl InteropService {
 			let hash = hex::encode(sha)[..4].to_string();
 			hashes.insert(self.to_string(), hash.clone());
 			hash
-		};
+		}
 	}
 
 	pub fn price(&self) -> u64 {

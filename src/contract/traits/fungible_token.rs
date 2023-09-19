@@ -1,12 +1,9 @@
-use crate::contract::contract_error::ContractError;
-use crate::contract::nns_name::NNSName;
-use crate::contract::traits::token::TokenTrait;
-use crate::transaction::account_signer::AccountSigner;
-use crate::transaction::transaction_builder::TransactionBuilder;
-use crate::types::contract_parameter::ContractParameter;
-use crate::types::Bytes;
-use crate::wallet::account::Account;
-use crate::wallet::wallet::Wallet;
+use crate::{
+	contract::{contract_error::ContractError, nns_name::NNSName, traits::token::TokenTrait},
+	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
+	types::{contract_parameter::ContractParameter, Bytes},
+	wallet::{account::Account, wallet::Wallet},
+};
 use async_trait::async_trait;
 use primitive_types::H160;
 
@@ -53,7 +50,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		if amount < 0 {
 			return Err(ContractError::InvalidArgError(
 				"The amount must be greater than or equal to 0.".to_string(),
-			));
+			))
 		}
 
 		let transfer_script = self.build_transfer_script(from, to, amount, data)?;

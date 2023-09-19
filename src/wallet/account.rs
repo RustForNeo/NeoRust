@@ -1,10 +1,8 @@
-use crate::protocol::core::neo_trait::NeoTrait;
-use crate::types::PrivateKey;
 use crate::{
 	crypto::{key_pair::KeyPair, nep2::NEP2},
-	protocol::neo_rust::NeoRust,
+	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
-	types::{contract_parameter_type::ContractParameterType, Address, H160Externsion},
+	types::{contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey},
 	wallet::{
 		nep6account::NEP6Account,
 		nep6contract::{NEP6Contract, NEP6Parameter},
@@ -155,7 +153,7 @@ impl Account {
 
 	pub fn decrypt_private_key(&mut self, password: &str) -> Result<(), WalletError> {
 		if self.key_pair.is_some() {
-			return Ok(());
+			return Ok(())
 		}
 
 		let encrypted_private_key = self
@@ -205,7 +203,7 @@ impl Account {
 		if self.key_pair.is_some() && self.encrypted_private_key.is_none() {
 			return Err(WalletError::AccountState(
 				"Account private key is decrypted but not encrypted".to_string(),
-			));
+			))
 		}
 
 		let contract = match &self.verification_script {

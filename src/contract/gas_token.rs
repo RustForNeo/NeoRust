@@ -1,7 +1,9 @@
-use crate::contract::contract_error::ContractError;
-use crate::contract::traits::fungible_token::FungibleTokenTrait;
-use crate::contract::traits::smartcontract::SmartContractTrait;
-use crate::contract::traits::token::TokenTrait;
+use crate::contract::{
+	contract_error::ContractError,
+	traits::{
+		fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+	},
+};
 use async_trait::async_trait;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};

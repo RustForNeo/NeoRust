@@ -1,9 +1,10 @@
-use crate::contract::traits::smartcontract::SmartContractTrait;
-use crate::protocol::core::record_type::RecordType;
-use crate::types::H160Externsion;
 use crate::{
-	contract::{contract_error::ContractError, name_service, nns_name::NNSName},
-	protocol::neo_rust::NeoRust,
+	contract::{
+		contract_error::ContractError, name_service, nns_name::NNSName,
+		traits::smartcontract::SmartContractTrait,
+	},
+	protocol::{core::record_type::RecordType, neo_rust::NeoRust},
+	types::H160Externsion,
 };
 use async_trait::async_trait;
 use decimal::d128;
@@ -29,7 +30,7 @@ pub trait TokenTrait<T>: SmartContractTrait<T> {
 
 	async fn get_total_supply(&mut self) -> Result<u64, ContractError> {
 		if let Some(supply) = &self.total_supply() {
-			return Ok(supply.clone().into());
+			return Ok(supply.clone().into())
 		}
 
 		let supply = self.call_function_returning_int(Self::TOTAL_SUPPLY, vec![]).await? as u64;
@@ -40,7 +41,7 @@ pub trait TokenTrait<T>: SmartContractTrait<T> {
 
 	async fn get_decimals(&mut self) -> Result<u8, ContractError> {
 		if let Some(decimals) = &self.decimals() {
-			return Ok(decimals.clone().into());
+			return Ok(decimals.clone().into())
 		}
 
 		let decimals = self.call_function_returning_int(Self::DECIMALS, vec![]).await? as u8;
@@ -53,7 +54,7 @@ pub trait TokenTrait<T>: SmartContractTrait<T> {
 
 	async fn get_symbol(&mut self) -> Result<String, ContractError> {
 		if let Some(symbol) = &self.symbol() {
-			return Ok(symbol.clone());
+			return Ok(symbol.clone())
 		}
 
 		let symbol = self.call_function_returning_string(Self::SYMBOL, vec![]).await?;
@@ -70,7 +71,7 @@ pub trait TokenTrait<T>: SmartContractTrait<T> {
 
 	fn to_fractions_decimal(amount: d128, decimals: u8) -> Result<u64, ContractError> {
 		if amount.scale() > decimals {
-			return Err(ContractError::InvalidArgError("Too many decimal places".to_string()));
+			return Err(ContractError::InvalidArgError("Too many decimal places".to_string()))
 		}
 
 		let scaled = d128::from(10u64.pow(decimals.into())) * amount;

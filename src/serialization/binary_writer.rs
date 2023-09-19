@@ -68,7 +68,7 @@ impl BinaryWriter {
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::InvalidInput,
 				"String longer than specified length",
-			));
+			))
 		}
 		let mut padded = vec![0; length];
 		padded[0..bytes.len()].copy_from_slice(bytes);

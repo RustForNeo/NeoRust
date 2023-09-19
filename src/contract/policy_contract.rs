@@ -1,7 +1,7 @@
-use crate::contract::traits::smartcontract::SmartContractTrait;
-use crate::types::H160Externsion;
 use crate::{
-	contract::contract_error::ContractError, transaction::transaction_builder::TransactionBuilder,
+	contract::{contract_error::ContractError, traits::smartcontract::SmartContractTrait},
+	transaction::transaction_builder::TransactionBuilder,
+	types::H160Externsion,
 };
 use async_trait::async_trait;
 use primitive_types::H160;

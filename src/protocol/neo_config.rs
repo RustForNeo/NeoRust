@@ -96,7 +96,7 @@ impl NeoConfig {
 
 	pub fn set_network_magic(&mut self, magic: u32) -> Result<(), &'static str> {
 		if &magic > &(0xFFFFFFFFu32) {
-			return Err("Network magic must fit in 32 bits");
+			return Err("Network magic must fit in 32 bits")
 		}
 
 		self.network_magic = Some(magic);

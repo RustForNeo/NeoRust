@@ -1,7 +1,9 @@
 // iterator
 
-use crate::protocol::core::neo_trait::NeoTrait;
-use crate::protocol::{core::stack_item::StackItem, neo_rust::NeoRust};
+use crate::protocol::{
+	core::{neo_trait::NeoTrait, stack_item::StackItem},
+	neo_rust::NeoRust,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

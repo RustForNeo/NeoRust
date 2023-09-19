@@ -1,9 +1,10 @@
-use crate::protocol::core::neo_trait::NeoTrait;
-use crate::transaction::signer::Signer;
 use crate::{
 	contract::contract_error::ContractError,
-	protocol::{core::stack_item::StackItem, neo_rust::NeoRust},
-	transaction::transaction_builder::TransactionBuilder,
+	protocol::{
+		core::{neo_trait::NeoTrait, stack_item::StackItem},
+		neo_rust::NeoRust,
+	},
+	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
 	types::contract_parameter::ContractParameter,
 };
 use p256::pkcs8::der::Decode;
@@ -201,9 +202,9 @@ where
 		let is_available = self.is_available(name).await?;
 
 		if &should_be_available && !&is_available {
-			return Err("Domain name already taken".into());
+			return Err("Domain name already taken".into())
 		} else if !should_be_available && is_available {
-			return Err("Domain name not registered".into());
+			return Err("Domain name not registered".into())
 		}
 
 		Ok(())

@@ -1,8 +1,11 @@
-use crate::contract::traits::fungible_token::FungibleTokenTrait;
-use crate::contract::traits::smartcontract::SmartContractTrait;
-use crate::contract::traits::token::TokenTrait;
 use crate::{
-	contract::contract_error::ContractError,
+	contract::{
+		contract_error::ContractError,
+		traits::{
+			fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait,
+			token::TokenTrait,
+		},
+	},
 	protocol::core::{responses::neo_account_state::AccountState, stack_item::StackItem},
 	transaction::transaction_builder::TransactionBuilder,
 	wallet::account::Account,

@@ -1,6 +1,6 @@
+use num_enum::FromPrimitive;
 use strum_macros::{Display, EnumString};
-
-#[derive(Display, EnumString, Debug, PartialEq, Eq)]
+#[derive(Display, EnumString, FromPrimitive, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum WitnessScope {
 	#[strum(serialize = "None")]
@@ -33,18 +33,6 @@ impl WitnessScope {
 			WitnessScope::CustomGroups => 0x20,
 			WitnessScope::WitnessRules => 0x40,
 			WitnessScope::Global => 0x80,
-		}
-	}
-
-	pub fn from_byte(byte: u8) -> Option<Self> {
-		match byte {
-			0x00 => Some(WitnessScope::None),
-			0x01 => Some(WitnessScope::CalledByEntry),
-			0x10 => Some(WitnessScope::CustomContracts),
-			0x20 => Some(WitnessScope::CustomGroups),
-			0x40 => Some(WitnessScope::WitnessRules),
-			0x80 => Some(WitnessScope::Global),
-			_ => None,
 		}
 	}
 

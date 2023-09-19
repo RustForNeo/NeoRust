@@ -1,16 +1,13 @@
-use crate::contract::contract_error::ContractError;
-use crate::contract::nns_name::NNSName;
-use crate::contract::traits::token::TokenTrait;
-use crate::protocol::core::stack_item::StackItem;
-use crate::transaction::account_signer::AccountSigner;
-use crate::transaction::transaction_builder::TransactionBuilder;
-use crate::types::contract_parameter::ContractParameter;
-use crate::types::{Bytes, H160Externsion};
-use crate::wallet::account::Account;
+use crate::{
+	contract::{contract_error::ContractError, nns_name::NNSName, traits::token::TokenTrait},
+	protocol::core::stack_item::StackItem,
+	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
+	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
+	wallet::account::Account,
+};
 use async_trait::async_trait;
 use primitive_types::H160;
-use std::collections::HashMap;
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 #[async_trait]
 trait NonFungibleTokenTrait<T>: TokenTrait<T> {
@@ -118,7 +115,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		if self.get_decimals().await? != 0 {
 			return Err(ContractError::InvalidStateError(
 				"This method is only intended for non-divisible NFTs.".to_string(),
-			));
+			))
 		}
 
 		Ok(())
@@ -133,7 +130,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		if token_owner != from {
 			return Err(ContractError::InvalidArgError(
 				"The provided from account is not the owner of this token.".to_string(),
-			));
+			))
 		}
 
 		Ok(())
@@ -237,7 +234,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		if self.get_decimals().await? == 0 {
 			return Err(ContractError::InvalidStateError(
 				"This method is only intended for divisible NFTs.".to_string(),
-			));
+			))
 		}
 
 		Ok(())

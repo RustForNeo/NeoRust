@@ -29,7 +29,7 @@ impl RecordState {
 					if let Some(byte) = vec[1].as_i8() {
 						if let Some(record_type) = RecordType::from_u8(byte) {
 							if let Some(data) = vec[2].as_str() {
-								return Ok(Self::new(name, record_type, data));
+								return Ok(Self::new(name, record_type, data))
 							}
 						}
 					}

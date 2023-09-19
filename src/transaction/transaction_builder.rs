@@ -70,7 +70,7 @@ where
 	pub fn nonce(&mut self, nonce: u32) -> Result<&mut Self, TransactionError> {
 		// Validate
 		if nonce >= u32::MAX {
-			return Err(TransactionError::InvalidNonce);
+			return Err(TransactionError::InvalidNonce)
 		}
 
 		self.nonce = nonce;
@@ -82,7 +82,7 @@ where
 	// Set valid until block
 	pub fn valid_until_block(&mut self, block: u32) -> Result<&mut Self, TransactionError> {
 		if block == 0 {
-			return Err(TransactionError::InvalidBlock);
+			return Err(TransactionError::InvalidBlock)
 		}
 
 		self.valid_until_block = Some(block);
@@ -101,29 +101,29 @@ where
 	) -> Result<SerializableTransaction<T>, TransactionError> {
 		// Validate configuration
 		if self.signers.is_empty() {
-			return Err(TransactionError::NoSigners);
+			return Err(TransactionError::NoSigners)
 		}
 
 		if self.script.is_none() {
-			return Err(TransactionError::NoScript);
+			return Err(TransactionError::NoScript)
 		}
 		// Validate no duplicate signers
 		if self.signers.len() != self.signers.dedup().count() {
-			return Err(TransactionError::DuplicateSigner);
+			return Err(TransactionError::DuplicateSigner)
 		}
 
 		// Check signer limits
 		if self.signers.len() > NeoConstants::MAX_SIGNERS {
-			return Err(TransactionError::TooManySigners);
+			return Err(TransactionError::TooManySigners)
 		}
 
 		// Validate script
 		if let Some(script) = &self.script {
 			if script.is_empty() {
-				return Err(TransactionError::EmptyScript);
+				return Err(TransactionError::EmptyScript)
 			}
 		} else {
-			return Err(TransactionError::NoScript);
+			return Err(TransactionError::NoScript)
 		}
 
 		// Get fees
@@ -187,7 +187,7 @@ where
 					vec![],
 				)
 				.await?;
-			return Ok(balance);
+			return Ok(balance)
 		}
 		Err(TransactionError::InvalidSender)
 	}
@@ -195,9 +195,9 @@ where
 	fn is_account_signer<T: Signer>(signer: &T) -> bool {
 		let sig = <T as Signer>::SignerType;
 		if std::any::TypeId::of::<sig>() == std::any::TypeId::of::<AccountSigner>() {
-			return true;
+			return true
 		}
-		return false;
+		return false
 	}
 
 	// Sign transaction
@@ -212,7 +212,7 @@ where
 					return Err(NeoError::IllegalState(
 						"Transactions with multi-sig signers cannot be signed automatically."
 							.to_string(),
-					));
+					))
 				}
 
 				let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
@@ -243,7 +243,7 @@ where
 		if self.script.is_none() {
 			return Err(TransactionError::TransactionConfiguration(
 				"Cannot build a transaction without a script.".to_string(),
-			));
+			))
 		}
 
 		if self.valid_until_block.is_none() {
@@ -257,7 +257,7 @@ where
 			return Err(NeoError::IllegalState(
 				"Cannot create a transaction without signers.".to_string(),
 			)
-			.into());
+			.into())
 		}
 
 		if self.is_high_priority() {
@@ -266,7 +266,7 @@ where
 				return Err(NeoError::IllegalState(
 					"Only committee members can send high priority transactions.".to_string(),
 				)
-				.into());
+				.into())
 			}
 		}
 
@@ -276,7 +276,7 @@ where
 
 		if let Some(fee_error) = &self.fee_error {
 			if !self.can_send_cover_fees(fees).await? {
-				return Err(fee_error.clone().into());
+				return Err(fee_error.clone().into())
 			}
 		} else if let Some(consumer) = &mut self.fee_consumer {
 			let gas_balance = self.get_sender_gas_balance().await?;

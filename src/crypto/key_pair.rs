@@ -1,7 +1,8 @@
-use crate::types::PrivateKey;
 use crate::{
-	crypto::wif::Wif, neo_error::NeoError, script::script_builder::ScriptBuilder,
-	types::H160Externsion,
+	crypto::wif::Wif,
+	neo_error::NeoError,
+	script::script_builder::ScriptBuilder,
+	types::{H160Externsion, PrivateKey},
 };
 use p256::{
 	ecdsa::{signature::SignerMut, Signature},

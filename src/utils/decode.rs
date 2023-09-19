@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use std::convert::TryFrom;
-use std::str::FromStr;
+use std::{convert::TryFrom, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Bytes(Vec<u8>);

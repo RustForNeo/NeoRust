@@ -37,7 +37,7 @@ impl<'de> Deserialize<'de> for WitnessRule {
 	{
 		let (action_byte, condition) = Deserialize::deserialize(deserializer)?;
 
-		let action = WitnessAction::from_byte(action_byte).map_err(serde::de::Error::custom)?;
+		let action = WitnessAction::from_u8(action_byte).map_err(serde::de::Error::custom)?;
 
 		Ok(Self { action, condition })
 	}

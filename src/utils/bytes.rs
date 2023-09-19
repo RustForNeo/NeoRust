@@ -1,6 +1,5 @@
 use base64::{engine::general_purpose, Engine as Base64Engine};
-use std::ops::BitXor;
-use std::str::FromStr;
+use std::{ops::BitXor, str::FromStr};
 
 use bs58::{decode as bs58_decode, encode as bs58_encode};
 use hex::{decode as hex_decode, encode as hex_encode};
@@ -61,7 +60,7 @@ impl Bytes {
 	fn to_padded(&self, length: usize, trailing: bool) -> Result<Bytes, &'static str> {
 		let bytes_len = self.0.len();
 		if bytes_len > length {
-			return Err("Input is too large");
+			return Err("Input is too large")
 		}
 
 		let mut padded = vec![0u8; length];
@@ -97,7 +96,7 @@ impl BitXor for Bytes {
 
 	fn bitxor(self, rhs: Self) -> Self::Output {
 		if self.0.len() != rhs.0.len() {
-			return Err("Arrays do not have the same length");
+			return Err("Arrays do not have the same length")
 		}
 
 		let bytes = self.0.iter().zip(rhs.0.iter()).map(|(x, y)| x ^ y).collect();

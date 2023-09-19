@@ -1,14 +1,15 @@
-use crate::protocol::core::neo_trait::NeoTrait;
-use crate::types::Bytes;
 use crate::{
 	contract::{contract_error::ContractError, iterator::NeoIterator},
 	protocol::{
-		core::{responses::invocation_result::InvocationResult, stack_item::StackItem},
+		core::{
+			neo_trait::NeoTrait, responses::invocation_result::InvocationResult,
+			stack_item::StackItem,
+		},
 		neo_rust::NeoRust,
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},
 	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
-	types::{call_flags::CallFlags, contract_parameter::ContractParameter, H160Externsion},
+	types::{call_flags::CallFlags, contract_parameter::ContractParameter, Bytes, H160Externsion},
 };
 use async_trait::async_trait;
 use primitive_types::H160;
@@ -37,7 +38,7 @@ pub trait SmartContractTrait<T> {
 		params: Vec<Option<ContractParameter>>,
 	) -> Result<Bytes, ContractError> {
 		if function.is_empty() {
-			return Err(ContractError::InvalidNeoName("Function name cannot be empty".to_string()));
+			return Err(ContractError::InvalidNeoName("Function name cannot be empty".to_string()))
 		}
 
 		let script = ScriptBuilder::new()
@@ -95,7 +96,7 @@ pub trait SmartContractTrait<T> {
 		signers: Vec<T>,
 	) -> Result<InvocationResult, dyn Error> {
 		if function.is_empty() {
-			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()));
+			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()))
 		}
 		NeoRust::instance()
 			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)

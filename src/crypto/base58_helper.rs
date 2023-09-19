@@ -14,7 +14,7 @@ pub fn base58check_decode(input: &str) -> Option<Vec<u8>> {
 
 	let expected_checksum = &calculate_checksum(bytes)[..4];
 	if checksum != expected_checksum {
-		return None;
+		return None
 	}
 
 	Some(bytes.to_vec())

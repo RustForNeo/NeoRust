@@ -1,8 +1,9 @@
 // contract_management
 
-use crate::contract::traits::smartcontract::SmartContractTrait;
 use crate::{
-	contract::{contract_error::ContractError, nef_file::NefFile},
+	contract::{
+		contract_error::ContractError, nef_file::NefFile, traits::smartcontract::SmartContractTrait,
+	},
 	protocol::{
 		core::responses::contract_state::{ContractIdentifiers, ContractState},
 		neo_rust::NeoRust,
