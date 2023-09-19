@@ -10,9 +10,11 @@ use crate::{
 	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
 	types::{call_flags::CallFlags, contract_parameter::ContractParameter, H160Externsion},
 };
+use async_trait::async_trait;
 use primitive_types::H160;
 use std::error::Error;
 
+#[async_trait]
 pub trait SmartContractTrait<T> {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 

@@ -12,7 +12,6 @@ use crate::{
 		transaction_error::TransactionError, witness::Witness,
 	},
 	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
-	utils::bytes::BytesExtern,
 };
 use p256::ecdsa::signature::SignerMut;
 use primitive_types::H160;
@@ -39,7 +38,8 @@ impl<T> TransactionBuilder<T>
 where
 	T: Signer,
 {
-	pub const GAS_TOKEN_HASH: H160 = H160::from_hex("d2a4cff31913016155e38e474a2c06d08be276cf")?;
+	pub const GAS_TOKEN_HASH: H160 =
+		H160::from_hex("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
 	pub const DUMMY_PUB_KEY: &'static str =
 		"02ec143f00b88524caf36a0121c2de09eef0519ddbe1c710a00f0e2663201ee4c0";

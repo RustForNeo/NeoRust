@@ -1,92 +1,32 @@
 use crate::transaction::transaction_error::TransactionError;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum NeoError {
+	#[error("Illegal argument: {0}")]
 	IllegalArgument(String),
+	#[error("Illegal state: {0}")]
 	Deserialization(String),
+	#[error("Illegal state: {0}")]
 	IllegalState(String),
+	#[error("Index out of bounds: {0}")]
 	IndexOutOfBounds(String),
+	#[error("Invalid configuration: {0}")]
 	InvalidConfiguration(String),
+	#[error("Runtime error: {0}")]
 	Runtime(String),
+	#[error("Invalid data: {0}")]
 	InvalidData(String),
+	#[error("Unsupported operation: {0}")]
 	UnsupportedOperation(String),
+	#[error("Transaction error: {0}")]
 	Transaction(String),
+	#[error("Invalid script: {0}")]
 	InvalidScript(String),
+	#[error("Invalid format")]
 	InvalidFormat,
+	#[error("NeoRust not initialized")]
 	NeoRustNotInitialized,
-}
-
-impl std::fmt::Display for NeoError {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			NeoError::IllegalArgument(msg) => {
-				write!(f, "Illegal argument: {}", msg)
-			},
-			NeoError::Deserialization(msg) => {
-				write!(f, "Deserialization error: {}", msg)
-			},
-			NeoError::IllegalState(msg) => {
-				write!(f, "Illegal state: {}", msg)
-			},
-			NeoError::IndexOutOfBounds(msg) => {
-				write!(f, "Index out of bounds: {}", msg)
-			},
-			NeoError::InvalidConfiguration(msg) => {
-				write!(f, "Invalid configuration: {}", msg)
-			},
-			NeoError::Runtime(msg) => {
-				write!(f, "Runtime error: {}", msg)
-			},
-			NeoError::InvalidData(msg) => {
-				write!(f, "Invalid data: {}", msg)
-			},
-			NeoError::UnsupportedOperation(msg) => {
-				write!(f, "Unsupported operation: {}", msg)
-			},
-			NeoError::Transaction(msg) => {
-				write!(f, "Transaction error: {}", msg)
-			},
-			NeoError::InvalidScript(msg) => {
-				write!(f, "Invalid script: {}", msg)
-			},
-			NeoError::InvalidFormat => {
-				write!(f, "Invalid format")
-			},
-			NeoError::NeoRustNotInitialized => {
-				write!(f, "NeoRust not initialized")
-			},
-		}
-	}
-}
-
-impl std::error::Error for NeoError {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		// NeoErrors do not wrap other errors
-		None
-	}
-
-	fn description(&self) -> &str {
-		// Use the Display implementation to generate description
-		match self {
-			NeoError::IllegalArgument(msg) => msg,
-			NeoError::Deserialization(msg) => msg,
-			NeoError::IllegalState(msg) => msg,
-			NeoError::IndexOutOfBounds(msg) => msg,
-			NeoError::InvalidConfiguration(msg) => msg,
-			NeoError::Runtime(msg) => msg,
-			NeoError::InvalidData(msg) => msg,
-			NeoError::UnsupportedOperation(msg) => msg,
-			NeoError::Transaction(msg) => msg,
-			NeoError::InvalidScript(msg) => msg,
-			NeoError::InvalidFormat => "Invalid format",
-			NeoError::NeoRustNotInitialized => "NeoRust not initialized",
-		}
-	}
-
-	fn cause(&self) -> Option<&dyn std::error::Error> {
-		// The underlying cause is ourselves
-		Some(self)
-	}
 }
 
 impl Into<TransactionError> for NeoError {

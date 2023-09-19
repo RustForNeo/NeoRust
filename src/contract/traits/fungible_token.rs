@@ -7,8 +7,10 @@ use crate::types::contract_parameter::ContractParameter;
 use crate::types::Bytes;
 use crate::wallet::account::Account;
 use crate::wallet::wallet::Wallet;
+use async_trait::async_trait;
 use primitive_types::H160;
 
+#[async_trait]
 pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 	const BALANCE_OF: &'static str = "balanceOf";
 	const TRANSFER: &'static str = "transfer";

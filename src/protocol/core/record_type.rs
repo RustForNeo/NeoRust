@@ -1,31 +1,18 @@
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+use num_enum::FromPrimitive;
+use strum_macros::{Display, EnumString};
+#[derive(EnumString, Display, Copy, Clone, Debug, PartialEq, Eq, FromPrimitive)]
 pub enum RecordType {
+	#[strum(serialize = "A")]
 	A = 1,
+	#[strum(serialize = "CNAME")]
 	CNAME = 5,
+	#[strum(serialize = "TXT")]
 	TXT = 16,
+	#[strum(serialize = "AAAA")]
 	AAAA = 28,
 }
 
 impl RecordType {
-	pub fn to_string(&self) -> &str {
-		match self {
-			RecordType::A => "A",
-			RecordType::CNAME => "CNAME",
-			RecordType::TXT => "TXT",
-			RecordType::AAAA => "AAAA",
-		}
-	}
-
-	pub fn from_byte(byte: u8) -> Option<Self> {
-		match byte {
-			1 => Some(RecordType::A),
-			5 => Some(RecordType::CNAME),
-			16 => Some(RecordType::TXT),
-			28 => Some(RecordType::AAAA),
-			_ => None,
-		}
-	}
-
 	pub fn byte_repr(self) -> u8 {
 		self as u8
 	}

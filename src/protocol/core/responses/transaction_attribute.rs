@@ -8,7 +8,14 @@ pub enum TransactionAttribute {
 	HighPriority,
 
 	#[serde(rename = "OracleResponse")]
-	OracleResponse(u32, OracleResponseCode, String),
+	OracleResponse(OracleResponse),
+}
+
+#[derive(Serialize, Deserialize)]
+struct OracleResponse {
+	pub id: u32,
+	pub response_code: OracleResponseCode,
+	pub result: String,
 }
 
 impl TransactionAttribute {
@@ -21,7 +28,7 @@ impl TransactionAttribute {
 			TransactionAttribute::HighPriority => {
 				bytes.push(0x01);
 			},
-			TransactionAttribute::OracleResponse(id, response_code, result) => {
+			TransactionAttribute::OracleResponse(OracleResponse { id, response_code, result }) => {
 				bytes.push(0x11);
 				bytes.extend(&id.to_be_bytes());
 				bytes.push(response_code.to_byte());
@@ -39,14 +46,19 @@ impl TransactionAttribute {
 				if bytes.len() < 9 {
 					return Err("Not enough bytes for OracleResponse");
 				}
-				let id = u64::from_be_bytes(
-					[0; 8 - bytes[1..9].len()].concat(bytes[1..9].try_into().unwrap()),
-				);
+				let mut array = [0; 8];
+				let slice_len = bytes[1..9].len();
+				array[8 - slice_len..].copy_from_slice(&bytes[1..9]);
+				let id = u64::from_be_bytes(array);
 				let response_code = OracleResponseCode::from(bytes[9]);
 				let result =
 					String::from_utf8(bytes[10..].to_vec()).map_err(|_| "Invalid UTF-8")?;
 
-				Ok(TransactionAttribute::OracleResponse(id as u32, response_code, result))
+				Ok(TransactionAttribute::OracleResponse(OracleResponse {
+					id: id as u32,
+					response_code,
+					result,
+				}))
 			},
 			_ => Err("Invalid attribute type byte"),
 		}
@@ -72,7 +84,7 @@ impl<'de> Deserialize<'de> for TransactionAttribute {
 	where
 		D: Deserializer<'de>,
 	{
-		let bytes = serde::__private::de::Content(deserializer)?;
+		let bytes = <Vec<u8>>::deserialize(deserializer)?;
 		TransactionAttribute::from_bytes(&bytes).map_err(serde::de::Error::custom)
 	}
 }

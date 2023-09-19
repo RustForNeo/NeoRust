@@ -1,7 +1,7 @@
 use crate::contract::traits::smartcontract::SmartContractTrait;
 use crate::contract::traits::token::TokenTrait;
 use crate::{
-	contract::{contract_error::ContractError, gas_token::GasToken, neo_token::NeoToken},
+	contract::contract_error::ContractError,
 	transaction::transaction_builder::TransactionBuilder,
 	types::{contract_parameter::ContractParameterType::String, H160Externsion},
 	wallet::account::Account,

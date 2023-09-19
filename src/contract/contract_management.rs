@@ -10,6 +10,7 @@ use crate::{
 	transaction::transaction_builder::TransactionBuilder,
 	types::contract_parameter::ContractParameter,
 };
+use async_trait::async_trait;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -88,7 +89,7 @@ impl<T> ContractManagement {
 }
 
 // Other types and helpers
-
+#[async_trait]
 impl<T> SmartContractTrait<T> for ContractManagement {
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()

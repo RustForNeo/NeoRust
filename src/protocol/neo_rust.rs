@@ -56,6 +56,7 @@ use crate::{
 		ValueExtension,
 	},
 };
+use async_trait::async_trait;
 use futures::Stream;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256};
@@ -152,6 +153,7 @@ impl NeoRust {
 	}
 }
 
+#[async_trait]
 impl<T> NeoTrait<T> for NeoRust
 where
 	T: Signer + Serialize + Deserialize,

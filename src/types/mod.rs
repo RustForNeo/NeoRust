@@ -17,7 +17,7 @@ use p256::{
 		sec1::{FromEncodedPoint, ToEncodedPoint},
 	},
 	pkcs8::der::{Decode, Encode},
-	PublicKey,
+	PublicKey, SecretKey,
 };
 use primitive_types::{H160, H256};
 use serde_json::Value;
@@ -31,7 +31,7 @@ pub mod vm_state;
 
 // Bring EC types into scope
 
-pub type PrivateKey = PrivateKey;
+pub type PrivateKey = SecretKey;
 
 pub type Address = String;
 

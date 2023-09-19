@@ -2,6 +2,7 @@ use crate::contract::contract_error::ContractError;
 use crate::contract::traits::fungible_token::FungibleTokenTrait;
 use crate::contract::traits::smartcontract::SmartContractTrait;
 use crate::contract::traits::token::TokenTrait;
+use async_trait::async_trait;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,7 @@ impl GasToken {
 	}
 }
 
+#[async_trait]
 impl<T> TokenTrait<T> for GasToken {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
@@ -55,6 +57,7 @@ impl<T> TokenTrait<T> for GasToken {
 	}
 }
 
+#[async_trait]
 impl<T> SmartContractTrait<T> for GasToken {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
@@ -65,4 +68,5 @@ impl<T> SmartContractTrait<T> for GasToken {
 	}
 }
 
+#[async_trait]
 impl<T> FungibleTokenTrait<T> for GasToken {}

@@ -7,6 +7,7 @@ use crate::{
 	transaction::transaction_builder::TransactionBuilder,
 	wallet::account::Account,
 };
+use async_trait::async_trait;
 use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -169,6 +170,7 @@ impl<T> NeoToken {
 	}
 }
 
+#[async_trait]
 impl<T> TokenTrait<T> for NeoToken {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
@@ -195,6 +197,7 @@ impl<T> TokenTrait<T> for NeoToken {
 	}
 }
 
+#[async_trait]
 impl<T> SmartContractTrait<T> for NeoToken {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
@@ -205,6 +208,7 @@ impl<T> SmartContractTrait<T> for NeoToken {
 	}
 }
 
+#[async_trait]
 impl<T> FungibleTokenTrait<T> for NeoToken {}
 
 pub struct Candidate {

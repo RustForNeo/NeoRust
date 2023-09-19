@@ -3,6 +3,7 @@ use crate::types::H160Externsion;
 use crate::{
 	contract::contract_error::ContractError, transaction::transaction_builder::TransactionBuilder,
 };
+use async_trait::async_trait;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +77,7 @@ impl<T> PolicyContract {
 	}
 }
 
+#[async_trait]
 impl<T> SmartContractTrait<T> for PolicyContract {
 	fn script_hash(&self) -> H160 {
 		self.script_hash

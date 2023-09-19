@@ -1,118 +1,90 @@
-use crate::utils::bytes::BytesExtern;
+use crate::crypto::hash::HashableForVec;
 use lazy_static::lazy_static;
 use std::{
 	collections::HashMap,
 	hash::Hash,
 	sync::{Arc, Mutex},
 };
+use strum_macros::{Display, EnumString};
 
 lazy_static! {
 	static ref INTEROP_SERVICE_HASHES: Arc<Mutex<HashMap<String, String>>> =
 		Arc::new(Mutex::new(HashMap::new()));
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(EnumString, Display, Copy, Clone, PartialEq, Eq)]
 pub enum InteropService {
+	#[strum(serialize = "System.Crypto.CheckSig")]
 	SystemCryptoCheckSig,
+	#[strum(serialize = "System.Crypto.CheckMultisig")]
 	SystemCryptoCheckMultisig,
+	#[strum(serialize = "System.Contract.Call")]
 	SystemContractCall,
+	#[strum(serialize = "System.Contract.CallNative")]
 	SystemContractCallNative,
+	#[strum(serialize = "System.Contract.GetCallFlags")]
 	SystemContractGetCallFlags,
+	#[strum(serialize = "System.Contract.CreateStandardAccount")]
 	SystemContractCreateStandardAccount,
+	#[strum(serialize = "System.Contract.CreateMultisigAccount")]
 	SystemContractCreateMultiSigAccount,
+	#[strum(serialize = "System.Contract.NativeOnPersist")]
 	SystemContractNativeOnPersist,
+	#[strum(serialize = "System.Contract.NativePostPersist")]
 	SystemContractNativePostPersist,
+	#[strum(serialize = "System.Iterator.Next")]
 	SystemIteratorNext,
+	#[strum(serialize = "System.Iterator.Value")]
 	SystemIteratorValue,
+	#[strum(serialize = "System.Runtime.Platform")]
 	SystemRuntimePlatform,
+	#[strum(serialize = "System.Runtime.GetTrigger")]
 	SystemRuntimeGetTrigger,
+	#[strum(serialize = "System.Runtime.GetTime")]
 	SystemRuntimeGetTime,
+	#[strum(serialize = "System.Runtime.GetScriptContainer")]
 	SystemRuntimeGetScriptContainer,
+	#[strum(serialize = "System.Runtime.GetExecutingScriptHash")]
 	SystemRuntimeGetExecutingScriptHash,
+	#[strum(serialize = "System.Runtime.GetCallingScriptHash")]
 	SystemRuntimeGetCallingScriptHash,
+	#[strum(serialize = "System.Runtime.GetEntryScriptHash")]
 	SystemRuntimeGetEntryScriptHash,
+	#[strum(serialize = "System.Runtime.CheckWitness")]
 	SystemRuntimeCheckWitness,
+	#[strum(serialize = "System.Runtime.GetInvocationCounter")]
 	SystemRuntimeGetInvocationCounter,
+	#[strum(serialize = "System.Runtime.Log")]
 	SystemRuntimeLog,
+	#[strum(serialize = "System.Runtime.Notify")]
 	SystemRuntimeNotify,
+	#[strum(serialize = "System.Runtime.GetNotifications")]
 	SystemRuntimeGetNotifications,
+	#[strum(serialize = "System.Runtime.GasLeft")]
 	SystemRuntimeGasLeft,
+	#[strum(serialize = "System.Runtime.BurnGas")]
 	SystemRuntimeBurnGas,
+	#[strum(serialize = "System.Runtime.GetNetwork")]
 	SystemRuntimeGetNetwork,
+	#[strum(serialize = "System.Runtime.GetRandom")]
 	SystemRuntimeGetRandom,
+	#[strum(serialize = "System.Storage.GetContext")]
 	SystemStorageGetContext,
+	#[strum(serialize = "System.Storage.GetReadOnlyContext")]
 	SystemStorageGetReadOnlyContext,
+	#[strum(serialize = "System.Storage.AsReadOnly")]
 	SystemStorageAsReadOnly,
+	#[strum(serialize = "System.Storage.Get")]
 	SystemStorageGet,
+	#[strum(serialize = "System.Storage.Find")]
 	SystemStorageFind,
+	#[strum(serialize = "System.Storage.Put")]
 	SystemStoragePut,
+	#[strum(serialize = "System.Storage.Delete")]
 	SystemStorageDelete,
 }
 
 impl InteropService {
-	pub fn to_string(&self) -> String {
-		match self {
-			InteropService::SystemCryptoCheckSig => "System.Crypto.CheckSig".to_string(),
-			InteropService::SystemCryptoCheckMultisig => "System.Crypto.CheckMultisig".to_string(),
-			InteropService::SystemContractCall => "System.Contract.Call".to_string(),
-			InteropService::SystemContractCallNative => "System.Contract.CallNative".to_string(),
-			InteropService::SystemContractGetCallFlags => {
-				"System.Contract.GetCallFlags".to_string()
-			},
-			InteropService::SystemContractCreateStandardAccount => {
-				"System.Contract.CreateStandardAccount".to_string()
-			},
-			InteropService::SystemContractCreateMultiSigAccount => {
-				"System.Contract.CreateMultisigAccount".to_string()
-			},
-			InteropService::SystemContractNativeOnPersist => {
-				"System.Contract.NativeOnPersist".to_string()
-			},
-			InteropService::SystemContractNativePostPersist => {
-				"System.Contract.NativePostPersist".to_string()
-			},
-			InteropService::SystemIteratorNext => "System.Iterator.Next".to_string(),
-			InteropService::SystemIteratorValue => "System.Iterator.Value".to_string(),
-			InteropService::SystemRuntimePlatform => "System.Runtime.Platform".to_string(),
-			InteropService::SystemRuntimeGetTrigger => "System.Runtime.GetTrigger".to_string(),
-			InteropService::SystemRuntimeGetTime => "System.Runtime.GetTime".to_string(),
-			InteropService::SystemRuntimeGetScriptContainer => {
-				"System.Runtime.GetScriptContainer".to_string()
-			},
-			InteropService::SystemRuntimeGetExecutingScriptHash => {
-				"System.Runtime.GetExecutingScriptHash".to_string()
-			},
-			InteropService::SystemRuntimeGetCallingScriptHash => {
-				"System.Runtime.GetCallingScriptHash".to_string()
-			},
-			InteropService::SystemRuntimeGetEntryScriptHash => {
-				"System.Runtime.GetEntryScriptHash".to_string()
-			},
-			InteropService::SystemRuntimeCheckWitness => "System.Runtime.CheckWitness".to_string(),
-			InteropService::SystemRuntimeGetInvocationCounter => {
-				"System.Runtime.GetInvocationCounter".to_string()
-			},
-			InteropService::SystemRuntimeLog => "System.Runtime.Log".to_string(),
-			InteropService::SystemRuntimeNotify => "System.Runtime.Notify".to_string(),
-			InteropService::SystemRuntimeGetNotifications => {
-				"System.Runtime.GetNotifications".to_string()
-			},
-			InteropService::SystemRuntimeGasLeft => "System.Runtime.GasLeft".to_string(),
-			InteropService::SystemRuntimeBurnGas => "System.Runtime.BurnGas".to_string(),
-			InteropService::SystemRuntimeGetNetwork => "System.Runtime.GetNetwork".to_string(),
-			InteropService::SystemRuntimeGetRandom => "System.Runtime.GetRandom".to_string(),
-			InteropService::SystemStorageGetContext => "System.Storage.GetContext".to_string(),
-			InteropService::SystemStorageGetReadOnlyContext => {
-				"System.Storage.GetReadOnlyContext".to_string()
-			},
-			InteropService::SystemStorageAsReadOnly => "System.Storage.AsReadOnly".to_string(),
-			InteropService::SystemStorageGet => "System.Storage.Get".to_string(),
-			InteropService::SystemStorageFind => "System.Storage.Find".to_string(),
-			InteropService::SystemStoragePut => "System.Storage.Put".to_string(),
-			InteropService::SystemStorageDelete => "System.Storage.Delete".to_string(),
-		}
-	}
-
 	pub fn hash(&self) -> String {
 		let mut hashes = INTEROP_SERVICE_HASHES.lock().unwrap();
 		return if let Some(hash) = hashes.get(self.as_str()) {

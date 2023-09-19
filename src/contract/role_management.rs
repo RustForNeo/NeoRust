@@ -5,9 +5,13 @@ use crate::{
 	protocol::{core::stack_item::StackItem, neo_rust::NeoRust},
 	transaction::transaction_builder::TransactionBuilder,
 };
+use async_trait::async_trait;
+use num_enum::FromPrimitive;
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
 use primitive_types::H160;
+use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleManagement {
 	script_hash: H160,
 }
@@ -81,6 +85,7 @@ impl<T> RoleManagement {
 	}
 }
 
+#[async_trait]
 impl<T> SmartContractTrait<T> for RoleManagement {
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
@@ -91,7 +96,8 @@ impl<T> SmartContractTrait<T> for RoleManagement {
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[repr(u8)]
 pub enum Role {
 	Oracle,
 	Policy,
@@ -105,19 +111,6 @@ pub enum Role {
 impl Role {
 	pub const fn byte(self) -> u8 {
 		self as u8
-	}
-
-	pub fn from_byte(byte: u8) -> Option<Self> {
-		match byte {
-			0 => Some(Role::Oracle),
-			1 => Some(Role::Policy),
-			2 => Some(Role::Validator),
-			3 => Some(Role::StateRootValidator),
-			4 => Some(Role::PriceFeedOracle),
-			5 => Some(Role::FeeCollector),
-			6 => Some(Role::ComplianceOfficer),
-			_ => None,
-		}
 	}
 }
 

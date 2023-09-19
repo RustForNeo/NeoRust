@@ -1,28 +1,17 @@
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+use num_enum::FromPrimitive;
+use strum_macros::{Display, EnumString};
+
+#[derive(Display, EnumString, Copy, Clone, Debug, PartialEq, Eq, FromPrimitive)]
 pub enum Role {
+	#[strum(serialize = "StateValidator")]
 	StateValidator = 0x04,
+	#[strum(serialize = "Oracle")]
 	Oracle = 0x08,
+	#[strum(serialize = "NeoFSAlphabetNode")]
 	NeoFsAlphabetNode = 0x10,
 }
 
 impl Role {
-	pub fn to_string(&self) -> &str {
-		match self {
-			Role::StateValidator => "StateValidator",
-			Role::Oracle => "Oracle",
-			Role::NeoFsAlphabetNode => "NeoFSAlphabetNode",
-		}
-	}
-
-	pub fn from_byte(byte: u8) -> Option<Self> {
-		match byte {
-			0x04 => Some(Role::StateValidator),
-			0x08 => Some(Role::Oracle),
-			0x10 => Some(Role::NeoFsAlphabetNode),
-			_ => None,
-		}
-	}
-
 	pub fn byte_repr(self) -> u8 {
 		self as u8
 	}

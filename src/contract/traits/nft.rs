@@ -7,10 +7,12 @@ use crate::transaction::transaction_builder::TransactionBuilder;
 use crate::types::contract_parameter::ContractParameter;
 use crate::types::{Bytes, H160Externsion};
 use crate::wallet::account::Account;
+use async_trait::async_trait;
 use primitive_types::H160;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+#[async_trait]
 trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 	const OWNER_OF: &'static str = "ownerOf";
 	const TOKENS_OF: &'static str = "tokensOf";

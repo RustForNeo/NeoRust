@@ -1,4 +1,4 @@
-use crate::types::ECPublicKey;
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -9,10 +9,10 @@ pub enum WitnessCondition {
 	And(Vec<WitnessCondition>),
 	Or(Vec<WitnessCondition>),
 	ScriptHash(H160),
-	Group(ECPublicKey),
+	Group(PublicKey),
 	CalledByEntry,
 	CalledByContract(H160),
-	CalledByGroup(ECPublicKey),
+	CalledByGroup(PublicKey),
 }
 
 impl WitnessCondition {
@@ -99,7 +99,7 @@ impl WitnessCondition {
 		}
 	}
 
-	pub fn group(&self) -> Option<&ECPublicKey> {
+	pub fn group(&self) -> Option<&PublicKey> {
 		match self {
 			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) => Some(group),
 			_ => None,
@@ -130,6 +130,7 @@ impl Serialize for WitnessCondition {
 			},
 			WitnessCondition::CalledByEntry => {},
 		}
+		.expect("failed to serialize witness condition");
 		tuple.end()
 	}
 }

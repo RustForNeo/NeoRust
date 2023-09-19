@@ -135,11 +135,7 @@ where
 		record_type: RecordType,
 		data: &str,
 	) -> Result<TransactionBuilder<T>, ContractError> {
-		let args = vec![
-			name.into(),
-			record_type as u8.into(),
-			data.into()
-		];
+		let args = vec![name.into(), (record_type as u8).into(), data.into()];
 
 		self.invoke_function(Self::SET_RECORD, args)
 	}
@@ -151,7 +147,7 @@ where
 		name: &str,
 		record_type: RecordType,
 	) -> Result<TransactionBuilder<T>, ContractError> {
-		let args = vec![name.into(), record_type as u8.into()];
+		let args = vec![name.into(), (record_type as u8).into()];
 		self.invoke_function(Self::DELETE_RECORD, args)
 	}
 

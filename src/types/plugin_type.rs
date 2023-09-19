@@ -1,34 +1,29 @@
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum NodePluginType {
-	ApplicationLogs,
-	CoreMetrics,
-	ImportBlocks,
-	LevelDbStore,
-	RocksDbStore,
-	RpcNep17Tracker,
-	RpcSecurity,
-	RpcServerPlugin,
-	RpcSystemAssetTracker,
-	SimplePolicy,
-	StatesDumper,
-	SystemLog,
-}
+use strum_macros::{Display, EnumString};
 
-impl NodePluginType {
-	pub fn as_str(&self) -> &str {
-		match self {
-			Self::ApplicationLogs => "ApplicationLogs",
-			Self::CoreMetrics => "CoreMetrics",
-			Self::ImportBlocks => "ImportBlocks",
-			Self::LevelDbStore => "LevelDBStore",
-			Self::RocksDbStore => "RocksDBStore",
-			Self::RpcNep17Tracker => "RpcNep17Tracker",
-			Self::RpcSecurity => "RpcSecurity",
-			Self::RpcServerPlugin => "RpcServerPlugin",
-			Self::RpcSystemAssetTracker => "RpcSystemAssetTrackerPlugin",
-			Self::SimplePolicy => "SimplePolicyPlugin",
-			Self::StatesDumper => "StatesDumper",
-			Self::SystemLog => "SystemLog",
-		}
-	}
+#[derive(Display, EnumString, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum NodePluginType {
+	#[strum(serialize = "ApplicationLogs")]
+	ApplicationLogs,
+	#[strum(serialize = "CoreMetrics")]
+	CoreMetrics,
+	#[strum(serialize = "ImportBlocks")]
+	ImportBlocks,
+	#[strum(serialize = "LevelDBStore")]
+	LevelDbStore,
+	#[strum(serialize = "RocksDBStore")]
+	RocksDbStore,
+	#[strum(serialize = "RpcNep17Tracker")]
+	RpcNep17Tracker,
+	#[strum(serialize = "RpcSecurity")]
+	RpcSecurity,
+	#[strum(serialize = "RpcServerPlugin")]
+	RpcServerPlugin,
+	#[strum(serialize = "RpcSystemAssetTrackerPlugin")]
+	RpcSystemAssetTracker,
+	#[strum(serialize = "SimplePolicyPlugin")]
+	SimplePolicy,
+	#[strum(serialize = "StatesDumper")]
+	StatesDumper,
+	#[strum(serialize = "SystemLog")]
+	SystemLog,
 }

@@ -1,34 +1,27 @@
-#[derive(Debug, PartialEq, Eq)]
+use strum_macros::{Display, EnumString};
+
+#[derive(Display, EnumString, Debug, PartialEq, Eq)]
+#[repr(u8)]
 pub enum WitnessScope {
+	#[strum(serialize = "None")]
 	None = 0x00,
+	#[strum(serialize = "CalledByEntry")]
 	CalledByEntry = 0x01,
+	#[strum(serialize = "CustomContracts")]
 	CustomContracts = 0x10,
+	#[strum(serialize = "CustomGroups")]
 	CustomGroups = 0x20,
+	#[strum(serialize = "WitnessRules")]
 	WitnessRules = 0x40,
+	#[strum(serialize = "Global")]
 	Global = 0x80,
 }
 
 impl WitnessScope {
-	pub fn to_string(&self) -> &str {
-		match self {
-			WitnessScope::None => "None",
-			WitnessScope::CalledByEntry => "CalledByEntry",
-			WitnessScope::CustomContracts => "CustomContracts",
-			WitnessScope::CustomGroups => "CustomGroups",
-			WitnessScope::WitnessRules => "WitnessRules",
-			WitnessScope::Global => "Global",
-		}
-	}
-
-	pub fn from_str(s: &str) -> Option<Self> {
-		match s {
-			"None" => Some(WitnessScope::None),
-			"CalledByEntry" => Some(WitnessScope::CalledByEntry),
-			"CustomContracts" => Some(WitnessScope::CustomContracts),
-			"CustomGroups" => Some(WitnessScope::CustomGroups),
-			"WitnessRules" => Some(WitnessScope::WitnessRules),
-			"Global" => Some(WitnessScope::Global),
-			_ => None,
+	pub fn from_str(s: &str) -> Self {
+		match s.parse::<WitnessScope>() {
+			Ok(scope) => scope,
+			Err(_) => panic!("Invalid witness scope: {}", s),
 		}
 	}
 

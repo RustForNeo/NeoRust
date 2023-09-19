@@ -1,3 +1,4 @@
+use crate::types::contract_parameter_type::ContractParameterType;
 use base64::{decode, encode};
 use crypto::sha3::Sha3Mode::Keccak256;
 use p256::PublicKey;
@@ -5,39 +6,7 @@ use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha3::Digest;
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum ContractParameterType {
-	Any,
-	Boolean,
-	Integer,
-	ByteArray,
-	String,
-	Hash160,
-	Hash256,
-	PublicKey,
-	Signature,
-	Array,
-	Map,
-}
-
-impl ContractParameterType {
-	fn as_str(&self) -> &str {
-		match self {
-			Self::Any => "Any",
-			Self::Boolean => "Boolean",
-			Self::Integer => "Integer",
-			Self::ByteArray => "ByteArray",
-			Self::String => "String",
-			Self::Hash160 => "Hash160",
-			Self::Hash256 => "Hash256",
-			Self::PublicKey => "PublicKey",
-			Self::Signature => "Signature",
-			Self::Array => "Array",
-			Self::Map => "Map",
-		}
-	}
-}
+use strum_macros::{Display, EnumString};
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContractParameter {
@@ -47,7 +16,7 @@ pub struct ContractParameter {
 	pub(crate) value: Option<ParameterValue>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Display, EnumString, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ParameterValue {
 	Boolean(bool),
@@ -90,11 +59,11 @@ impl ContractParameter {
 
 	// Other helper methods
 	pub fn hash160(value: &H160) -> Self {
-		Self::with_value(ContractParameterType::Hash160, ParameterValue::Hash160(value.to_string()))
+		Self::with_value(ContractParameterType::H160, ParameterValue::Hash160(value.to_string()))
 	}
 
 	pub fn hash256(value: &H256) -> Self {
-		Self::with_value(ContractParameterType::Hash256, ParameterValue::Hash256(value.to_string()))
+		Self::with_value(ContractParameterType::H256, ParameterValue::Hash256(value.to_string()))
 	}
 
 	pub fn public_key(value: &PublicKey) -> Self {

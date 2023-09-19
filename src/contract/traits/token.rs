@@ -5,9 +5,11 @@ use crate::{
 	contract::{contract_error::ContractError, name_service, nns_name::NNSName},
 	protocol::neo_rust::NeoRust,
 };
+use async_trait::async_trait;
 use decimal::d128;
 use primitive_types::H160;
 
+#[async_trait]
 pub trait TokenTrait<T>: SmartContractTrait<T> {
 	const TOTAL_SUPPLY: &'static str = "totalSupply";
 	const SYMBOL: &'static str = "symbol";
