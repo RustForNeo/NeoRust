@@ -1,10 +1,12 @@
 // op_code
-use num_enum::FromPrimitive;
+use num_enum::TryFromPrimitive;
 use std::fmt::{Display, Formatter};
-use strum_macros::{Display, EnumString};
+use strum_macros::{Display, EnumCount, EnumString};
 
+#[derive(
+	Display, EnumString, EnumCount, TryFromPrimitive, Debug, Copy, Clone, PartialEq, Eq, Hash,
+)]
 #[repr(u8)]
-#[derive(Display, EnumString, FromPrimitive, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum OpCode {
 	#[strum(serialize = "PushInt8")]
 	PushInt8 = 0x00,
@@ -810,7 +812,7 @@ impl OpCode {
 	// }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct OperandSize {
 	prefix_size: u8,
 	size: u8,

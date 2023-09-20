@@ -10,6 +10,7 @@ pub struct RecordState {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum RecordType {
 	A = 0x01,
 	AAAA = 0x02,
@@ -38,14 +39,5 @@ impl RecordState {
 			},
 			_ => Err("Expected a StackItem array of length 3"),
 		}
-	}
-}
-
-// Implement hashing manually since RecordType is an enum
-impl Hash for RecordState {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.name.hash(state);
-		self.record_type.hash(state);
-		self.data.hash(state);
 	}
 }

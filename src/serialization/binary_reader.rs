@@ -1,4 +1,4 @@
-use crate::neo_error::NeoError;
+use crate::{neo_error::NeoError, transaction::signer::Signer};
 use num_bigint::{BigInt, Sign};
 use p256::{elliptic_curve::sec1::FromEncodedPoint, EncodedPoint, ProjectivePoint};
 use serde::Deserialize;
@@ -180,11 +180,13 @@ impl<'a> BinaryReader<'a> {
 
 	// Serialization helper methods
 
-	pub fn read_serializable<T: Deserialize>(&mut self) -> Result<T, NeoError> {
+	pub fn read_serializable<T: Deserialize<'a>>(&mut self) -> Result<T, NeoError> {
 		T::deserialize(self)
 	}
 
-	pub fn read_serializable_list<T: Deserialize>(&mut self) -> Result<Vec<T>, NeoError> {
+	pub fn read_serializable_list<T: Deserialize<'a>>(
+		&mut self,
+	) -> Result<Vec<dyn Signer>, NeoError> {
 		let len = self.read_var_int()?;
 		let mut list = Vec::with_capacity(len as usize);
 		for _ in 0..len {

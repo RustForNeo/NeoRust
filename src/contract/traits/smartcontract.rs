@@ -16,7 +16,7 @@ use primitive_types::H160;
 use std::error::Error;
 
 #[async_trait]
-pub trait SmartContractTrait<T> {
+pub trait SmartContractTrait {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
 	fn script_hash(&self) -> H160;
@@ -27,7 +27,7 @@ pub trait SmartContractTrait<T> {
 		&self,
 		function: &str,
 		params: Vec<Option<ContractParameter>>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let script = self.build_invoke_function_script(function, params)?;
 		Ok(TransactionBuilder::new().script(script))
 	}
@@ -58,7 +58,7 @@ pub trait SmartContractTrait<T> {
 
 		let item = output.stack[0].clone();
 		item.as_str()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("String".to_string(), None))
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["String".to_string()]))
 	}
 
 	async fn call_function_returning_int(
@@ -71,7 +71,7 @@ pub trait SmartContractTrait<T> {
 
 		let item = output.stack[0].clone();
 		item.as_i32()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Int".to_string(), None))
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Int".to_string()]))
 	}
 
 	async fn call_function_returning_bool(
@@ -84,7 +84,7 @@ pub trait SmartContractTrait<T> {
 
 		let item = output.stack[0].clone();
 		item.as_bool()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Bool".to_string(), None))
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Bool".to_string()]))
 	}
 
 	// Other methods
@@ -93,7 +93,7 @@ pub trait SmartContractTrait<T> {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> Result<InvocationResult, dyn Error> {
 		if function.is_empty() {
 			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()))
@@ -107,7 +107,7 @@ pub trait SmartContractTrait<T> {
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
 		if output.has_state_fault() {
-			Err(ContractError::UnexpectedReturnType(output.exception.unwrap(), None))
+			Err(ContractError::UnexpectedReturnType(vec![output.exception.unwrap()]))
 		} else {
 			Ok(())
 		}
@@ -125,22 +125,22 @@ pub trait SmartContractTrait<T> {
 		let item = &output.stack[0];
 		item.as_bytes()
 			.and_then(H160::from_slice)
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Script hash".to_string(), None))
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Script hash".to_string()]))
 	}
 
-	async fn call_function_returning_iterator<T>(
+	async fn call_function_returning_iterator<U>(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		mapper: impl Fn(StackItem) -> Result<T, ContractError>,
-	) -> Result<NeoIterator<T>, ContractError> {
+		mapper: impl Fn(StackItem) -> Result<U, ContractError>,
+	) -> Result<NeoIterator<U>, ContractError> {
 		let output = self.call_invoke_function(function, params, vec![]).await?.get_result();
 		self.throw_if_fault_state(&output)?;
 
 		let item = &output.stack[0];
 		let interface = item
 			.as_interop()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Iterator".to_string(), None))?;
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Iterator".to_string()]))?;
 
 		let session_id = output
 			.session_id
@@ -149,13 +149,13 @@ pub trait SmartContractTrait<T> {
 		Ok(NeoIterator::new(session_id, interface.iterator_id, mapper))
 	}
 
-	async fn call_function_and_unwrap_iterator<T>(
+	async fn call_function_and_unwrap_iterator<U>(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
 		max_items: usize,
-		mapper: impl Fn(StackItem) -> T,
-	) -> Result<Vec<T>, ContractError> {
+		mapper: impl Fn(StackItem) -> U,
+	) -> Result<Vec<U>, ContractError> {
 		let script = ScriptBuilder::new()
 			.build_contract_call_and_unwrap_iterator(
 				self.script_hash().clone(),

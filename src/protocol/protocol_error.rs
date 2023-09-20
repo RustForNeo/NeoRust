@@ -1,8 +1,7 @@
 use crate::protocol::core::stack_item::StackItem;
-use strum_macros::{Display, EnumString};
 use thiserror::Error;
 
-#[derive(Error, Debug, Display)]
+#[derive(Error, Debug)]
 pub enum ProtocolError {
 	#[error("RPC responses error: {error}")]
 	RpcResponse { error: String },

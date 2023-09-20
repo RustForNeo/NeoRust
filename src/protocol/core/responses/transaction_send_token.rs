@@ -17,11 +17,3 @@ impl TransactionSendToken {
 		Self { token, value, address }
 	}
 }
-
-impl Hash for TransactionSendToken {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.token.hash(state);
-		self.value.hash(state);
-		self.address.hash(state);
-	}
-}

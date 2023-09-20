@@ -17,7 +17,6 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 	PartialEq,
 	Eq,
 	Clone,
-	Copy,
 	Serialize,
 	Deserialize,
 	Getters,

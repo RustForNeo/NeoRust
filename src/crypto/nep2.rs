@@ -1,6 +1,6 @@
 use crate::{
 	crypto::base58_helper::base58check_decode,
-	types::{contract_parameter::ContractParameterType::PublicKey, PrivateKey},
+	types::{PrivateKey, PublicKey},
 };
 use aes::{cipher::KeyInit, Aes128};
 use crypto::{
@@ -9,6 +9,7 @@ use crypto::{
 	sha2::Sha256,
 };
 use futures::TryFutureExt;
+use p256::elliptic_curve::sec1::ToEncodedPoint;
 use rayon::prelude::*;
 
 const DKLEN: usize = 64;

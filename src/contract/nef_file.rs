@@ -63,8 +63,7 @@ impl NefFile {
 			Ok(nef)
 		} else {
 			Err(ContractError::UnexpectedReturnType(
-				item.json_value(),
-				Some(vec![StackItem::BYTE_STRING_VALUE.into_string()]),
+				item.json_value() + StackItem::BYTE_STRING_VALUE.into_string(),
 			))
 		}
 	}
@@ -131,96 +130,6 @@ impl NefFile {
 			return Err(ContractError::InvalidArgError("Invalid checksum".to_string()))
 		}
 		Ok(nef)
-	}
-}
-
-impl Serialize for NefFile {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		self.compiler.and_then(|v| serializer.serialize_str(v.as_str()).unwrap()); //is(|c| serializer.serialize_str(c.as_str()));
-		serializer.serialize_str(&self.source_url)?;
-		self.method_tokens.serialize(serializer)?;
-		serializer.serialize_bytes(&self.script)?;
-		serializer.serialize_bytes(&self.checksum)
-	}
-}
-
-impl<'de> Deserialize<'de> for NefFile {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		#[derive(Deserialize)]
-		#[serde(field_identifier, rename_all = "lowercase")]
-		enum Field {
-			Compiler,
-			SourceUrl,
-			MethodTokens,
-			Script,
-			Checksum,
-		}
-
-		struct NefFileVisitor;
-
-		impl<'de> de::Visitor<'de> for NefFileVisitor {
-			type Value = NefFile;
-
-			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-				formatter.write_str("struct NefFile")
-			}
-
-			fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
-			where
-				V: de::MapAccess<'de>,
-			{
-				let mut compiler: Option<String> = None;
-				let mut source_url = "".to_string();
-				let mut method_tokens = Vec::new();
-				let mut script = Vec::new();
-				let mut checksum = Vec::new();
-
-				while let Some(key) = map.next_key()? {
-					match key {
-						Field::Compiler => {
-							if compiler.is_some() {
-								return Err(de::Error::duplicate_field("compiler"))
-							}
-							compiler = Some(map.next_value()?);
-						},
-						Field::SourceUrl => {
-							if !source_url.is_empty() {
-								return Err(de::Error::duplicate_field("source_url"))
-							}
-							source_url = map.next_value()?;
-						},
-						Field::MethodTokens => {
-							if !method_tokens.is_empty() {
-								return Err(de::Error::duplicate_field("method_tokens"))
-							}
-							method_tokens = map.next_value()?;
-						},
-						Field::Script => {
-							if !script.is_empty() {
-								return Err(de::Error::duplicate_field("script"))
-							}
-							script = map.next_value()?;
-						},
-						Field::Checksum => {
-							if !checksum.is_empty() {
-								return Err(de::Error::duplicate_field("checksum"))
-							}
-							checksum = map.next_value()?;
-						},
-					}
-				}
-
-				Ok(NefFile { compiler, source_url, method_tokens, script, checksum })
-			}
-		}
-
-		deserializer.deserialize_map(NefFileVisitor)
 	}
 }
 

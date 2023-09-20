@@ -1,7 +1,8 @@
-use num_enum::FromPrimitive;
+use num_enum::TryFromPrimitive;
 use strum_macros::{Display, EnumString};
 
-#[derive(Display, EnumString, Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Display, EnumString, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[repr(u8)]
 pub enum VMState {
 	#[strum(serialize = "NONE")]
 	None = 0,

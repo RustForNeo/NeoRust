@@ -1,16 +1,17 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
-		signer::Signer, transaction_error::TransactionError, witness_scope::WitnessScope,
+		signer::{Signer, SignerType},
+		transaction_error::TransactionError,
+		witness_scope::WitnessScope,
 	},
-	types::H160Externsion,
+	types::{H160Externsion, PublicKey},
 	wallet::account::Account,
 };
-use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct AccountSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
@@ -22,7 +23,9 @@ pub struct AccountSigner {
 }
 
 impl Signer for AccountSigner {
-	type SignerType = AccountSigner;
+	fn get_type(&self) -> SignerType {
+		SignerType::Account
+	}
 
 	fn get_signer_hash(&self) -> &H160 {
 		&self.signer_hash

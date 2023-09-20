@@ -50,16 +50,3 @@ impl OracleRequest {
 		}
 	}
 }
-
-impl Hash for OracleRequest {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.request_id.hash(state);
-		self.original_transaction_hash.hash(state);
-		self.gas_for_response.hash(state);
-		self.url.hash(state);
-		self.filter.hash(state);
-		self.callback_contract.hash(state);
-		self.callback_method.hash(state);
-		self.user_data.hash(state);
-	}
-}

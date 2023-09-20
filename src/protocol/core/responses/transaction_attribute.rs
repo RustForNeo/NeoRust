@@ -1,7 +1,7 @@
 use crate::protocol::core::responses::oracle_response_code::OracleResponseCode;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, __private::de::Content::ByteBuf};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[serde(tag = "type")]
 pub enum TransactionAttribute {
 	#[serde(rename = "HighPriority")]
@@ -50,7 +50,7 @@ impl TransactionAttribute {
 				let slice_len = bytes[1..9].len();
 				array[8 - slice_len..].copy_from_slice(&bytes[1..9]);
 				let id = u64::from_be_bytes(array);
-				let response_code = OracleResponseCode::from(bytes[9]);
+				let response_code = OracleResponseCode::try_from(bytes[9])?;
 				let result =
 					String::from_utf8(bytes[10..].to_vec()).map_err(|_| "Invalid UTF-8")?;
 
@@ -66,25 +66,5 @@ impl TransactionAttribute {
 
 	pub fn to_json(&self) -> String {
 		serde_json::to_string(self).unwrap()
-	}
-}
-
-impl Serialize for TransactionAttribute {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		let bytes = self.to_bytes();
-		serializer.serialize_bytes(&bytes)
-	}
-}
-
-impl<'de> Deserialize<'de> for TransactionAttribute {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		let bytes = <Vec<u8>>::deserialize(deserializer)?;
-		TransactionAttribute::from_bytes(&bytes).map_err(serde::de::Error::custom)
 	}
 }

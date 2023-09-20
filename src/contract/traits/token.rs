@@ -11,7 +11,7 @@ use decimal::d128;
 use primitive_types::H160;
 
 #[async_trait]
-pub trait TokenTrait<T>: SmartContractTrait<T> {
+pub trait TokenTrait: SmartContractTrait {
 	const TOTAL_SUPPLY: &'static str = "totalSupply";
 	const SYMBOL: &'static str = "symbol";
 	const DECIMALS: &'static str = "decimals";

@@ -1,5 +1,6 @@
 pub mod contract_error;
 pub mod contract_management;
+pub mod fungible_token_contract;
 pub mod gas_token;
 pub mod iterator;
 pub mod name_service;

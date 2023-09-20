@@ -4,11 +4,12 @@ use crate::{
 	contract::{
 		contract_error::ContractError, nef_file::NefFile, traits::smartcontract::SmartContractTrait,
 	},
+	neo_error::NeoError,
 	protocol::{
 		core::responses::contract_state::{ContractIdentifiers, ContractState},
 		neo_rust::NeoRust,
 	},
-	transaction::transaction_builder::TransactionBuilder,
+	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
 	types::contract_parameter::ContractParameter,
 };
 use async_trait::async_trait;
@@ -20,18 +21,18 @@ pub struct ContractManagement {
 	script_hash: H160,
 }
 
-impl<T> ContractManagement {
+impl ContractManagement {
 	pub fn new(script_hash: H160) -> Self {
 		Self { script_hash }
 	}
 
-	pub async fn get_minimum_deployment_fee(&self) -> Result<u64, Err> {
+	pub async fn get_minimum_deployment_fee(&self) -> Result<u64, NeoError> {
 		NeoRust::instance()
 			.call_function(self.script_hash.clone(), "getMinimumDeploymentFee", vec![])
 			.await
 	}
 
-	pub async fn set_minimum_deployment_fee(&self, fee: u64) -> Result<u64, Err> {
+	pub async fn set_minimum_deployment_fee(&self, fee: u64) -> Result<u64, NeoError> {
 		NeoRust::instance()
 			.call_function(self.script_hash.clone(), "setMinimumDeploymentFee", vec![fee.into()])
 			.await
@@ -82,7 +83,7 @@ impl<T> ContractManagement {
 		nef: &NefFile,
 		manifest: &[u8],
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, Err> {
+	) -> Result<TransactionBuilder, NeoError> {
 		let params = vec![nef.into(), manifest.into(), data];
 		let tx = TransactionBuilder::call_function(self.script_hash.clone(), "deploy", params);
 		Ok(tx)
@@ -91,7 +92,7 @@ impl<T> ContractManagement {
 
 // Other types and helpers
 #[async_trait]
-impl<T> SmartContractTrait<T> for ContractManagement {
+impl SmartContractTrait for ContractManagement {
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
 	}

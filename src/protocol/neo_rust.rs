@@ -151,10 +151,7 @@ impl NeoRust {
 }
 
 #[async_trait]
-impl<T> NeoTrait<T> for NeoRust
-where
-	T: Signer + Serialize + Deserialize,
-{
+impl NeoTrait for NeoRust {
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> NeoRequest<NeoBlockHash, H256> {
 		NeoRequest::new("getbestblockhash", vec![])
@@ -315,7 +312,7 @@ where
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeFunction, InvocationResult> {
 		let signers = signers.into_iter().map(TransactionSigner::from).collect();
 		NeoRequest::new("invokefunction", vec![contract_hash.to_value(), method, params, signers])
@@ -324,7 +321,7 @@ where
 	async fn invoke_script(
 		&self,
 		hex: String,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeScript, InvocationResult> {
 		let signers = signers.into_iter().map(TransactionSigner::from).collect();
 
@@ -597,7 +594,7 @@ where
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeFunction, InvocationResult> {
 		let params = vec![
 			contract_hash.to_value(),
@@ -613,7 +610,7 @@ where
 	fn invoke_script_diagnostics(
 		&self,
 		hex: String,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeScript, InvocationResult> {
 		let params = vec![hex.to_value(), signers.to_value(), true.to_value()];
 
@@ -642,7 +639,7 @@ where
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeContractVerify, InvocationResult> {
 		let signers = signers.into_iter().map(TransactionSigner::from).collect();
 

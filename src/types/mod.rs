@@ -1,23 +1,21 @@
 use crate::{
 	crypto::wif::Wif,
+	neo_error::NeoError,
 	protocol::core::responses::{
 		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
 };
 use base64::{engine::general_purpose, Engine};
-use crypto::{
-	ripemd160::{Digest, Ripemd160},
-	sha2::Sha256,
-};
+use crypto::{ripemd160::Ripemd160, sha2::Sha256};
 use futures::TryFutureExt;
 use hex::FromHexError;
 use p256::{
+	ecdsa::{SigningKey, VerifyingKey},
 	elliptic_curve::{
 		group::prime::PrimeCurveAffine,
 		sec1::{FromEncodedPoint, ToEncodedPoint},
 	},
 	pkcs8::der::{Decode, Encode},
-	PublicKey, SecretKey,
 };
 use primitive_types::{H160, H256};
 use serde_json::Value;
@@ -31,7 +29,9 @@ pub mod vm_state;
 
 // Bring EC types into scope
 
-pub type PrivateKey = SecretKey;
+pub type PrivateKey = SigningKey;
+
+pub type PublicKey = VerifyingKey;
 
 pub type Address = String;
 
@@ -72,7 +72,7 @@ impl H160Externsion for H160 {
 		Ok(Self::from_slice(&bytes))
 	}
 
-	fn from_address(address: &str) -> Result<Self, Err> {
+	fn from_address(address: &str) -> Result<Self, NeoError> {
 		let bytes = bs58::decode(address).into_vec().map_err(|_| "Invalid address")?;
 
 		Ok(Self::from_slice(&bytes))

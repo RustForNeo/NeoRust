@@ -6,15 +6,15 @@ use crate::{
 	types::{
 		call_flags::CallFlags,
 		contract_parameter::{ContractParameter, ParameterValue},
-		Bytes,
+		Bytes, PublicKey,
 	},
 };
 use futures::AsyncWriteExt;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;
 use std::{collections::HashMap, error::Error};
 
-#[derive(Debug, PartialEq, Eq, Hash, CopyGetters, Setters, Default)]
+#[derive(Debug, PartialEq, Eq, Hash, CopyGetters, Setters)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default
@@ -157,17 +157,17 @@ impl ScriptBuilder {
 
 	pub fn push_data(&mut self, data: Bytes) -> Result<&mut Self, dyn Error> {
 		match data.len() {
-			0...75 => {
+			0..=75 => {
 				self.op_code(&[OpCode::PushData1]);
 				self.writer.write_u8(data.len() as u8);
 				let _ = self.writer.write(&data);
 			},
-			76...0xff => {
+			76..=0xff => {
 				self.op_code(&[OpCode::PushData2]);
 				self.writer.write_u16(data.len() as u16);
 				let _ = self.writer.write(&data);
 			},
-			0x100...0xffff => {
+			0x100..=0xffff => {
 				self.op_code(&[OpCode::PushData4]);
 				self.writer.write_u32(data.len() as u32);
 				let _ = self.writer.write(&data);

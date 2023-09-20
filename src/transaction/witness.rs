@@ -5,9 +5,9 @@ use crate::{
 		invocation_script::InvocationScript, script_builder::ScriptBuilder,
 		verification_script::VerificationScript,
 	},
-	types::{contract_parameter::ContractParameter, Bytes},
+	types::{contract_parameter::ContractParameter, Bytes, PublicKey},
 };
-use p256::{elliptic_curve::sec1::ToEncodedPoint, PublicKey};
+use p256::elliptic_curve::sec1::ToEncodedPoint;
 use serde::{Deserialize, Serialize};
 
 #[derive(Hash)]

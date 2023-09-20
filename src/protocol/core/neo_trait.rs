@@ -46,13 +46,10 @@ use crate::{
 };
 use async_trait::async_trait;
 use primitive_types::{H160, H256};
-use std::{collections::HashMap, error::Error, vec};
+use std::collections::HashMap;
 
 #[async_trait]
-pub trait NeoTrait<T>
-where
-	T: Signer,
-{
+pub trait NeoTrait {
 	// Blockchain Methods
 
 	async fn get_best_block_hash(&self) -> NeoRequest<NeoBlockHash, H256>;
@@ -141,13 +138,13 @@ where
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeFunction, InvocationResult>;
 
 	async fn invoke_script(
 		&self,
 		hex: String,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeScript, InvocationResult>;
 
 	async fn get_unclaimed_gas(
@@ -320,13 +317,13 @@ where
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeFunction, InvocationResult>;
 
 	async fn invoke_script_diagnostics(
 		&self,
 		hex: String,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeScript, InvocationResult>;
 
 	async fn traverse_iterator(
@@ -342,7 +339,7 @@ where
 		&self,
 		contract_hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 	) -> NeoRequest<NeoInvokeContractVerify, InvocationResult>;
 
 	// Additional Wallet Methods

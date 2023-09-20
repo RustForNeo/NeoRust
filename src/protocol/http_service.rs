@@ -1,10 +1,14 @@
-use crate::protocol::{
-	core::{
-		request::NeoRequest,
-		response::{NeoResponse, ResponseTrait},
+use crate::{
+	neo_error::NeoError,
+	protocol::{
+		core::{
+			request::NeoRequest,
+			response::{NeoResponse, ResponseTrait},
+		},
+		neo_service::NeoService,
 	},
-	neo_service::NeoService,
 };
+use async_trait::async_trait;
 use reqwest::{Client, Response, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -38,11 +42,12 @@ impl HttpService {
 	}
 }
 
+#[async_trait]
 impl NeoService for HttpService {
-	async fn send<T, U>(&self, request: &NeoRequest<T, U>) -> Result<T, Err>
+	async fn send<'a, T, U>(&self, request: &NeoRequest<T, U>) -> Result<T, NeoError>
 	where
-		T: ResponseTrait<U>,
-		U: Serialize + Deserialize,
+		T: ResponseTrait<'a, U>,
+		U: Serialize + Deserialize<'a>,
 	{
 		let mut client = self.client.post(self.url.clone());
 

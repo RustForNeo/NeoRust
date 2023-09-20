@@ -45,20 +45,3 @@ impl TransactionSigner {
 		}
 	}
 }
-
-// Manual hash implementation due to nested vector fields
-impl Hash for TransactionSigner {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.account.hash(state);
-		self.scopes.hash(state);
-		if let Some(contracts) = &self.allowed_contracts {
-			contracts.hash(state);
-		}
-		if let Some(groups) = &self.allowed_groups {
-			groups.hash(state);
-		}
-		if let Some(rules) = &self.rules {
-			rules.hash(state);
-		}
-	}
-}

@@ -1,13 +1,12 @@
 // invocation_script
 
 use crate::{
-	crypto::{key_pair::KeyPair, sign::SignatureData},
+	crypto::{hash::HashableForVec, key_pair::KeyPair, sign::SignatureData},
 	script::script_builder::ScriptBuilder,
 	types::Bytes,
 };
-use p256::ecdsa::Signature;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, CopyGetters, Setters, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, CopyGetters, Setters)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default
@@ -20,10 +19,11 @@ use p256::ecdsa::Signature;
 	derive_more::IndexMut,
 	derive_more::Into,
 	derive_more::From,
-	derive_more::IntoIterator,
 	derive_more::Display,
 )]
-pub struct InvocationScript(Bytes);
+pub struct InvocationScript {
+	script: Bytes,
+}
 
 impl InvocationScript {
 	// pub fn new() -> Self {
@@ -38,21 +38,28 @@ impl InvocationScript {
 		let mut builder = ScriptBuilder::new()
 			.push_data(signature.concatenated())
 			.expect("TODO: panic message");
-		Self { 0: builder.into_bytes() }
+		Self { script: builder.into_bytes() }
 	}
 
 	pub fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
-		let signature = Sign::sign_message(&message, key_pair)?;
+		let message_hash = message.hash256();
+		let signature = key_pair.private_key().sign((&message_hash, key_pair)?);
 		let mut builder = ScriptBuilder::new();
-		builder.push_data(&signature.concatenated());
-		Ok(Self { 0: builder.into_bytes() })
+		// Convert signature to bytes
+		let mut signature_bytes = [0; 64];
+		signature.write_scalars(&mut signature_bytes).unwrap();
+		builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
+		Ok(Self { script: builder.into_bytes() })
 	}
 
 	pub fn from_signatures(signatures: &[SignatureData]) -> Self {
 		let mut builder = ScriptBuilder::new();
 		for signature in signatures {
-			builder.push_data(&signature.concatenated());
+			let mut signature_bytes = [0; 64];
+			signature.write_scalars(&mut signature_bytes).unwrap();
+
+			builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
 		}
-		Self { 0: builder.into_bytes() }
+		Self { script: builder.into_bytes() }
 	}
 }

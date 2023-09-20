@@ -8,9 +8,9 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Serialize, Deserialize)]
-pub struct NeoRequest<T, U>
+pub struct NeoRequest<'a, T, U>
 where
-	T: ResponseTrait<U>,
+	T: ResponseTrait<'a, U>,
 {
 	jsonrpc: &'static str,
 	method: String,
@@ -18,10 +18,10 @@ where
 	id: u64,
 }
 
-impl<T, U> NeoRequest<T, U>
+impl<'a, T, U> NeoRequest<'a, T, U>
 where
-	T: ResponseTrait<U>,
-	U: Serialize + Deserialize,
+	T: ResponseTrait<'a, U>,
+	U: Serialize + Deserialize<'a>,
 {
 	pub fn new(method: &str, params: Vec<Value>) -> Self {
 		Self { jsonrpc: "2.0", method: method.to_string(), params, id: next_id() }

@@ -5,10 +5,11 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	transaction::transaction_builder::TransactionBuilder,
+	types::PublicKey,
 };
 use async_trait::async_trait;
-use num_enum::FromPrimitive;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
+use num_enum::TryFromPrimitive;
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ pub struct RoleManagement {
 	script_hash: H160,
 }
 
-impl<T> RoleManagement {
+impl RoleManagement {
 	const NAME: &'static str = "RoleManagement";
 	const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
@@ -70,7 +71,7 @@ impl<T> RoleManagement {
 		&self,
 		role: Role,
 		pub_keys: Vec<PublicKey>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),
@@ -87,7 +88,7 @@ impl<T> RoleManagement {
 }
 
 #[async_trait]
-impl<T> SmartContractTrait<T> for RoleManagement {
+impl SmartContractTrait for RoleManagement {
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
 	}
@@ -97,7 +98,7 @@ impl<T> SmartContractTrait<T> for RoleManagement {
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromPrimitive)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Role {
 	Oracle,

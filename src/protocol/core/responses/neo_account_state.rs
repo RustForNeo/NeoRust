@@ -1,4 +1,4 @@
-use p256::PublicKey;
+use crate::types::PublicKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]

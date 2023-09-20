@@ -1,17 +1,20 @@
 use crate::{
 	contract::{
 		contract_error::ContractError,
+		fungible_token_contract::FungibleTokenContract,
+		gas_token::GasToken,
+		neo_token::NeoToken,
 		traits::{smartcontract::SmartContractTrait, token::TokenTrait},
 	},
 	transaction::transaction_builder::TransactionBuilder,
-	types::{contract_parameter::ContractParameterType::String, H160Externsion},
+	types::H160Externsion,
 	wallet::account::Account,
 };
 use decimal::d128;
 use primitive_types::H160;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use std::{error::Error, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NeoURI {
@@ -21,7 +24,7 @@ pub struct NeoURI {
 	amount: Option<d128>,
 }
 
-impl<T> NeoURI {
+impl NeoURI {
 	const NEO_SCHEME: &'static str = "neo";
 	const MIN_NEP9_URI_LENGTH: usize = 38;
 	const NEO_TOKEN_STRING: &'static str = "neo";
@@ -55,7 +58,7 @@ impl<T> NeoURI {
 
 				match kv[0] {
 					"asset" if neo_uri.token.is_none() => {
-						neo_uri.token(kv[1].to_owned())?;
+						neo_uri.token(H160::from_str(kv[1].clone())?)?;
 					},
 					"amount" if neo_uri.amount.is_none() => {
 						neo_uri.amount = Some(kv[1].parse()?);
@@ -91,28 +94,27 @@ impl<T> NeoURI {
 	pub async fn build_transfer_from(
 		&self,
 		sender: &Account,
-	) -> Result<TransactionBuilder<T>, dyn Error> {
+	) -> Result<TransactionBuilder, dyn Error> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))?;
 		let amount = self
 			.amount
 			.ok_or(ContractError::InvalidStateError("Amount not set".to_string()))?;
-		let token = self
+		let tokenHash = self
 			.token
 			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))?;
 
-		let token = FungibleToken::new(token);
+		let mut token = FungibleTokenContract::new(&tokenHash);
 
 		// Validate amount precision
-
 		let amount_scale = amount.scale();
 
-		if Self::is_neo_token(&token) && amount_scale > 0 {
+		if Self::is_neo_token(&tokenHash) && amount_scale > 0 {
 			return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()))
 		}
 
-		if Self::is_gas_token(&token) && amount_scale > GasToken::decimals(&()) {
+		if Self::is_gas_token(&tokenHash) && amount_scale > GasToken::new().decimals() {
 			return Err(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
 			))
@@ -131,11 +133,11 @@ impl<T> NeoURI {
 	// Helpers
 
 	fn is_neo_token(token: &H160) -> bool {
-		token == &NeoToken::script_hash()
+		token == &NeoToken::new().script_hash()
 	}
 
 	fn is_gas_token(token: &H160) -> bool {
-		token == &GasToken::script_hash()
+		token == &GasToken::new().script_hash()
 	}
 
 	// Setters
@@ -152,8 +154,8 @@ impl<T> NeoURI {
 
 	pub fn token_str(mut self, token_str: &str) -> Result<Self, dyn Error> {
 		self.token = match token_str {
-			Self::NEO_TOKEN_STRING => Some(NeoToken::script_hash()),
-			Self::GAS_TOKEN_STRING => Some(GasToken::script_hash()),
+			Self::NEO_TOKEN_STRING => Some(NeoToken::new().script_hash()),
+			Self::GAS_TOKEN_STRING => Some(GasToken::new().script_hash()),
 			_ => Some(token_str.parse()?),
 		};
 		Ok(self)
@@ -171,8 +173,10 @@ impl<T> NeoURI {
 
 		if let Some(token) = &self.token {
 			let token_str = match token {
-				token if *token == NeoToken::script_hash() => Self::NEO_TOKEN_STRING.to_owned(),
-				token if *token == GasToken::script_hash() => Self::GAS_TOKEN_STRING.to_owned(),
+				token if *token == NeoToken::new().script_hash() =>
+					Self::NEO_TOKEN_STRING.to_owned(),
+				token if *token == GasToken::new().script_hash() =>
+					Self::GAS_TOKEN_STRING.to_owned(),
 				_ => token.to_string(),
 			};
 

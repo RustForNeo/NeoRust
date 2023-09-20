@@ -1,13 +1,15 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
-	transaction::{signer::Signer, witness_scope::WitnessScope},
-	types::contract_parameter::ContractParameter,
+	transaction::{
+		signer::{Signer, SignerType},
+		witness_scope::WitnessScope,
+	},
+	types::{contract_parameter::ContractParameter, PublicKey},
 };
-use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct ContractSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
@@ -20,7 +22,9 @@ pub struct ContractSigner {
 }
 
 impl Signer for ContractSigner {
-	type SignerType = ContractSigner;
+	fn get_type(&self) -> SignerType {
+		SignerType::Contract
+	}
 
 	fn get_signer_hash(&self) -> &H160 {
 		&self.signer_hash

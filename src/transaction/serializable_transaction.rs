@@ -8,15 +8,12 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct SerializableTransaction<T>
-where
-	T: Signer,
-{
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct SerializableTransaction {
 	version: u8,
 	nonce: u32,
 	valid_until_block: u32,
-	pub(crate) signers: Vec<T>,
+	pub(crate) signers: Vec<dyn Signer>,
 	system_fee: i64,
 	network_fee: i64,
 	attributes: Vec<TransactionAttribute>,
@@ -25,14 +22,14 @@ where
 	block_count_when_sent: Option<u32>,
 }
 
-impl<T> SerializableTransaction<T> {
+impl SerializableTransaction {
 	// Constructor
 
 	pub fn new(
 		version: u8,
 		nonce: u32,
 		valid_until_block: u32,
-		signers: Vec<T>,
+		signers: Vec<dyn Signer>,
 		system_fee: i64,
 		network_fee: i64,
 		attributes: Vec<TransactionAttribute>,

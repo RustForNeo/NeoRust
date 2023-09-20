@@ -1,8 +1,12 @@
 // iterator
 
-use crate::protocol::{
-	core::{neo_trait::NeoTrait, stack_item::StackItem},
-	neo_rust::NeoRust,
+use crate::{
+	neo_error::NeoError,
+	protocol::{
+		core::{neo_trait::NeoTrait, stack_item::StackItem},
+		neo_rust::NeoRust,
+	},
+	transaction::signer::Signer,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +22,7 @@ impl<T> NeoIterator<T> {
 		Self { session_id, iterator_id, mapper }
 	}
 
-	pub async fn next(&self, count: usize) -> Vec<T> {
+	pub async fn next(&self, count: usize) -> Vec<dyn Signer> {
 		let items = NeoRust::instance()
 			.traverse_iter(self.session_id.clone(), self.iterator_id.clone(), count)
 			.await?;
@@ -26,7 +30,7 @@ impl<T> NeoIterator<T> {
 		items.into_iter().map(|item| (self.mapper)(item)).collect()
 	}
 
-	pub async fn close(&self) -> Result<bool, Err> {
+	pub async fn close(&self) -> Result<bool, NeoError> {
 		NeoRust::instance().terminate_session(&self.session_id).await.request()
 	}
 }

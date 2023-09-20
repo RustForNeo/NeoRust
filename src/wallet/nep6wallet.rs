@@ -4,10 +4,7 @@ use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[macro_use]
-extern crate getset;
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Getters, CopyGetters, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, Getters, CopyGetters, Default)]
 #[getset(get = "pub", set = "pub")]
 pub struct NEP6Wallet {
 	name: String,

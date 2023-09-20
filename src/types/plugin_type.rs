@@ -1,6 +1,7 @@
 use strum_macros::{Display, EnumString};
 
 #[derive(Display, EnumString, Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
 pub enum NodePluginType {
 	#[strum(serialize = "ApplicationLogs")]
 	ApplicationLogs,

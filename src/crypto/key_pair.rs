@@ -2,13 +2,12 @@ use crate::{
 	crypto::wif::Wif,
 	neo_error::NeoError,
 	script::script_builder::ScriptBuilder,
-	types::{H160Externsion, PrivateKey},
+	types::{H160Externsion, PrivateKey, PublicKey},
 };
 use getset::{CopyGetters, Getters};
 use p256::{
 	ecdsa::{signature::SignerMut, Signature},
 	elliptic_curve::sec1::ToEncodedPoint,
-	PublicKey,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -16,7 +15,7 @@ use sha2::{Digest, Sha256};
 use std::{error::Error, hash::Hash};
 
 #[derive(
-	Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, Default, educe::Educe,
+	Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, educe::Educe,
 )]
 #[educe(Default(new))]
 pub struct KeyPair {
@@ -49,7 +48,7 @@ impl KeyPair {
 	}
 
 	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
-		let public_key = self.public_key.to_encoded_point(true);
+		let public_key = self.public_key.to_encoded_point(false);
 		let script = ScriptBuilder::build_verification_script(&public_key)?;
 		Ok(H160::from_script(&script)?)
 	}
@@ -62,31 +61,5 @@ impl KeyPair {
 
 	pub fn export_wif(&self) -> String {
 		self.private_key.to_be_bytes().as_slice().to_wif()
-	}
-}
-
-// Implementations for serialization
-
-impl Serialize for KeyPair {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		use serde::ser::SerializeStruct;
-
-		let mut strukt = serializer.serialize_struct("KeyPair", 2)?;
-		strukt.serialize_field("private_key", &self.private_key)?;
-		strukt.serialize_field("public_key", &self.public_key)?;
-		strukt.end()
-	}
-}
-
-impl<'de> Deserialize<'de> for KeyPair {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let kp = KeyPair::deserialize(deserializer)?;
-		Ok(KeyPair { private_key: kp.private_key, public_key: kp.public_key })
 	}
 }

@@ -1,9 +1,9 @@
 use crate::neo_error::NeoError;
 use serde::{Deserialize, Serialize};
 
-pub trait ResponseTrait<T>
+pub trait ResponseTrait<'a, T>
 where
-	T: Serialize + Deserialize,
+	T: Serialize + Deserialize<'a>,
 {
 	fn get_result(self) -> Result<T, NeoError>;
 }
@@ -23,9 +23,9 @@ pub struct Error {
 	data: Option<String>,
 }
 
-impl<T> NeoResponse<T>
+impl<'a, T> NeoResponse<T>
 where
-	T: Serialize + Deserialize,
+	T: Serialize + Deserialize<'a>,
 {
 	fn new(result: T) -> Self {
 		Self { jsonrpc: "2.0", id: 0, result: Some(result), error: None }
@@ -36,9 +36,9 @@ where
 	}
 }
 
-impl<T> ResponseTrait<T> for NeoResponse<T>
+impl<'a, T> ResponseTrait<'a, T> for NeoResponse<T>
 where
-	T: Serialize + Deserialize,
+	T: Serialize + Deserialize<'a>,
 {
 	fn get_result(self) -> Result<T, NeoError> {
 		match self.error {

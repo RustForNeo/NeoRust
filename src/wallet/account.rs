@@ -2,7 +2,10 @@ use crate::{
 	crypto::{key_pair::KeyPair, nep2::NEP2},
 	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
-	types::{contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey},
+	types::{
+		contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey,
+		PublicKey,
+	},
 	wallet::{
 		nep6account::NEP6Account,
 		nep6contract::{NEP6Contract, NEP6Parameter},
@@ -10,7 +13,6 @@ use crate::{
 		wallet_error::WalletError,
 	},
 };
-use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

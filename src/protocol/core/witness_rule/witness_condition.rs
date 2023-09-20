@@ -1,4 +1,4 @@
-use p256::PublicKey;
+use crate::types::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -106,61 +106,3 @@ impl WitnessCondition {
 	}
 }
 // Serialization
-
-impl Serialize for WitnessCondition {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		use serde::ser::SerializeTuple;
-		let mut tuple = serializer.serialize_tuple(2)?;
-		tuple.serialize_element(&self.json_value())?;
-		match self {
-			WitnessCondition::Boolean(b) => tuple.serialize_element(b),
-			WitnessCondition::Not(exp) => tuple.serialize_element(&exp.serialize(serializer)?),
-			WitnessCondition::And(exps) | WitnessCondition::Or(exps) =>
-				tuple.serialize_element(&exps.serialize(serializer)?),
-			WitnessCondition::ScriptHash(hash) | WitnessCondition::CalledByContract(hash) =>
-				tuple.serialize_element(&hash.serialize(serializer)?),
-			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) =>
-				tuple.serialize_element(&group.serialize(serializer)?),
-			WitnessCondition::CalledByEntry => {},
-		}
-		.expect("failed to serialize witness condition");
-		tuple.end()
-	}
-}
-
-// Deserialization
-
-impl<'de> Deserialize<'de> for WitnessCondition {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		use serde::de::Error;
-
-		let (type_str, value) = Deserialize::deserialize(deserializer)?;
-
-		let condition = match type_str.as_str() {
-			WitnessCondition::BOOLEAN_VALUE => WitnessCondition::Boolean(value.unwrap()),
-			WitnessCondition::NOT_VALUE => WitnessCondition::Not(Box::new(value.unwrap())),
-			WitnessCondition::AND_VALUE | WitnessCondition::OR_VALUE => {
-				let exp_vec = value.unwrap();
-				if type_str == WitnessCondition::AND_VALUE {
-					WitnessCondition::And(exp_vec)
-				} else {
-					WitnessCondition::Or(exp_vec)
-				}
-			},
-			WitnessCondition::SCRIPT_HASH_VALUE | WitnessCondition::CALLED_BY_CONTRACT_VALUE =>
-				WitnessCondition::ScriptHash(value.unwrap()),
-			WitnessCondition::GROUP_VALUE | WitnessCondition::CALLED_BY_GROUP_VALUE =>
-				WitnessCondition::Group(value.unwrap()),
-			WitnessCondition::CALLED_BY_ENTRY_VALUE => WitnessCondition::CalledByEntry,
-			_ => return Err(Error::custom("invalid type")),
-		};
-
-		Ok(condition)
-	}
-}

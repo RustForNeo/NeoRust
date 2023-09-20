@@ -9,6 +9,7 @@ pub enum TransactionError {
 	SignerConfiguration(String),
 	#[error("Invalid nonce")]
 	InvalidNonce,
+	#[error("Invalid block")]
 	InvalidBlock,
 	#[error("Invalid transaction")]
 	InvalidTransaction,

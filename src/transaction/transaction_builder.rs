@@ -7,25 +7,24 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	transaction::{
-		account_signer::AccountSigner, contract_signer::ContractSigner,
-		serializable_transaction::SerializableTransaction, signer::Signer,
-		transaction_error::TransactionError, witness::Witness,
+		account_signer::AccountSigner,
+		contract_signer::ContractSigner,
+		serializable_transaction::SerializableTransaction,
+		signer::{Signer, SignerType},
+		transaction_error::TransactionError,
+		witness::Witness,
 	},
 	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
 };
-use p256::ecdsa::signature::SignerMut;
 use primitive_types::H160;
 use std::{error::Error, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TransactionBuilder<T>
-where
-	T: Signer,
-{
+pub struct TransactionBuilder {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
-	signers: Vec<T>,
+	signers: Vec<dyn Signer>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
 	attributes: Vec<TransactionAttribute>,
@@ -34,10 +33,7 @@ where
 	fee_error: Option<TransactionError>,
 }
 
-impl<T> TransactionBuilder<T>
-where
-	T: Signer,
-{
+impl TransactionBuilder {
 	pub const GAS_TOKEN_HASH: H160 =
 		H160::from_hex("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
@@ -96,9 +92,7 @@ where
 	}
 
 	// Get unsigned transaction
-	pub async fn get_unsigned_tx(
-		&mut self,
-	) -> Result<SerializableTransaction<T>, TransactionError> {
+	pub async fn get_unsigned_tx(&mut self) -> Result<SerializableTransaction, TransactionError> {
 		// Validate configuration
 		if self.signers.is_empty() {
 			return Err(TransactionError::NoSigners)
@@ -192,16 +186,16 @@ where
 		Err(TransactionError::InvalidSender)
 	}
 
-	fn is_account_signer<T: Signer>(signer: &T) -> bool {
-		let sig = <T as Signer>::SignerType;
-		if std::any::TypeId::of::<sig>() == std::any::TypeId::of::<AccountSigner>() {
+	fn is_account_signer(signer: &dyn Signer) -> bool {
+		// let sig = <T as Signer>::SignerType;
+		if signer.get_type() == SignerType::Account {
 			return true
 		}
 		return false
 	}
 
 	// Sign transaction
-	pub async fn sign(&mut self) -> Result<SerializableTransaction<T>, dyn Error> {
+	pub async fn sign(&mut self) -> Result<SerializableTransaction, dyn Error> {
 		let mut transaction = self.get_unsigned_transaction().await?;
 
 		for signer in &mut transaction.signers {
@@ -239,7 +233,7 @@ where
 
 	pub async fn get_unsigned_transaction(
 		&mut self,
-	) -> Result<SerializableTransaction<T>, TransactionError> {
+	) -> Result<SerializableTransaction, TransactionError> {
 		if self.script.is_none() {
 			return Err(TransactionError::TransactionConfiguration(
 				"Cannot build a transaction without a script.".to_string(),

@@ -16,11 +16,3 @@ impl Notification {
 		Self { contract, event_name, state }
 	}
 }
-
-impl Hash for Notification {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.contract.hash(state);
-		self.event_name.hash(state);
-		self.state.hash(state);
-	}
-}

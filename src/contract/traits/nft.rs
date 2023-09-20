@@ -10,7 +10,7 @@ use primitive_types::H160;
 use std::{collections::HashMap, str::FromStr};
 
 #[async_trait]
-trait NonFungibleTokenTrait<T>: TokenTrait<T> {
+trait NonFungibleTokenTrait: TokenTrait {
 	const OWNER_OF: &'static str = "ownerOf";
 	const TOKENS_OF: &'static str = "tokensOf";
 	const BALANCE_OF: &'static str = "balanceOf";
@@ -45,7 +45,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		to: H160,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_inner(to, token_id, data)
 			.signers(vec![AccountSigner::called_by_entry(from)])
 	}
@@ -55,7 +55,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		to: H160,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.throw_if_divisible_nft().await?;
 
 		self.invoke_function(
@@ -70,7 +70,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.throw_if_sender_is_not_owner(from.script_hash(), &token_id).await?;
 
 		self.transfer_inner(H160::from_address(to)?, token_id, data)
@@ -82,7 +82,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.throw_if_divisible_nft().await?;
 
 		self.transfer_inner(self.resolve_nns_text_record(&NNSName::new(to)?)?, token_id, data)
@@ -145,7 +145,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_divisible_from_hashes(from.script_hash(), to, amount, token_id, data)
 			.signers(vec![AccountSigner::called_by_entry(from)])
 	}
@@ -157,7 +157,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.throw_if_non_divisible_nft().await?;
 
 		self.invoke_function(
@@ -173,7 +173,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_divisible_from_hashes(
 			from.script_hash(),
 			self.resolve_nns_text_record(&NNSName::new(to)?)?,
@@ -191,7 +191,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.throw_if_non_divisible_nft().await?;
 
 		self.transfer_divisible_from_hashes(
@@ -226,7 +226,7 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 		self.call_function_returning_iterator(
 			NonFungibleTokenTrait::OWNER_OF,
 			vec![token_id.into()],
-			|item| H160::from_address(item.address().unwrap()),
+			|item| Ok(H160::from_address(item.address().unwrap())?),
 		)
 	}
 
@@ -271,8 +271,8 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 
 		let stack_item = invocation_result.get_first_stack_item()?;
 		let map = stack_item.as_map().ok_or(ContractError::UnexpectedReturnType(
-			stack_item.to_json(),
-			Some(vec![StackItem::MAP_VALUE.to_string()]),
+			stack_item.to_json() + StackItem::MAP_VALUE.to_string(),
+			// Some(vec![]),
 		))?;
 
 		map.iter()
@@ -294,8 +294,8 @@ trait NonFungibleTokenTrait<T>: TokenTrait<T> {
 
 		let stack_item = invocation_result.get_first_stack_item()?;
 		let map = stack_item.as_map().ok_or(ContractError::UnexpectedReturnType(
-			stack_item.to_json(),
-			Some(vec![StackItem::MAP_VALUE.to_string()]),
+			stack_item.to_json() + StackItem::MAP_VALUE.to_string(),
+			// Some(vec![StackItem::MAP_VALUE.to_string()]),
 		))?;
 
 		map.into_iter()

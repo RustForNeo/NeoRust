@@ -2,9 +2,9 @@ use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode, script_builder::ScriptBuilder},
 	serialization::binary_reader::BinaryReader,
-	types::Bytes,
+	types::{Bytes, PublicKey},
 };
-use p256::{ecdsa::Signature, PublicKey};
+use p256::ecdsa::Signature;
 use primitive_types::H160;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

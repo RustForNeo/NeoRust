@@ -1,4 +1,4 @@
-use num_enum::FromPrimitive;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use strum_macros::{AsRefStr, Display, EnumCount, EnumIter, EnumString, IntoStaticStr};
 
 // #[derive(
@@ -16,7 +16,6 @@ use strum_macros::{AsRefStr, Display, EnumCount, EnumIter, EnumString, IntoStati
 	EnumString,
 	IntoStaticStr,
 	AsRefStr,
-	EnumString,
 	EnumCount,
 	EnumIter,
 	Display,
@@ -25,8 +24,10 @@ use strum_macros::{AsRefStr, Display, EnumCount, EnumIter, EnumString, IntoStati
 	Debug,
 	PartialEq,
 	Eq,
-	FromPrimitive,
+	TryFromPrimitive,
+	IntoPrimitive,
 )]
+#[repr(u8)]
 pub enum RecordType {
 	#[strum(serialize = "A")]
 	A = 1,

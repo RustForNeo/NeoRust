@@ -8,10 +8,10 @@ use crate::{
 	},
 	protocol::core::{responses::neo_account_state::AccountState, stack_item::StackItem},
 	transaction::transaction_builder::TransactionBuilder,
+	types::PublicKey,
 	wallet::account::Account,
 };
 use async_trait::async_trait;
-use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -23,14 +23,14 @@ pub struct NeoToken {
 	symbol: Option<String>,
 }
 
-impl<T> NeoToken {
+impl NeoToken {
 	pub const NAME: &'static str = "NeoToken";
 	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 	pub const DECIMALS: u8 = 0;
 	pub const SYMBOL: &'static str = "NEO";
 	pub const TOTAL_SUPPLY: u64 = 100_000_000;
 
-	fn new() -> Self {
+	pub(crate) fn new() -> Self {
 		NeoToken {
 			script_hash: Self::SCRIPT_HASH,
 			total_supply: Some(Self::TOTAL_SUPPLY),
@@ -68,14 +68,14 @@ impl<T> NeoToken {
 	fn register_candidate(
 		&self,
 		candidate_key: &PublicKey,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("registerCandidate", vec![candidate_key.to_stack_item()])
 	}
 
 	fn unregister_candidate(
 		&self,
 		candidate_key: &PublicKey,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("unregisterCandidate", vec![candidate_key.to_stack_item()])
 	}
 
@@ -100,7 +100,7 @@ impl<T> NeoToken {
 		&self,
 		voter: &H160,
 		candidate: Option<&PublicKey>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let params = match candidate {
 			Some(key) => vec![voter.into(), key.to_stack_item()],
 			None => vec![voter.into(), StackItem::null()],
@@ -109,7 +109,7 @@ impl<T> NeoToken {
 		self.invoke_function("vote", params)
 	}
 
-	async fn cancel_vote(&self, voter: &H160) -> Result<TransactionBuilder<T>, ContractError> {
+	async fn cancel_vote(&self, voter: &H160) -> Result<TransactionBuilder, ContractError> {
 		self.vote(voter, None).await
 	}
 
@@ -132,10 +132,7 @@ impl<T> NeoToken {
 		self.call_function_returning_int("getGasPerBlock", vec![]).await
 	}
 
-	fn set_gas_per_block(
-		&self,
-		gas_per_block: i32,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	fn set_gas_per_block(&self, gas_per_block: i32) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("setGasPerBlock", vec![gas_per_block.into()])
 	}
 
@@ -143,10 +140,7 @@ impl<T> NeoToken {
 		self.call_function_returning_int("getRegisterPrice", vec![]).await
 	}
 
-	fn set_register_price(
-		&self,
-		register_price: i32,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	fn set_register_price(&self, register_price: i32) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("setRegisterPrice", vec![register_price.into()])
 	}
 
@@ -174,7 +168,7 @@ impl<T> NeoToken {
 }
 
 #[async_trait]
-impl<T> TokenTrait<T> for NeoToken {
+impl TokenTrait for NeoToken {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -201,7 +195,7 @@ impl<T> TokenTrait<T> for NeoToken {
 }
 
 #[async_trait]
-impl<T> SmartContractTrait<T> for NeoToken {
+impl SmartContractTrait for NeoToken {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -212,7 +206,7 @@ impl<T> SmartContractTrait<T> for NeoToken {
 }
 
 #[async_trait]
-impl<T> FungibleTokenTrait<T> for NeoToken {}
+impl FungibleTokenTrait for NeoToken {}
 
 pub struct Candidate {
 	pub public_key: PublicKey,

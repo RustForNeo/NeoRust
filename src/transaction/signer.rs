@@ -5,14 +5,18 @@ use crate::{
 		witness_condition::WitnessCondition, witness_rule::WitnessRule,
 	},
 	transaction::witness_scope::WitnessScope,
+	types::PublicKey,
 };
-use p256::PublicKey;
 use primitive_types::H160;
-use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-pub trait Signer: Clone + PartialEq + Serialize + Deserialize {
-	type SignerType;
+pub enum SignerType {
+	Account,
+	Contract,
+}
+
+pub trait Signer: Clone {
+	fn get_type(&self) -> SignerType;
 
 	fn get_signer_hash(&self) -> &H160;
 

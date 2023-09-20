@@ -1,36 +1,29 @@
-use crate::contract::traits::{
-	fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+use crate::{
+	contract::traits::{
+		fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+	},
+	transaction::signer::Signer,
 };
 use async_trait::async_trait;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GasToken {
+pub struct FungibleTokenContract {
 	script_hash: H160,
 	total_supply: Option<u64>,
 	decimals: Option<u8>,
 	symbol: Option<String>,
 }
 
-impl GasToken {
-	pub const NAME: &'static str = "GasToken";
-	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
-	pub const DECIMALS: u8 = 8;
-	pub const SYMBOL: &'static str = "GAS";
-
-	pub fn new() -> Self {
-		Self {
-			script_hash: Self::SCRIPT_HASH,
-			total_supply: None,
-			decimals: Some(Self::DECIMALS),
-			symbol: Some(Self::SYMBOL.to_string()),
-		}
+impl FungibleTokenContract {
+	pub fn new(script_hash: &H160) -> Self {
+		Self { script_hash: script_hash.clone(), total_supply: None, decimals: None, symbol: None }
 	}
 }
 
 #[async_trait]
-impl TokenTrait for GasToken {
+impl TokenTrait for FungibleTokenContract {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -57,7 +50,7 @@ impl TokenTrait for GasToken {
 }
 
 #[async_trait]
-impl SmartContractTrait for GasToken {
+impl SmartContractTrait for FungibleTokenContract {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -68,4 +61,4 @@ impl SmartContractTrait for GasToken {
 }
 
 #[async_trait]
-impl FungibleTokenTrait for GasToken {}
+impl FungibleTokenTrait for FungibleTokenContract {}

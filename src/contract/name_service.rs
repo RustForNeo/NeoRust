@@ -4,7 +4,7 @@ use crate::{
 		core::{neo_trait::NeoTrait, stack_item::StackItem},
 		neo_rust::NeoRust,
 	},
-	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
+	transaction::transaction_builder::TransactionBuilder,
 	types::contract_parameter::ContractParameter,
 };
 use p256::pkcs8::der::Decode;
@@ -54,10 +54,7 @@ pub struct NeoNameService {
 	script_hash: H160,
 }
 
-impl<T> NeoNameService
-where
-	T: Signer,
-{
+impl NeoNameService {
 	const ADD_ROOT: &'static str = "addRoot";
 	const ROOTS: &'static str = "roots";
 	const SET_PRICE: &'static str = "setPrice";
@@ -83,7 +80,7 @@ where
 
 	// Implementation
 
-	async fn add_root(&self, root: &str) -> Result<TransactionBuilder<T>, ContractError> {
+	async fn add_root(&self, root: &str) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![root.to_string().into()];
 		self.invoke_function(Self::ADD_ROOT, args)
 	}
@@ -108,7 +105,7 @@ where
 		&self,
 		name: &str,
 		owner: H160,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.check_domain_name_availability(name, true).await?;
 
 		let args = vec![name.into(), owner.into()];
@@ -121,7 +118,7 @@ where
 		&self,
 		name: &str,
 		admin: H160,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.check_domain_name_availability(name, true).await?;
 
 		let args = vec![name.into(), admin.into()];
@@ -135,7 +132,7 @@ where
 		name: &str,
 		record_type: RecordType,
 		data: &str,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into(), data.into()];
 
 		self.invoke_function(Self::SET_RECORD, args)
@@ -147,7 +144,7 @@ where
 		&self,
 		name: &str,
 		record_type: RecordType,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into()];
 		self.invoke_function(Self::DELETE_RECORD, args)
 	}
@@ -171,11 +168,7 @@ where
 		let args = vec![name.into()];
 		self.call_function::<bool>(Self::IS_AVAILABLE, args).await
 	}
-	pub async fn renew(
-		&self,
-		name: &str,
-		years: u32,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	pub async fn renew(&self, name: &str, years: u32) -> Result<TransactionBuilder, ContractError> {
 		self.check_domain_name_availability(name, true).await?;
 
 		let args = vec![name.into(), years.into()];
@@ -213,17 +206,17 @@ where
 		&self,
 		operation: &str,
 		args: Vec<StackItem>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let script_hash = &self.script_hash;
 		let tx_builder = TransactionBuilder::call_contract(script_hash, operation, args);
 		Ok(tx_builder)
 	}
 
-	async fn call_function<T: Decode>(
+	async fn call_function<'a, U: Decode<'a>>(
 		&self,
 		operation: &str,
 		args: Vec<ContractParameter>,
-	) -> Result<T, ContractError> {
+	) -> Result<U, ContractError> {
 		let script_hash = &self.script_hash;
 
 		let result = NeoRust::instance()

@@ -82,14 +82,14 @@ impl Bytes {
 		}
 	}
 
-	fn to_numeric<T: FromStr>(&self) -> Option<T> {
-		let mut bytes = self.0.clone();
-		if cfg!(target_endian = "big") {
-			bytes.reverse();
-		}
-		let num = String::from_utf8_lossy(&bytes);
-		num.parse::<T>().ok()
-	}
+	// fn to_numeric<T: FromStr>(&self) -> Option  {
+	// 	let mut bytes = self.0.clone();
+	// 	if cfg!(target_endian = "big") {
+	// 		bytes.reverse();
+	// 	}
+	// 	let num = String::from_utf8_lossy(&bytes);
+	// 	num.parse:: ().ok()
+	// }
 }
 
 impl BitXor for Bytes {

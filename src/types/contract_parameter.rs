@@ -1,11 +1,10 @@
-use crate::types::contract_parameter_type::ContractParameterType;
-use base64::{decode, encode};
-use crypto::sha3::Sha3Mode::Keccak256;
-use p256::PublicKey;
+use crate::types::{contract_parameter_type::ContractParameterType, PublicKey};
+use base64::encode;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha3::Digest;
+use std::hash::{Hash, Hasher};
 use strum_macros::{Display, EnumString};
 
 #[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -89,11 +88,10 @@ impl ContractParameter {
 
 		Self::with_value(ContractParameterType::Map, ParameterValue::Map(json))
 	}
+
 	pub fn hash(self) -> Vec<u8> {
-		let mut hasher = Keccak256::new();
-		hasher.update(self.name.unwrap_or_default());
-		hasher.update(self.typ.as_str());
-		hasher.update(self.value.unwrap_or_default());
-		hasher.finalize().to_vec()
+		let mut hasher = std::collections::hash_map::DefaultHasher::new();
+		Hash::hash(&self, &mut hasher);
+		hasher.finish().to_be_bytes().to_vec()
 	}
 }

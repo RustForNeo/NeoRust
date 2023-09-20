@@ -1,10 +1,10 @@
-use num_enum::FromPrimitive;
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 #[derive(
 	Display,
 	EnumString,
-	FromPrimitive,
+	TryFromPrimitive,
 	Copy,
 	Clone,
 	Debug,
@@ -14,6 +14,7 @@ use strum_macros::{Display, EnumString};
 	Serialize,
 	Deserialize,
 )]
+#[repr(u8)]
 pub enum WitnessAction {
 	#[strum(serialize = "Deny")]
 	Deny = 0,

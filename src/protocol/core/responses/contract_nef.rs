@@ -1,12 +1,14 @@
 use crate::protocol::core::responses::contract_method_token::ContractMethodToken;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 #[derive(Serialize, Deserialize, Hash)]
+#[serde_as]
 pub struct ContractNef {
 	pub magic: i32,
 	pub compiler: String,
 	pub source: Option<String>,
-	#[serde(with = "serde_with::rust::single_or_nil_array")]
+	#[serde_as(as = "Vec<ContractMethodToken>")]
 	pub tokens: Vec<ContractMethodToken>,
 	pub script: String,
 	pub checksum: i32,

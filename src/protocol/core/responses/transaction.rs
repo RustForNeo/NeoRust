@@ -59,25 +59,3 @@ pub struct Transaction {
 	#[serde(rename = "vmstate")]
 	pub vm_state: Option<VMState>,
 }
-
-impl Hash for Transaction {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.hash.hash(state);
-		self.size.hash(state);
-		self.version.hash(state);
-		self.nonce.hash(state);
-		self.sender.hash(state);
-		self.sys_fee.hash(state);
-		self.net_fee.hash(state);
-		self.valid_until_block.hash(state);
-		self.signers.hash(state);
-		self.attributes.hash(state);
-		self.script.hash(state);
-		self.witnesses.hash(state);
-		self.block_hash.hash(state);
-		self.confirmations.hash(state);
-		self.block_time.hash(state);
-		self.vm_state.hash(state);
-	}
-	// etc
-}

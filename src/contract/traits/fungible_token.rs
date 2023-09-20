@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use primitive_types::H160;
 
 #[async_trait]
-pub trait FungibleTokenTrait<T>: TokenTrait<T> {
+pub trait FungibleTokenTrait: TokenTrait {
 	const BALANCE_OF: &'static str = "balanceOf";
 	const TRANSFER: &'static str = "transfer";
 
@@ -35,7 +35,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		to: H160,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_from_hash160(from.get_script_hash()?, to, amount, data)
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
@@ -46,7 +46,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		to: H160,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		if amount < 0 {
 			return Err(ContractError::InvalidArgError(
 				"The amount must be greater than or equal to 0.".to_string(),
@@ -78,7 +78,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_from_hash160_to_nns(from.get_script_hash()?, to, amount, data)
 			.await
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
@@ -90,7 +90,7 @@ pub trait FungibleTokenTrait<T>: TokenTrait<T> {
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let script_hash = self.resolve_nns_text_record(to).await?;
 		self.transfer_from_hash160(from, script_hash, amount, data)
 	}

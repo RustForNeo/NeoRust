@@ -12,7 +12,7 @@ pub struct PolicyContract {
 	script_hash: H160,
 }
 
-impl<T> PolicyContract {
+impl PolicyContract {
 	pub const NAME: &'static str = "PolicyContract";
 	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 
@@ -40,45 +40,45 @@ impl<T> PolicyContract {
 
 	// State modifying methods
 
-	pub fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder<T>, ContractError> {
+	pub fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("setFeePerByte", vec![fee.into()])
 	}
 
-	pub fn set_exec_fee_factor(&self, fee: i32) -> Result<TransactionBuilder<T>, ContractError> {
+	pub fn set_exec_fee_factor(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("setExecFeeFactor", vec![fee.into()])
 	}
 
-	pub fn set_storage_price(&self, price: i32) -> Result<TransactionBuilder<T>, ContractError> {
+	pub fn set_storage_price(&self, price: i32) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("setStoragePrice", vec![price.into()])
 	}
 
-	pub fn block_account(&self, account: &H160) -> Result<TransactionBuilder<T>, ContractError> {
+	pub fn block_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("blockAccount", vec![account.into()])
 	}
 
 	pub fn block_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let account = H160::from_address(address)?;
 		self.block_account(&account)
 	}
 
-	pub fn unblock_account(&self, account: &H160) -> Result<TransactionBuilder<T>, ContractError> {
+	pub fn unblock_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("unblockAccount", vec![account.into()])
 	}
 
 	pub fn unblock_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder<T>, ContractError> {
+	) -> Result<TransactionBuilder, ContractError> {
 		let account = H160::from_address(address)?;
 		self.unblock_account(&account)
 	}
 }
 
 #[async_trait]
-impl<T> SmartContractTrait<T> for PolicyContract {
+impl SmartContractTrait for PolicyContract {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}

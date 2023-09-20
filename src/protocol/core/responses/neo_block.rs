@@ -1,5 +1,4 @@
-use crate::protocol::core::responses::neo_witness::NeoWitness;
-use bitcoin::Transaction;
+use crate::protocol::core::responses::{neo_witness::NeoWitness, transaction::Transaction};
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 

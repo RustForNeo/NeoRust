@@ -7,15 +7,15 @@ pub struct NeoGetTokenTransfers<T> {
 	pub transfers: Option<T>,
 }
 
-pub trait TokenTransfers: Serialize + Deserialize + Clone + PartialEq + Eq + Hash {
-	type Transfer: TokenTransfer;
+pub trait TokenTransfers<'a>: Serialize + Deserialize<'a> + Clone + PartialEq + Eq + Hash {
+	type Transfer: TokenTransfer<'a>;
 
 	fn sent(&self) -> &Vec<Self::Transfer>;
 	fn received(&self) -> &Vec<Self::Transfer>;
 	fn transfer_address(&self) -> &String;
 }
 
-pub trait TokenTransfer: Serialize + Deserialize + Clone + PartialEq + Eq + Hash {
+pub trait TokenTransfer<'a>: Serialize + Deserialize<'a> + Clone + PartialEq + Eq + Hash {
 	fn timestamp(&self) -> u64;
 	fn asset_hash(&self) -> H160;
 	fn transfer_address(&self) -> &String;
