@@ -1,11 +1,15 @@
 #![feature(atomic_from_ptr, pointer_is_aligned)]
+
 use crate::{
 	neo_error::NeoError,
 	protocol::{core::response::ResponseTrait, neo_rust::NeoRust},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+	marker::PhantomData,
+	sync::atomic::{AtomicU64, Ordering},
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct NeoRequest<'a, T> {
@@ -13,6 +17,7 @@ pub struct NeoRequest<'a, T> {
 	method: String,
 	params: Vec<Value>,
 	id: u64,
+	_marker: PhantomData<&'a T>,
 }
 
 impl<'a, T> NeoRequest<'a, T>
@@ -20,7 +25,13 @@ where
 	T: Serialize + Deserialize<'a>,
 {
 	pub fn new(method: &str, params: Vec<Value>) -> Self {
-		Self { jsonrpc: "2.0", method: method.to_string(), params, id: next_id() }
+		Self {
+			jsonrpc: "2.0",
+			method: method.to_string(),
+			params,
+			id: next_id(),
+			_marker: Default::default(),
+		}
 	}
 
 	pub(crate) fn to_json(&self) -> String {

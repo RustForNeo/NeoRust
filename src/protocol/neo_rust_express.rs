@@ -2,21 +2,11 @@ use crate::{
 	protocol::{
 		core::{
 			request::NeoRequest,
-			response::NeoResponse,
 			responses::{
 				contract_storage_entry::ContractStorageEntry,
-				express_contract_state::ExpressContractState,
-				express_shutdown::ExpressShutdown,
-				neo_response_aliases::{
-					NeoExpressCreateCheckpoint, NeoExpressCreateOracleResponseTx,
-					NeoExpressGetContractStorage, NeoExpressGetNep17Contracts,
-					NeoExpressGetPopulatedBlocks, NeoExpressListContracts,
-					NeoExpressListOracleRequests, NeoExpressShutdown,
-				},
-				nep17contract::Nep17Contract,
-				oracle_request::OracleRequest,
-				populated_blocks::PopulatedBlocks,
-				transaction_attribute::TransactionAttribute,
+				express_contract_state::ExpressContractState, express_shutdown::ExpressShutdown,
+				nep17contract::Nep17Contract, oracle_request::OracleRequest,
+				populated_blocks::PopulatedBlocks, transaction_attribute::TransactionAttribute,
 			},
 		},
 		neo_service::NeoService,
@@ -26,11 +16,14 @@ use crate::{
 use primitive_types::H160;
 use serde_json::Value;
 
-pub struct NeoRustExpress {
-	neo_service: dyn NeoService,
+pub struct NeoRustExpress<T>
+where
+	T: NeoService,
+{
+	neo_service: T,
 }
 
-impl NeoRustExpress {
+impl<T: NeoService> NeoRustExpress<T> {
 	pub fn express_get_populated_blocks(&self) -> NeoRequest<PopulatedBlocks> {
 		NeoRequest::new("expressgetpopulatedblocks", vec![])
 	}

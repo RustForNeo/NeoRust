@@ -5,7 +5,7 @@ use crate::{
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait NeoService {
+pub trait NeoService: Send + Sync {
 	fn send<T>(&self, request: &NeoRequest<T>) -> Result<NeoResponse<T>, NeoError>;
 	fn close(&self);
 }

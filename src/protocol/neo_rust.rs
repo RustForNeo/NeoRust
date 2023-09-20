@@ -24,7 +24,7 @@ use crate::{
 				neo_get_token_balances::TokenBalance,
 				neo_get_unclaimed_gas::{GetUnclaimedGas, NeoGetUnclaimedGas},
 				neo_get_version::{NeoGetVersion, NeoVersion},
-				neo_get_wallet_balance::NeoGetWalletBalance,
+				neo_get_wallet_balance::{Balance, NeoGetWalletBalance},
 				neo_list_plugins::{NeoListPlugins, Plugin},
 				neo_network_fee::NeoNetworkFee,
 				neo_response_aliases::{
@@ -62,7 +62,6 @@ use futures::Stream;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256};
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
 	collections::HashMap,
@@ -71,16 +70,19 @@ use std::{
 };
 
 lazy_static! {
-	pub static ref NEO_RUST_INSTANCE: Mutex<NeoRust> = Mutex::new(NeoRust::new());
+	pub static ref NEO_RUST_INSTANCE: Mutex<NeoRust<HttpService>> = Mutex::new(NeoRust::new());
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct NeoRust {
+pub struct NeoRust<T>
+where
+	T: NeoService,
+{
 	config: Arc<NeoConfig>,
-	neo_service: Arc<Mutex<dyn NeoService>>,
+	neo_service: Arc<Mutex<T>>,
 }
 
-impl NeoRust {
+impl<T: NeoService> NeoRust<T> {
 	pub fn new() -> Self {
 		Self {
 			config: Arc::new(NeoConfig::default()),
@@ -114,12 +116,12 @@ impl NeoRust {
 		self.config.max_valid_until_block_increment as u32
 	}
 
-	pub(crate) fn get_neo_service(&self) -> &dyn NeoService {
+	pub(crate) fn get_neo_service(&self) -> &T {
 		&self.neo_service.lock().unwrap()
 	}
 
-	pub fn get_neo_service_mut(&mut self) -> &mut dyn NeoService {
-		&mut self.neo_service
+	pub fn get_neo_service_mut(&mut self) -> &mut T {
+		&mut self.neo_service.lock().as_mut().unwrap()
 	}
 
 	pub async fn dump_private_key(&self, script_hash: H160) -> NeoRequest<String> {
@@ -152,7 +154,7 @@ impl NeoRust {
 }
 
 #[async_trait]
-impl NeoTrait for NeoRust {
+impl<T: NeoService> NeoTrait for NeoRust<T> {
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> NeoRequest<H256> {
 		NeoRequest::new("getbestblockhash", vec![])
@@ -332,7 +334,7 @@ impl NeoTrait for NeoRust {
 		NeoRequest::new("dumpprivkey", params)
 	}
 
-	async fn get_wallet_balance(&self, token_hash: H160) -> NeoRequest<dyn TokenBalance> {
+	async fn get_wallet_balance(&self, token_hash: H160) -> NeoRequest<Balance> {
 		NeoRequest::new("getwalletbalance", vec![token_hash.to_value()])
 	}
 

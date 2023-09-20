@@ -74,7 +74,7 @@ impl NeoNameService {
 	const EXPIRATION_PROPERTY: &'static [u8] = b"expiration";
 	const ADMIN_PROPERTY: &'static [u8] = b"admin";
 
-	pub fn new(script_hash: H160, client: Box<NeoRust>) -> Self {
+	pub fn new(script_hash: H160) -> Self {
 		Self { script_hash }
 	}
 
