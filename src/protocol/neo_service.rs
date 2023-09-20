@@ -1,8 +1,11 @@
-use crate::{neo_error::NeoError, protocol::core::request::NeoRequest};
+use crate::{
+	neo_error::NeoError,
+	protocol::core::{request::NeoRequest, response::NeoResponse},
+};
 use async_trait::async_trait;
 
 #[async_trait]
 pub trait NeoService {
-	fn send<T, U>(&self, request: &NeoRequest<T, U>) -> Result<T, NeoError>;
+	fn send<T>(&self, request: &NeoRequest<T>) -> Result<NeoResponse<T>, NeoError>;
 	fn close(&self);
 }

@@ -24,7 +24,7 @@ pub struct TransactionBuilder {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
-	signers: Vec<dyn Signer>,
+	signers: Vec<Box<dyn Signer>>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
 	attributes: Vec<TransactionAttribute>,
@@ -186,7 +186,7 @@ impl TransactionBuilder {
 		Err(TransactionError::InvalidSender)
 	}
 
-	fn is_account_signer(signer: &dyn Signer) -> bool {
+	fn is_account_signer(signer: &Box<dyn Signer>) -> bool {
 		// let sig = <T as Signer>::SignerType;
 		if signer.get_type() == SignerType::Account {
 			return true
@@ -195,7 +195,7 @@ impl TransactionBuilder {
 	}
 
 	// Sign transaction
-	pub async fn sign(&mut self) -> Result<SerializableTransaction, dyn Error> {
+	pub async fn sign(&mut self) -> Result<SerializableTransaction, NeoError> {
 		let mut transaction = self.get_unsigned_transaction().await?;
 
 		for signer in &mut transaction.signers {

@@ -53,7 +53,7 @@ impl KeyPair {
 		Ok(H160::from_script(&script)?)
 	}
 
-	pub fn sign(&mut self, message: &[u8]) -> Result<Signature, dyn Error> {
+	pub fn sign(&mut self, message: &[u8]) -> Result<Signature, NeoError> {
 		let message = Sha256::digest(message);
 		let signature = self.private_key.sign(&message)?;
 		Ok(signature)

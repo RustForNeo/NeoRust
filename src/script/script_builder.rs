@@ -47,7 +47,7 @@ impl ScriptBuilder {
 		method: &str,
 		params: &[Option<ContractParameter>],
 		call_flags: CallFlags,
-	) -> Result<&mut Self, dyn Error> {
+	) -> Result<&mut Self, NeoError> {
 		if params.is_empty() {
 			self.op_code(&[OpCode::NewArray]);
 		} else {
@@ -72,10 +72,7 @@ impl ScriptBuilder {
 		self.push_integer(params.len() as i64)?.op_code(&[OpCode::Pack])?
 	}
 
-	pub fn push_param(
-		&mut self,
-		param: &Option<ContractParameter>,
-	) -> Result<&mut Self, dyn Error> {
+	pub fn push_param(&mut self, param: &Option<ContractParameter>) -> Result<&mut Self, NeoError> {
 		match param {
 			None => self.op_code(&[OpCode::PushNull]),
 			Some(param) => {
@@ -115,7 +112,7 @@ impl ScriptBuilder {
 
 	// Additional push_* methods
 
-	pub fn push_integer(&mut self, n: i64) -> Result<&mut Self, dyn Error> {
+	pub fn push_integer(&mut self, n: i64) -> Result<&mut Self, NeoError> {
 		if n == -1 {
 			self.op_code(&[OpCode::PushM1]);
 		} else if 0 <= n && n <= 16 {
@@ -155,7 +152,7 @@ impl ScriptBuilder {
 
 	// Push data handling
 
-	pub fn push_data(&mut self, data: Bytes) -> Result<&mut Self, dyn Error> {
+	pub fn push_data(&mut self, data: Bytes) -> Result<&mut Self, NeoError> {
 		match data.len() {
 			0..=75 => {
 				self.op_code(&[OpCode::PushData1]);
@@ -186,7 +183,7 @@ impl ScriptBuilder {
 		self
 	}
 
-	pub fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, dyn Error> {
+	pub fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, NeoError> {
 		if arr.is_empty() {
 			self.op_code(&[OpCode::NewArray])
 		} else {
@@ -205,7 +202,7 @@ impl ScriptBuilder {
 	pub fn push_map(
 		&mut self,
 		map: &HashMap<ContractParameter, ContractParameter>,
-	) -> Result<&mut Self, dyn Error> {
+	) -> Result<&mut Self, NeoError> {
 		for (k, v) in map {
 			let kk: ContractParameter = k.clone().into();
 			let vv: ContractParameter = v.clone().into();

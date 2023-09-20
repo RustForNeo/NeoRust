@@ -22,7 +22,7 @@ impl<T> NeoIterator<T> {
 		Self { session_id, iterator_id, mapper }
 	}
 
-	pub async fn next(&self, count: usize) -> Vec<dyn Signer> {
+	pub async fn next(&self, count: usize) -> Vec<Box<dyn Signer>> {
 		let items = NeoRust::instance()
 			.traverse_iter(self.session_id.clone(), self.iterator_id.clone(), count)
 			.await?;

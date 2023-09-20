@@ -1,5 +1,8 @@
 use crate::{
-	contract::{contract_error::ContractError, nns_name::NNSName, traits::token::TokenTrait},
+	contract::{
+		contract_error::ContractError, iterator::NeoIterator, nns_name::NNSName,
+		traits::token::TokenTrait,
+	},
 	protocol::core::stack_item::StackItem,
 	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
 	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
@@ -7,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use primitive_types::H160;
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 #[async_trait]
 trait NonFungibleTokenTrait: TokenTrait {
@@ -26,10 +29,7 @@ trait NonFungibleTokenTrait: TokenTrait {
 
 	// NFT methods
 
-	async fn tokens_of(
-		&mut self,
-		owner: H160,
-	) -> Result<dyn Iterator<Item = Bytes>, ContractError> {
+	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes>, ContractError> {
 		self.call_function_returning_iterator(
 			NonFungibleTokenTrait::TOKENS_OF,
 			vec![owner.into()],
@@ -217,10 +217,7 @@ trait NonFungibleTokenTrait: TokenTrait {
 		)
 	}
 
-	async fn owners_of(
-		&mut self,
-		token_id: Bytes,
-	) -> Result<dyn Iterator<Item = H160>, ContractError> {
+	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Bytes>, ContractError> {
 		self.throw_if_non_divisible_nft().await?;
 
 		self.call_function_returning_iterator(
@@ -255,7 +252,7 @@ trait NonFungibleTokenTrait: TokenTrait {
 
 	// Optional methods
 
-	async fn tokens(&mut self) -> Result<dyn Iterator<Item = Bytes>, ContractError> {
+	async fn tokens(&mut self) -> Result<NeoIterator<Bytes>, ContractError> {
 		self.call_function_returning_iterator(NonFungibleTokenTrait::TOKENS, vec![], |item| {
 			item.try_into()
 		})

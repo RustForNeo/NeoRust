@@ -45,7 +45,7 @@ impl ScriptReader {
 		result
 	}
 
-	fn get_prefix_size(reader: &mut BinaryReader, size: OperandSize) -> Result<usize, dyn Error> {
+	fn get_prefix_size(reader: &mut BinaryReader, size: OperandSize) -> Result<usize, NeoError> {
 		match size.prefix_size() {
 			1 => Ok(reader.read_u8() as usize),
 			2 => Ok(reader.read_i16() as usize),

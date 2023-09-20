@@ -1,5 +1,6 @@
 use crate::{
 	contract::{contract_error::ContractError, iterator::NeoIterator},
+	neo_error::NeoError,
 	protocol::{
 		core::{
 			neo_trait::NeoTrait, responses::invocation_result::InvocationResult,
@@ -13,7 +14,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use primitive_types::H160;
-use std::error::Error;
 
 #[async_trait]
 pub trait SmartContractTrait {
@@ -93,10 +93,12 @@ pub trait SmartContractTrait {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<dyn Signer>,
-	) -> Result<InvocationResult, dyn Error> {
+		signers: Vec<Box<dyn Signer>>,
+	) -> Result<InvocationResult, NeoError> {
 		if function.is_empty() {
-			return Err(ContractError::InvalidNeoName("Function cannot be empty".to_string()))
+			return Err(NeoError::from(ContractError::InvalidNeoName(
+				"Function cannot be empty".to_string(),
+			)))
 		}
 		NeoRust::instance()
 			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
@@ -177,7 +179,7 @@ pub trait SmartContractTrait {
 		Ok(items)
 	}
 
-	fn calc_native_contract_hash(contract_name: &str) -> Result<H160, dyn Error> {
+	fn calc_native_contract_hash(contract_name: &str) -> Result<H160, NeoError> {
 		Self::calc_contract_hash(H160::zero(), 0, contract_name)
 	}
 
@@ -185,7 +187,7 @@ pub trait SmartContractTrait {
 		sender: H160,
 		nef_checksum: u32,
 		contract_name: &str,
-	) -> Result<H160, dyn Error> {
+	) -> Result<H160, NeoError> {
 		let mut script = ScriptBuilder::new()
 			.op_code(&[OpCode::Abort])
 			.push_data(sender.to_vec())

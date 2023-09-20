@@ -8,20 +8,16 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Serialize, Deserialize)]
-pub struct NeoRequest<'a, T, U>
-where
-	T: ResponseTrait<'a, U>,
-{
+pub struct NeoRequest<'a, T> {
 	jsonrpc: &'static str,
 	method: String,
 	params: Vec<Value>,
 	id: u64,
 }
 
-impl<'a, T, U> NeoRequest<'a, T, U>
+impl<'a, T> NeoRequest<'a, T>
 where
-	T: ResponseTrait<'a, U>,
-	U: Serialize + Deserialize<'a>,
+	T: Serialize + Deserialize<'a>,
 {
 	pub fn new(method: &str, params: Vec<Value>) -> Self {
 		Self { jsonrpc: "2.0", method: method.to_string(), params, id: next_id() }
@@ -31,7 +27,7 @@ where
 		serde_json::to_string(self).unwrap()
 	}
 
-	pub async fn request(&self) -> Result<U, NeoError> {
+	pub async fn request(&self) -> Result<T, NeoError> {
 		let response = NeoRust::instance().get_neo_service().send(self).await.unwrap();
 		response.get_result()
 	}

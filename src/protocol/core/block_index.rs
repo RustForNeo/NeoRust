@@ -30,7 +30,7 @@ impl BlockIndexPolling {
 		&self,
 		executor: &Handle,
 		polling_interval: i32,
-	) -> impl Stream<Item = Result<i32, dyn Error>> {
+	) -> impl Stream<Item = Result<i32, NeoError>> {
 		let interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
 
 		interval

@@ -38,7 +38,10 @@ pub type Address = String;
 pub type Byte = u8;
 pub type Bytes = Vec<u8>;
 
-pub trait H160Externsion {
+pub trait H160Externsion
+where
+	Self: Sized,
+{
 	fn to_string(&self) -> String;
 
 	fn from_slice(slice: &[u8]) -> Result<Self, &'static str>;
@@ -114,7 +117,10 @@ impl H160Externsion for H160 {
 	}
 }
 
-trait PublicKeyExtension {
+trait PublicKeyExtension
+where
+	Self: Sized,
+{
 	fn to_address(&self) -> String;
 	fn to_vec(&self) -> Vec<u8>;
 
@@ -123,7 +129,10 @@ trait PublicKeyExtension {
 	fn from_private_key(private_key: &PrivateKey) -> Self;
 }
 
-trait PrivateKeyExtension {
+trait PrivateKeyExtension
+where
+	Self: Sized,
+{
 	fn to_address(&self) -> String;
 	fn to_vec(&self) -> Vec<u8>;
 

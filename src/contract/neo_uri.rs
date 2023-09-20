@@ -6,6 +6,7 @@ use crate::{
 		neo_token::NeoToken,
 		traits::{smartcontract::SmartContractTrait, token::TokenTrait},
 	},
+	neo_error::NeoError,
 	transaction::transaction_builder::TransactionBuilder,
 	types::H160Externsion,
 	wallet::account::Account,
@@ -94,7 +95,7 @@ impl NeoURI {
 	pub async fn build_transfer_from(
 		&self,
 		sender: &Account,
-	) -> Result<TransactionBuilder, dyn Error> {
+	) -> Result<TransactionBuilder, NeoError> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))?;
@@ -111,20 +112,22 @@ impl NeoURI {
 		let amount_scale = amount.scale();
 
 		if Self::is_neo_token(&tokenHash) && amount_scale > 0 {
-			return Err(ContractError::InvalidArgError("NEO does not support decimals".to_string()))
+			return Err(NeoError::from(ContractError::InvalidArgError(
+				"NEO does not support decimals".to_string(),
+			)))
 		}
 
 		if Self::is_gas_token(&tokenHash) && amount_scale > GasToken::new().decimals() {
-			return Err(ContractError::InvalidArgError(
+			return Err(NeoError::from(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
-			))
+			)))
 		}
 
 		let decimals = token.get_decimals().await?;
 		if amount_scale > decimals {
-			return Err(ContractError::InvalidArgError(
+			return Err(NeoError::from(ContractError::InvalidArgError(
 				"Too many decimal places for token".to_string(),
-			))
+			)))
 		}
 
 		token.transfer(sender, recipient, token.to_fractions(amount)).await
@@ -152,7 +155,7 @@ impl NeoURI {
 		self
 	}
 
-	pub fn token_str(mut self, token_str: &str) -> Result<Self, dyn Error> {
+	pub fn token_str(mut self, token_str: &str) -> Result<Self, NeoError> {
 		self.token = match token_str {
 			Self::NEO_TOKEN_STRING => Some(NeoToken::new().script_hash()),
 			Self::GAS_TOKEN_STRING => Some(GasToken::new().script_hash()),
@@ -190,7 +193,7 @@ impl NeoURI {
 		parts.join("&")
 	}
 
-	pub fn build_uri(mut self) -> Result<Self, dyn Error> {
+	pub fn build_uri(mut self) -> Result<Self, NeoError> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("No recipient set".to_string()))?;

@@ -15,7 +15,7 @@ pub enum SignerType {
 	Contract,
 }
 
-pub trait Signer: Clone {
+pub trait Signer {
 	fn get_type(&self) -> SignerType;
 
 	fn get_signer_hash(&self) -> &H160;
@@ -104,7 +104,7 @@ pub trait Signer: Clone {
 
 		// Validate nesting depth
 		for rule in &rules {
-			Self::validate_depth(&rule.condition, NeoConstants::MAX_NESTING_DEPTH)?;
+			self.validate_depth(&rule.condition, NeoConstants::MAX_NESTING_DEPTH)?;
 		}
 
 		if !self.get_scopes().contains(&WitnessScope::WitnessRules) {
@@ -117,7 +117,7 @@ pub trait Signer: Clone {
 	}
 
 	// Check depth recursively
-	fn validate_depth(rule: &WitnessCondition, depth: u8) -> Result<(), NeoError> {
+	fn validate_depth(&self, rule: &WitnessCondition, depth: u8) -> Result<(), NeoError> {
 		// Depth exceeded
 		if depth == 0 {
 			return Err(NeoError::InvalidConfiguration("Max nesting depth exceeded".to_string()))
@@ -126,7 +126,7 @@ pub trait Signer: Clone {
 		match &rule {
 			WitnessCondition::And(conditions) | WitnessCondition::Or(conditions) => {
 				for inner_rule in conditions {
-					Self::validate_depth(inner_rule, depth - 1)?;
+					self.validate_depth(inner_rule, depth - 1)?;
 				}
 			},
 			_ => (),
@@ -134,7 +134,7 @@ pub trait Signer: Clone {
 
 		Ok(())
 	}
-	fn validate_subitems(count: usize, name: &str) -> Result<(), NeoError> {
+	fn validate_subitems(&self, count: usize, name: &str) -> Result<(), NeoError> {
 		if count > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
 			return Err(NeoError::InvalidData(format!("Too many {} in signer", name)))
 		}
