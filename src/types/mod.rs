@@ -4,9 +4,10 @@ use crate::{
 	protocol::core::responses::{
 		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
+	utils::*,
 };
 use base64::{engine::general_purpose, Engine};
-use crypto::{ripemd160::Ripemd160, sha2::Sha256};
+use crypto::{ripemd160::Ripemd160, scrypt::ScryptParams, sha2::Sha256};
 use futures::TryFutureExt;
 use hex::FromHexError;
 use p256::{
@@ -18,6 +19,7 @@ use p256::{
 	pkcs8::der::{Decode, Encode},
 };
 use primitive_types::{H160, H256};
+use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Digest;
 
@@ -117,7 +119,7 @@ impl H160Externsion for H160 {
 	}
 }
 
-trait PublicKeyExtension
+pub trait PublicKeyExtension
 where
 	Self: Sized,
 {
@@ -129,7 +131,7 @@ where
 	fn from_private_key(private_key: &PrivateKey) -> Self;
 }
 
-trait PrivateKeyExtension
+pub trait PrivateKeyExtension
 where
 	Self: Sized,
 {
@@ -216,6 +218,12 @@ impl ValueExtension for String {
 	}
 }
 
+impl ValueExtension for &str {
+	fn to_value(&self) -> Value {
+		Value::String(self.to_string())
+	}
+}
+
 impl ValueExtension for H160 {
 	fn to_value(&self) -> Value {
 		Value::String(self.to_string())
@@ -290,4 +298,34 @@ impl ExternBase64 for String {
 	fn to_base64(&self) -> String {
 		general_purpose::STANDARD_NO_PAD.encode(self.as_bytes())
 	}
+}
+
+// ScryptParams
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(remote = "ScryptParams")]
+pub struct ScryptParamsDef {
+	log_n: u8,
+	r: u32,
+	p: u32,
+}
+
+impl Default for ScryptParamsDef {
+	fn default() -> Self {
+		Self { log_n: 14, r: 8, p: 8 }
+	}
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct H256Def {
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
+	hash: H256,
+}
+
+// #[serde(remote = "H160")]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct H160Def {
+	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address")]
+	hash: H160,
 }

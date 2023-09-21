@@ -68,7 +68,7 @@ fn serialize_wildcard<S>(value: &Vec<String>, serializer: S) -> Result<S::Ok, S:
 where
 	S: Serializer,
 {
-	if value == ["*"] {
+	if value == &vec!["*".to_string()] {
 		serializer.serialize_str("*")
 	} else {
 		value.serialize(serializer)

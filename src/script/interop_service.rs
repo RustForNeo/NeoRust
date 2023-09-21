@@ -88,7 +88,7 @@ pub enum InteropService {
 impl InteropService {
 	pub fn hash(&self) -> String {
 		let mut hashes = INTEROP_SERVICE_HASHES.lock().unwrap();
-		return if let Some(hash) = hashes.get(self.as_str()) {
+		return if let Some(hash) = hashes.get(self.to_string().as_str()) {
 			hash.clone()
 		} else {
 			let bytes = self.to_string().as_bytes();

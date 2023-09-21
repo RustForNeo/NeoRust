@@ -1,28 +1,39 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
-		signer::{Signer, SignerType},
+		signer::{Signer, SignerTrait, SignerType},
 		transaction_error::TransactionError,
 		witness_scope::WitnessScope,
 	},
 	types::{H160Externsion, PublicKey},
+	utils::*,
 	wallet::account::Account,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountSigner {
+	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
+	#[serde(
+		serialize_with = "serialize_vec_address",
+		deserialize_with = "deserialize_vec_address"
+	)]
 	allowed_contracts: Vec<H160>,
+	#[serde(
+		serialize_with = "serialize_vec_public_key",
+		deserialize_with = "deserialize_vec_public_key"
+	)]
 	allowed_groups: Vec<PublicKey>,
 	rules: Vec<WitnessRule>,
+
 	pub account: Account,
 	scope: WitnessScope,
 }
 
-impl Signer for AccountSigner {
+impl SignerTrait for AccountSigner {
 	fn get_type(&self) -> SignerType {
 		SignerType::Account
 	}
@@ -45,6 +56,14 @@ impl Signer for AccountSigner {
 
 	fn get_allowed_contracts(&self) -> &Vec<H160> {
 		&self.allowed_contracts
+	}
+
+	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
+		&self.allowed_groups
+	}
+
+	fn get_rules(&self) -> &Vec<WitnessRule> {
+		&self.rules
 	}
 }
 

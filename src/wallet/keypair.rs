@@ -4,27 +4,13 @@ use p256::{
 		Signature, VerifyingKey,
 	},
 	elliptic_curve::rand_core::OsRng,
-	U256,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::types::PrivateKey;
 use getset::{CopyGetters, Getters, MutGetters, Setters};
 
 // Define a struct to represent the secp256r1 keypair
-#[derive(
-	Debug,
-	PartialEq,
-	Eq,
-	Clone,
-	Serialize,
-	Deserialize,
-	Getters,
-	Setters,
-	MutGetters,
-	CopyGetters,
-	Default,
-)]
+#[derive(Debug, Clone, Getters, Setters, MutGetters, CopyGetters)]
 pub struct Secp256r1Keypair {
 	#[getset(get = "pub", set = "pub", get_mut = "pub")]
 	private_key: PrivateKey,
@@ -49,7 +35,7 @@ impl Secp256r1Keypair {
 	// Verify a message signature with the public key
 	pub fn verify(&self, message: &[u8], signature: &[u8; 64]) -> bool {
 		self.public_key
-			.verify(message, &Signature::from_slice(signature).unwrap())
+			.verify(message, &Signature::from_der(signature).unwrap())
 			.is_ok()
 	}
 }

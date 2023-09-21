@@ -1,6 +1,19 @@
 use num_enum::TryFromPrimitive;
+use serde_derive::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
-#[derive(Display, EnumString, Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(
+	Display,
+	EnumString,
+	Debug,
+	Clone,
+	Hash,
+	Copy,
+	PartialEq,
+	Eq,
+	TryFromPrimitive,
+	Serialize,
+	Deserialize,
+)]
 #[repr(u8)]
 pub enum ContractParameterType {
 	#[strum(serialize = "Any")]

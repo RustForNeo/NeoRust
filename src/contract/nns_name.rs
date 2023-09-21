@@ -40,9 +40,9 @@ impl NNSName {
 		}
 
 		let first = fragment.chars().next().unwrap();
-		if &is_root && !&first.is_ascii_alphabetic() {
+		if is_root && !first.is_ascii_alphabetic() {
 			return Err(ContractError::InvalidNeoName("Root must start with letter".to_string()))
-		} else if !&is_root && &!(&first.is_ascii_alphanumeric() || &(first == '-'.into())) {
+		} else if !is_root && !(&first.is_ascii_alphanumeric() || &(first == '-'.into())) {
 			return Err(ContractError::InvalidNeoName("Invalid start character".to_string()))
 		}
 

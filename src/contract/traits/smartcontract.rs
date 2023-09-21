@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use primitive_types::H160;
 
 #[async_trait]
-pub trait SmartContractTrait {
+pub trait SmartContractTrait: Sync {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
 	async fn name(&self) -> String {
@@ -34,18 +34,18 @@ pub trait SmartContractTrait {
 		panic!("Cannot set script hash for NNS")
 	}
 
-	fn invoke_function(
+	async fn invoke_function(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		let script = self.build_invoke_function_script(function, params).unwrap();
+		let script = self.build_invoke_function_script(function, params).await.unwrap();
 		let mut builder = TransactionBuilder::new();
 		builder.set_script(script);
 		Ok(builder)
 	}
 
-	fn build_invoke_function_script(
+	async fn build_invoke_function_script(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
@@ -56,6 +56,7 @@ pub trait SmartContractTrait {
 
 		let script = ScriptBuilder::new()
 			.contract_call(&self.script_hash(), function, params.as_slice(), CallFlags::None)
+			.await
 			.unwrap()
 			.to_bytes();
 
@@ -80,8 +81,7 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<i32, ContractError> {
-		let output =
-			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
@@ -94,8 +94,7 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<bool, ContractError> {
-		let output =
-			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
@@ -109,7 +108,7 @@ pub trait SmartContractTrait {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, NeoError> {
 		if function.is_empty() {
 			return Err(NeoError::from(ContractError::InvalidNeoName(
@@ -118,8 +117,9 @@ pub trait SmartContractTrait {
 		}
 		NeoRust::<HttpService>::instance()
 			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
-			.await
 			.request()
+			.await
+			.unwrap()
 			.await
 	}
 

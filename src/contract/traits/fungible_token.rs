@@ -1,7 +1,7 @@
 use crate::{
 	contract::{contract_error::ContractError, nns_name::NNSName, traits::token::TokenTrait},
 	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
-	types::{contract_parameter::ContractParameter, Bytes},
+	types::{contract_parameter::ContractParameter, Address, Bytes},
 	wallet::{account::Account, wallet::Wallet},
 };
 use async_trait::async_trait;
@@ -32,7 +32,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 	fn transfer_from_account(
 		&self,
 		from: &Account,
-		to: H160,
+		to: Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
@@ -42,8 +42,8 @@ pub trait FungibleTokenTrait: TokenTrait {
 
 	fn transfer_from_hash160(
 		&self,
-		from: H160,
-		to: H160,
+		from: Address,
+		to: Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
@@ -57,10 +57,10 @@ pub trait FungibleTokenTrait: TokenTrait {
 		Ok(TransactionBuilder::new().script(transfer_script))
 	}
 
-	fn build_transfer_script(
+	async fn build_transfer_script(
 		&self,
-		from: H160,
-		to: H160,
+		from: Address,
+		to: Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
@@ -68,6 +68,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 			FungibleTokenTrait::TRANSFER,
 			vec![from.into(), to.into(), amount.into(), data.unwrap()],
 		)
+		.await
 	}
 
 	// MARK: Transfer using NNS
@@ -86,7 +87,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 
 	async fn transfer_from_hash160_to_nns(
 		&self,
-		from: H160,
+		from: Address,
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,

@@ -1,17 +1,24 @@
-use crate::types::PublicKey;
+use crate::{types::PublicKey, utils::*};
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
-
 #[derive(Hash, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WitnessCondition {
 	Boolean(bool),
 	Not(Box<WitnessCondition>),
 	And(Vec<WitnessCondition>),
 	Or(Vec<WitnessCondition>),
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	ScriptHash(H160),
+	#[serde(deserialize_with = "deserialize_public_key")]
+	#[serde(serialize_with = "serialize_public_key")]
 	Group(PublicKey),
 	CalledByEntry,
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	CalledByContract(H160),
+	#[serde(deserialize_with = "deserialize_public_key")]
+	#[serde(serialize_with = "serialize_public_key")]
 	CalledByGroup(PublicKey),
 }
 

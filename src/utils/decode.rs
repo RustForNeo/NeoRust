@@ -14,7 +14,6 @@ use std::{convert::TryFrom, str::FromStr};
 	IntoIterator,
 	Index,
 	IndexMut,
-	Display,
 	Getters,
 	CopyGetters,
 	Default,

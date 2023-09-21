@@ -8,6 +8,7 @@ pub mod name_service;
 pub mod nef_file;
 pub mod neo_token;
 pub mod neo_uri;
+pub mod nft_contract;
 pub mod nns_name;
 pub mod policy_contract;
 pub mod role_management;

@@ -1,14 +1,15 @@
+use crate::types::ScryptParamsDef;
 use crypto::scrypt::ScryptParams;
 use primitive_types::H160;
 use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 use crate::wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Wallet {
 	name: String,
 	version: String,
-	scrypt_params: ScryptParams,
+	scrypt_params: ScryptParamsDef,
 
 	pub(crate) accounts: HashMap<H160, Account>,
 	default_account: H160,
@@ -21,7 +22,7 @@ impl Wallet {
 		Self {
 			name: "MyWallet".to_string(),
 			version: "1.0".to_string(),
-			scrypt_params: ScryptParams::default(),
+			scrypt_params: ScryptParamsDef::default(),
 			accounts: HashMap::new(),
 			default_account: H160::default(),
 		}
@@ -46,7 +47,7 @@ impl Wallet {
 	pub fn to_nep6(&self) -> Result<NEP6Wallet, WalletError> {
 		let accounts = self.accounts.values().map(|a| a.to_nep6()).collect();
 
-		Ok(NEP6Wallet::new {
+		Ok(NEP6Wallet {
 			name: self.name.clone(),
 			version: self.version.clone(),
 			scrypt: self.scrypt_params.clone(),
@@ -62,7 +63,7 @@ impl Wallet {
 			.accounts()
 			.iter()
 			.find(|a| a.is_default)
-			.map(|a| a.get_script_hash())
+			.map(|a| a.script_hash())
 			.ok_or(WalletError::NoDefaultAccount)
 			.unwrap();
 

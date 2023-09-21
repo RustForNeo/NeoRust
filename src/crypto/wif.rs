@@ -24,7 +24,7 @@ impl Wif for &[u8] {
 	fn from_wif(s: &str) -> Option<Vec<u8>> {
 		let data = bs58::decode(s).into_vec().ok().unwrap();
 
-		if &data.len() != 38 || &data[0] != 0x80 || &data[33] != 0x01 {
+		if data.len() != 38 || data[0] != 0x80 || data[33] != 0x01 {
 			return None
 		}
 

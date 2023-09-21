@@ -7,6 +7,7 @@ use crate::{
 		contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey,
 		PublicKey,
 	},
+	utils::*,
 	wallet::{
 		nep6account::NEP6Account,
 		nep6contract::{NEP6Contract, NEP6Parameter},
@@ -18,14 +19,16 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Account {
 	pub(crate) key_pair: Option<KeyPair>,
+	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
 	address: Address,
 	label: Option<String>,
 	verification_script: Option<VerificationScript>,
 	is_locked: bool,
 	encrypted_private_key: Option<String>,
+
 	wallet: Option<Wallet>,
 	signing_threshold: Option<i32>,
 	nr_of_participants: Option<i32>,

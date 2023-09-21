@@ -1,6 +1,6 @@
 use crate::{
 	crypto::base58_helper::base58check_decode,
-	types::{PrivateKey, PublicKey},
+	types::{PrivateKey, PrivateKeyExtension, PublicKey},
 };
 use aes::{cipher::KeyInit, Aes128};
 use crypto::{
@@ -10,7 +10,6 @@ use crypto::{
 };
 use futures::TryFutureExt;
 use p256::elliptic_curve::sec1::ToEncodedPoint;
-use rayon::prelude::*;
 
 const DKLEN: usize = 64;
 const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
@@ -50,7 +49,7 @@ impl NEP2 {
 			.collect::<Vec<_>>();
 
 		let private_key = PrivateKey::from_bytes(private_key.as_slice()).unwrap();
-		let public_key = PublicKey::from(private_key);
+		let public_key = PublicKey::from(&private_key);
 
 		let new_address_hash =
 			Self::address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes()).unwrap();
@@ -70,12 +69,16 @@ impl NEP2 {
 		let derived_half1 = &derived_key[..32];
 		let derived_half2 = &derived_key[32..];
 
-		let encrypted_half1 =
-			Self::aes_encrypt(Self::xor_keys(&private_key[..16], derived_half1), derived_half2)
-				.unwrap();
-		let encrypted_half2 =
-			Self::aes_encrypt(Self::xor_keys(&private_key[16..], derived_half1), derived_half2)
-				.unwrap();
+		let encrypted_half1 = Self::aes_encrypt(
+			Self::xor_keys(&private_key.to_vec()[..16], derived_half1),
+			derived_half2,
+		)
+		.unwrap();
+		let encrypted_half2 = Self::aes_encrypt(
+			Self::xor_keys(&private_key.to_vec()[16..], derived_half1),
+			derived_half2,
+		)
+		.unwrap();
 
 		let mut nep2_data = vec![NEP2_PREFIX_1, NEP2_PREFIX_2, NEP2_FLAGBYTE];
 		nep2_data.extend_from_slice(address_hash.as_slice());
@@ -104,8 +107,8 @@ impl NEP2 {
 		cipher.decrypt_vec(data).map_err(|_| "AES decrypt error")
 	}
 
-	fn xor_keys(a: &[u8], b: &[u8]) -> impl Iterator<Item = u8> {
-		a.par_iter().zip(b).map(|(x, y)| x ^ y)
+	fn xor_keys<'a>(a: &'a [u8], b: &'a [u8]) -> impl Iterator<Item = u8> + 'a {
+		a.iter().zip(b).map(|(x, y)| x ^ y)
 	}
 
 	fn address_hash_from_pubkey(pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {

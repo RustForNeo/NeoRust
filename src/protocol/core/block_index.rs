@@ -34,22 +34,18 @@ impl BlockIndexPolling {
 		let interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
 
 		interval
-			.map(move |_| {
-				let latest_block_index = NeoRust::<HttpService>::instance()
-					.get_block_count()
-					.execute(executor)
-					.map(|res| res.get_result() - 1);
+			.map(async move |_| {
+				let latest_index =
+					NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
+				// .execute(executor)
+				// .map(|res| res.get_result() - 1);
 
 				async move {
 					let curr_index = self.current_block_index.get_index().await;
 
-					if let Some(latest_index) = latest_block_index.await.unwrap() {
-						if curr_index.map(|i| latest_index > i).unwrap_or(true) {
-							self.current_block_index.set_index(latest_index).await;
-							Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
-						} else {
-							Ok(None)
-						}
+					if curr_index.map(|i| latest_index > i as u32).unwrap_or(true) {
+						self.current_block_index.set_index(latest_index as i32).await;
+						Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
 					}
 
 					Err(NeoError::IllegalArgument("Error getting latest block".to_string()))

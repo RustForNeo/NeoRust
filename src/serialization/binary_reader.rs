@@ -28,49 +28,49 @@ impl<'a> BinaryReader<'a> {
 	}
 
 	pub fn read_u16(&mut self) -> u16 {
-		let bytes = self.read_bytes(2);
+		let bytes = self.read_bytes(2).unwrap();
 		u16::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_i16(&mut self) -> i16 {
-		let bytes = self.read_bytes(2);
+		let bytes = self.read_bytes(2).unwrap();
 		i16::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_u32(&mut self) -> u32 {
-		let bytes = self.read_bytes(4);
+		let bytes = self.read_bytes(4).unwrap();
 		u32::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_i32(&mut self) -> i32 {
-		let bytes = self.read_bytes(4);
+		let bytes = self.read_bytes(4).unwrap();
 		i32::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_u64(&mut self) -> u64 {
-		let bytes = self.read_bytes(8);
+		let bytes = self.read_bytes(8).unwrap();
 		u64::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_i64(&mut self) -> i64 {
-		let bytes = self.read_bytes(8);
+		let bytes = self.read_bytes(8).unwrap();
 		i64::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_u128(&mut self) -> u128 {
-		let bytes = self.read_bytes(16);
+		let bytes = self.read_bytes(16).unwrap();
 		u128::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_bigint(&mut self) -> Result<BigInt, NeoError> {
-		let byte = self.read_u8().unwrap();
+		let byte = self.read_u8();
 
 		let negative = byte & 0x80 != 0;
 		let len = match byte {
 			0..=0x4b => 1,
-			0x4c => self.read_u8().unwrap() as usize,
-			0x4d => self.read_u16().unwrap() as usize,
-			0x4e => self.read_u32().unwrap() as usize,
+			0x4c => self.read_u8() as usize,
+			0x4d => self.read_u16() as usize,
+			0x4e => self.read_u32() as usize,
 			_ => return Err(NeoError::InvalidFormat),
 		};
 
@@ -84,16 +84,16 @@ impl<'a> BinaryReader<'a> {
 			}
 			// bytes.get_mut()[len - 1] ^= 0x80;
 		}
-
-		Ok(BigInt::from_slice(Sign::Minus, bytes.into()))
+		//TODO:: need to check be or le and sign
+		Ok(BigInt::from_bytes_be(Sign::Minus, bytes))
 	}
 	pub fn read_i128(&mut self) -> i128 {
-		let bytes = self.read_bytes(16);
+		let bytes = self.read_bytes(16).unwrap();
 		i128::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
 	pub fn read_encoded_ec_point(&mut self) -> Result<&'a [u8], &'static str> {
-		let byte = self.read_byte();
+		let byte = self.read_u8();
 		match byte {
 			0x02 | 0x03 => Ok(self.read_bytes(32).unwrap()),
 			_ => Err("Invalid encoded EC point"),
@@ -118,9 +118,9 @@ impl<'a> BinaryReader<'a> {
 	pub fn read_var_int(&mut self) -> Result<i64, NeoError> {
 		let first = self.read_u8();
 		match first {
-			0xfd => Ok(self.read_u16().unwrap() as i64),
-			0xfe => Ok(self.read_u32().unwrap() as i64),
-			0xff => Ok(self.read_u64().unwrap() as i64),
+			0xfd => Ok(self.read_u16() as i64),
+			0xfe => Ok(self.read_u32() as i64),
+			0xff => Ok(self.read_u64() as i64),
 			_ => Ok(first as i64),
 		}
 	}
@@ -132,31 +132,31 @@ impl<'a> BinaryReader<'a> {
 			Ok(s) => s,
 			Err(e) => {
 				// Handle invalid UTF-8
-				return Err(Error::InvalidStringEncoding(e))
+				return Err(NeoError::InvalidEncoding(e.to_string()))
 			},
 		};
 
 		// Trim null bytes from end
 		let string = string.trim_end_matches(char::from(0));
 
-		Ok(string.into_string())
+		Ok(string.to_string())
 	}
 
 	pub fn read_push_bytes(&mut self) -> Result<&'a [u8], NeoError> {
-		let opcode = self.read_u8().unwrap();
+		let opcode = self.read_u8();
 		let len = match opcode {
 			0x01..=0x4B => opcode as usize,
-			0x4C => self.read_u8().unwrap() as usize,
-			0x4D => self.read_u16().unwrap() as usize,
-			0x4E => self.read_u32().unwrap() as usize,
-			_ => return Err(Error::InvalidOpcode),
+			0x4C => self.read_u8() as usize,
+			0x4D => self.read_u16() as usize,
+			0x4E => self.read_u32() as usize,
+			_ => return Err(NeoError::InvalidOpCode),
 		};
 
 		self.read_bytes(len)
 	}
 
 	pub fn read_push_int(&mut self) -> Result<i64, NeoError> {
-		let opcode = self.read_u8().unwrap();
+		let opcode = self.read_u8();
 		match opcode {
 			0x00..=0x16 => Ok(opcode as i64 - 1),
 			0x01..=0x04 => {
@@ -165,17 +165,19 @@ impl<'a> BinaryReader<'a> {
 					0x52 => 2,
 					0x53 => 4,
 					0x54 => 8,
+					_ => {},
 				};
 				let bytes = self.read_bytes(n).unwrap();
 				Ok(i64::from_be_bytes(bytes.try_into().unwrap()))
 			},
-			_ => Err(Error::InvalidOpcode),
+			_ => Err(NeoError::InvalidOpCode),
 		}
 	}
 
 	pub fn read_push_string(&mut self) -> Result<String, NeoError> {
 		let bytes = self.read_push_bytes().unwrap();
-		String::from_utf8(Vec::from(bytes)).map_err(|_| Error::InvalidStringEncoding)
+		String::from_utf8(Vec::from(bytes))
+			.map_err(|_| NeoError::InvalidEncoding("Invalid UTF-8".to_string()))
 	}
 
 	// Serialization helper methods
@@ -184,9 +186,7 @@ impl<'a> BinaryReader<'a> {
 		T::deserialize(self)
 	}
 
-	pub fn read_serializable_list<T: Deserialize<'a>>(
-		&mut self,
-	) -> Result<Vec<Box<dyn Signer>>, NeoError> {
+	pub fn read_serializable_list<T: Deserialize<'a>>(&mut self) -> Result<Vec<Signer>, NeoError> {
 		let len = self.read_var_int().unwrap();
 		let mut list = Vec::with_capacity(len as usize);
 		for _ in 0..len {

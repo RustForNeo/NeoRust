@@ -75,18 +75,18 @@ impl NeoToken {
 
 	// Candidate Registration
 
-	fn register_candidate(
+	async fn register_candidate(
 		&self,
 		candidate_key: &PublicKey,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("registerCandidate", vec![candidate_key.to_stack_item()])
+		self.invoke_function("registerCandidate", vec![candidate_key.into()]).await
 	}
 
-	fn unregister_candidate(
+	async fn unregister_candidate(
 		&self,
 		candidate_key: &PublicKey,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("unregisterCandidate", vec![candidate_key.to_stack_item()])
+		self.invoke_function("unregisterCandidate", vec![candidate_key.into()]).await
 	}
 
 	// Committee and Candidates Information
@@ -138,24 +138,24 @@ impl NeoToken {
 			None => vec![voter.into(), ContractParameter::new(ContractParameterType::Any)],
 		};
 
-		self.invoke_function("vote", params)
+		self.invoke_function("vote", params).await
 	}
 
 	async fn cancel_vote(&self, voter: &H160) -> Result<TransactionBuilder, ContractError> {
 		self.vote(voter, None).await
 	}
 
-	fn build_vote_script(
+	async fn build_vote_script(
 		&self,
 		voter: &H160,
 		candidate: Option<&PublicKey>,
 	) -> Result<Vec<u8>, ContractError> {
 		let params = match candidate {
-			Some(key) => vec![voter.into(), key.to_stack_item()],
-			None => vec![voter.into(), StackItem::null()],
+			Some(key) => vec![voter.into(), key.into()],
+			None => vec![voter.into(), ContractParameter::new(ContractParameterType::Any)],
 		};
 
-		self.build_invoke_function_script("vote", params)
+		self.build_invoke_function_script("vote", params).await
 	}
 
 	// Network Settings
@@ -164,16 +164,22 @@ impl NeoToken {
 		self.call_function_returning_int("getGasPerBlock", vec![]).await
 	}
 
-	fn set_gas_per_block(&self, gas_per_block: i32) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("setGasPerBlock", vec![gas_per_block.into()])
+	async fn set_gas_per_block(
+		&self,
+		gas_per_block: i32,
+	) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("setGasPerBlock", vec![gas_per_block.into()]).await
 	}
 
 	async fn get_register_price(&self) -> Result<i32, ContractError> {
 		self.call_function_returning_int("getRegisterPrice", vec![]).await
 	}
 
-	fn set_register_price(&self, register_price: i32) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("setRegisterPrice", vec![register_price.into()])
+	async fn set_register_price(
+		&self,
+		register_price: i32,
+	) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("setRegisterPrice", vec![register_price.into()]).await
 	}
 
 	async fn get_account_state(&self, account: &H160) -> Result<AccountState, ContractError> {

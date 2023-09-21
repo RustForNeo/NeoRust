@@ -5,6 +5,7 @@ use crate::{
 		core::responses::transaction_attribute::TransactionAttribute, http_service::HttpService,
 		neo_rust::NeoRust,
 	},
+	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
 	transaction::{signer::Signer, transaction_error::TransactionError, witness::Witness},
 	types::Bytes,
 };
@@ -16,7 +17,7 @@ pub struct SerializableTransaction {
 	version: u8,
 	nonce: u32,
 	valid_until_block: u32,
-	pub(crate) signers: Vec<Box<dyn Signer>>,
+	pub(crate) signers: Vec<Signer>,
 	system_fee: i64,
 	network_fee: i64,
 	attributes: Vec<TransactionAttribute>,
@@ -32,7 +33,7 @@ impl SerializableTransaction {
 		version: u8,
 		nonce: u32,
 		valid_until_block: u32,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 		system_fee: i64,
 		network_fee: i64,
 		attributes: Vec<TransactionAttribute>,
@@ -101,18 +102,15 @@ impl SerializableTransaction {
 	// Serialization
 
 	pub async fn serialize(&self) -> Bytes {
-		let mut writer = Bytes::new();
+		let mut writer = BinaryWriter::new();
 
-		writer.write_u8(self.version).await.expect("Failed to write version");
-		writer.write_u32(self.nonce).await.expect("Failed to write nonce");
-		writer
-			.write_u32(self.valid_until_block)
-			.await
-			.expect("Failed to write valid_until_block");
+		writer.write_u8(self.version);
+		writer.write_u32(self.nonce);
+		writer.write_u32(self.valid_until_block);
 
 		// Write signers
 		let signers_len = self.signers.len() as u32;
-		writer.write_var_u32(signers_len);
+		writer.write_var_int(signers_len as i64);
 		for signer in &self.signers {
 			signer.serialize(&mut writer).expect("Failed to serialize signer");
 		}
@@ -126,17 +124,17 @@ impl SerializableTransaction {
 
 		writer.write_var_bytes(&self.script);
 
-		writer
+		writer.to_bytes()
 	}
 
 	// Deserialization
 
 	pub fn deserialize(bytes: &[u8]) -> Result<Self, TransactionError> {
-		let mut reader = Bytes::from(bytes);
+		let mut reader = BinaryReader::new(bytes);
 
-		let version = reader.read_u8().unwrap();
-		let nonce = reader.read_u32().unwrap();
-		let valid_until_block = reader.read_u32().unwrap();
+		let version = reader.read_u8();
+		let nonce = reader.read_u32();
+		let valid_until_block = reader.read_u32();
 
 		// Read signers
 		let signers_len = reader.read_var_u32().unwrap();
@@ -154,7 +152,7 @@ impl SerializableTransaction {
 			attributes.push(attribute);
 		}
 
-		let script = reader.read_var_bytes().unwrap();
+		let script = reader.read_var_bytes().unwrap().to_vec();
 
 		Ok(Self {
 			version,

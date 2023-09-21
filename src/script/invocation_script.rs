@@ -6,8 +6,9 @@ use crate::{
 	types::Bytes,
 };
 use p256::ecdsa::signature::Signer;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, CopyGetters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, CopyGetters, Setters)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default
@@ -20,7 +21,6 @@ use p256::ecdsa::signature::Signer;
 	derive_more::IndexMut,
 	derive_more::Into,
 	derive_more::From,
-	derive_more::Display,
 )]
 pub struct InvocationScript {
 	script: Bytes,
@@ -35,32 +35,33 @@ impl InvocationScript {
 	// 	Self { 0 }
 	// }
 
-	pub fn from_signature(signature: &SignatureData) -> Self {
-		let mut builder = ScriptBuilder::new()
-			.push_data(signature.concatenated())
-			.expect("TODO: panic message");
-		Self { script: builder.into_bytes() }
+	pub async fn from_signature(signature: &SignatureData) -> Self {
+		let mut builder = ScriptBuilder::new();
+		builder.push_data(signature.concatenated()).await.expect("TODO: panic message");
+		Self { script: builder.script.clone() }
 	}
 
-	pub fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
+	pub async fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
 		let message_hash = message.hash256();
-		let signature = key_pair.private_key().sign((&message_hash, key_pair).unwrap());
+		let signature = key_pair.private_key().sign(&message_hash);
 		let mut builder = ScriptBuilder::new();
 		// Convert signature to bytes
-		let mut signature_bytes = [0; 64];
-		signature.write_scalars(&mut signature_bytes).unwrap();
-		builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
-		Ok(Self { script: builder.into_bytes() })
+		let signature_bytes = signature.to_vec();
+		builder.push_data(signature_bytes).await.expect("Incorrect signature length");
+		Ok(Self { script: builder.script })
 	}
 
-	pub fn from_signatures(signatures: &[SignatureData]) -> Self {
+	pub async fn from_signatures(signatures: &[SignatureData]) -> Self {
 		let mut builder = ScriptBuilder::new();
 		for signature in signatures {
-			let mut signature_bytes = [0; 64];
-			signature.write_scalars(&mut signature_bytes).unwrap();
+			let mut signature_bytes = signature.concatenated();
+			// signature.write_scalars(&mut signature_bytes).unwrap();
 
-			builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
+			builder
+				.push_data(signature_bytes.to_vec())
+				.await
+				.expect("Incorrect signature length");
 		}
-		Self { script: builder.into_bytes() }
+		Self { script: builder.script.clone() }
 	}
 }

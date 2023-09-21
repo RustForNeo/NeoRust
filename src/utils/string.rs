@@ -1,6 +1,6 @@
 use bs58;
-use hex::{FromHex, ToHex};
 use sha2::{Digest, Sha256};
+extern crate hex;
 
 trait StringExt {
 	fn bytes_from_hex(&self) -> Result<Vec<u8>, hex::FromHexError>;
@@ -92,6 +92,6 @@ impl StringExt for String {
 	fn reversed_hex(&self) -> String {
 		let mut bytes = self.bytes_from_hex().unwrap();
 		bytes.reverse();
-		ToHex::encode(&bytes)
+		hex::encode(bytes)
 	}
 }

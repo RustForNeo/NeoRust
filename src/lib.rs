@@ -1,4 +1,6 @@
 #![feature(const_trait_impl)]
+#![allow(warnings)]
+#![feature(async_closure)]
 
 extern crate core;
 pub mod constant;

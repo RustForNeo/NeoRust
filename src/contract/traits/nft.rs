@@ -1,11 +1,14 @@
 use crate::{
 	contract::{
-		contract_error::ContractError, iterator::NeoIterator, nns_name::NNSName,
+		contract_error::ContractError, fungible_token_contract::FungibleTokenContract,
+		iterator::NeoIterator, nft_contract::NftContract, nns_name::NNSName,
 		traits::token::TokenTrait,
 	},
 	protocol::core::stack_item::StackItem,
 	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
-	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
+	types::{
+		contract_parameter::ContractParameter, Address, Bytes, H160Externsion, ValueExtension,
+	},
 	wallet::account::Account,
 };
 use async_trait::async_trait;
@@ -13,7 +16,7 @@ use primitive_types::H160;
 use std::collections::HashMap;
 
 #[async_trait]
-pub trait NonFungibleTokenTrait: TokenTrait {
+pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	const OWNER_OF: &'static str = "ownerOf";
 	const TOKENS_OF: &'static str = "tokensOf";
 	const BALANCE_OF: &'static str = "balanceOf";
@@ -24,17 +27,22 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 	// Token methods
 
 	async fn balance_of(&mut self, owner: H160) -> Result<i32, ContractError> {
-		self.call_function_returning_int(NonFungibleTokenTrait::BALANCE_OF, vec![owner.into()])
+		self.call_function_returning_int(
+			<NftContract as NonFungibleTokenTrait>::BALANCE_OF,
+			vec![owner.into()],
+		)
+		.await
 	}
 
 	// NFT methods
 
 	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes>, ContractError> {
 		self.call_function_returning_iterator(
-			NonFungibleTokenTrait::TOKENS_OF,
+			<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
 			vec![owner.into()],
 			|item| item.try_into(),
 		)
+		.await
 	}
 
 	// Non-divisible NFT methods
@@ -42,17 +50,19 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 	async fn transfer(
 		&mut self,
 		from: &Account,
-		to: H160,
+		to: Address,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_inner(to, token_id, data)
+			.await
+			.unwrap()
 			.signers(vec![AccountSigner::called_by_entry(from)])
 	}
 
 	async fn transfer_inner(
 		&mut self,
-		to: H160,
+		to: Address,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
@@ -60,8 +70,9 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 
 		self.invoke_function(
 			NonFungibleTokenTrait::TRANSFER,
-			vec![to.into(), token_id.into(), data],
+			vec![to.into(), token_id.into(), data.unwrap()],
 		)
+		.await
 	}
 
 	async fn transfer_from_name(
@@ -71,7 +82,9 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.throw_if_sender_is_not_owner(from.script_hash(), &token_id).await.unwrap();
+		self.throw_if_sender_is_not_owner(from.get_script_hash().unwrap(), &token_id)
+			.await
+			.unwrap();
 
 		self.transfer_inner(H160::from_address(to).unwrap(), token_id, data)
 			.signers(vec![AccountSigner::called_by_entry(from)])
@@ -86,33 +99,36 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.transfer_inner(
-			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).unwrap(),
+			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
 			token_id,
 			data,
 		)
+		.await
 	}
 
 	async fn build_non_divisible_transfer_script(
 		&mut self,
-		to: H160,
+		to: Address,
 		token_id: Bytes,
 		data: ContractParameter,
 	) -> Result<Bytes, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.build_invoke_function_script(
-			NonFungibleTokenTrait::TRANSFER,
-			vec![Some(to.into()), Some(token_id.into()), Some(data)],
+			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			vec![to.into(), token_id.into(), data],
 		)
+		.await
 	}
 
 	async fn owner_of(&mut self, token_id: Bytes) -> Result<H160, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.call_function_returning_script_hash(
-			NonFungibleTokenTrait::OWNER_OF,
+			<NftContract as NonFungibleTokenTrait>::OWNER_OF,
 			vec![token_id.into()],
 		)
+		.await
 	}
 
 	async fn throw_if_divisible_nft(&mut self) -> Result<(), ContractError> {
@@ -127,7 +143,7 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 
 	async fn throw_if_sender_is_not_owner(
 		&mut self,
-		from: H160,
+		from: Address,
 		token_id: &Bytes,
 	) -> Result<(), ContractError> {
 		let token_owner = self.owner_of(token_id.clone()).await.unwrap();
@@ -145,19 +161,25 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 	async fn transfer_divisible(
 		&mut self,
 		from: &Account,
-		to: H160,
+		to: Address,
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_divisible_from_hashes(from.script_hash(), to, amount, token_id, data)
-			.signers(vec![AccountSigner::called_by_entry(from)])
+		self.transfer_divisible_from_hashes(
+			from.get_script_hash().unwrap(),
+			to,
+			amount,
+			token_id,
+			data,
+		)
+		.signers(vec![AccountSigner::called_by_entry(from)])
 	}
 
 	async fn transfer_divisible_from_hashes(
 		&mut self,
-		from: H160,
-		to: H160,
+		from: Address,
+		to: Address,
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
@@ -165,9 +187,10 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.invoke_function(
-			NonFungibleTokenTrait::TRANSFER,
-			vec![from.into(), to.into(), amount.into(), token_id.into(), data],
+			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			vec![from.into(), to.into(), amount.into(), token_id.into(), data.unwrap()],
 		)
+		.await
 	}
 
 	async fn transfer_divisible_from_name(
@@ -179,18 +202,19 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_divisible_from_hashes(
-			from.script_hash(),
-			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).unwrap(),
+			from.get_script_hash().unwrap(),
+			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
 			amount,
 			token_id,
 			data,
 		)
+		.await
 		.signers(vec![AccountSigner::called_by_entry(from)])
 	}
 
 	async fn transfer_divisible_to_name(
 		&mut self,
-		from: H160,
+		from: Address,
 		to: &str,
 		amount: i32,
 		token_id: Bytes,
@@ -200,35 +224,38 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 
 		self.transfer_divisible_from_hashes(
 			from,
-			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).unwrap(),
+			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
 			amount,
 			token_id,
 			data,
 		)
+		.await
 	}
 
-	fn build_divisible_transfer_script(
+	async fn build_divisible_transfer_script(
 		&self,
-		from: H160,
-		to: H160,
+		from: Address,
+		to: Address,
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
 		self.build_invoke_function_script(
-			NonFungibleTokenTrait::TRANSFER,
-			vec![from.into(), to.into(), amount.into(), token_id.into(), data],
+			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			vec![from.into(), to.into(), amount.into(), token_id.into(), data.unwrap()],
 		)
+		.await
 	}
 
-	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Bytes>, ContractError> {
+	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Address>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.call_function_returning_iterator(
-			NonFungibleTokenTrait::OWNER_OF,
+			<NftContract as NonFungibleTokenTrait>::OWNER_OF,
 			vec![token_id.into()],
-			|item| Ok(H160::from_address(item.address().unwrap()).unwrap()),
+			|item| Ok(item.as_address().unwrap()),
 		)
+		.await
 	}
 
 	async fn throw_if_non_divisible_nft(&mut self) -> Result<(), ContractError> {
@@ -249,17 +276,21 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.call_function_returning_int(
-			NonFungibleTokenTrait::BALANCE_OF,
+			<NftContract as NonFungibleTokenTrait>::BALANCE_OF,
 			vec![owner.into(), token_id.into()],
 		)
+		.await
 	}
 
 	// Optional methods
 
 	async fn tokens(&mut self) -> Result<NeoIterator<Bytes>, ContractError> {
-		self.call_function_returning_iterator(NonFungibleTokenTrait::TOKENS, vec![], |item| {
-			item.try_into()
-		})
+		self.call_function_returning_iterator(
+			<NftContract as NonFungibleTokenTrait>::TOKENS,
+			vec![],
+			|item| item.try_into(),
+		)
+		.await
 	}
 
 	async fn properties(
@@ -267,15 +298,19 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		token_id: Bytes,
 	) -> Result<HashMap<String, String>, ContractError> {
 		let invocation_result = self
-			.call_invoke_function(NonFungibleTokenTrait::PROPERTIES, vec![token_id.into()], vec![])
-			.unwrap()
-			.into_result();
+			.call_invoke_function(
+				<NftContract as NonFungibleTokenTrait>::PROPERTIES,
+				vec![token_id.into()],
+				vec![],
+			)
+			.await
+			.unwrap();
 
 		let stack_item = invocation_result.get_first_stack_item().unwrap();
 		let map = stack_item
 			.as_map()
 			.ok_or(ContractError::UnexpectedReturnType(
-				stack_item.to_json() + StackItem::MAP_VALUE.to_string(),
+				stack_item.to_json().unwrap() + &StackItem::MAP_VALUE.to_string(),
 				// Some(vec![]),
 			))
 			.unwrap();
@@ -294,15 +329,19 @@ pub trait NonFungibleTokenTrait: TokenTrait {
 		token_id: Bytes,
 	) -> Result<HashMap<String, StackItem>, ContractError> {
 		let invocation_result = self
-			.call_invoke_function(NonFungibleTokenTrait::PROPERTIES, vec![token_id.into()], vec![])
-			.unwrap()
-			.into_result();
+			.call_invoke_function(
+				<NftContract as NonFungibleTokenTrait>::PROPERTIES,
+				vec![token_id.into()],
+				vec![],
+			)
+			.await
+			.unwrap();
 
 		let stack_item = invocation_result.get_first_stack_item().unwrap();
 		let map = stack_item
 			.as_map()
 			.ok_or(ContractError::UnexpectedReturnType(
-				stack_item.to_json() + StackItem::MAP_VALUE.to_string(),
+				stack_item.to_json().unwrap() + &StackItem::MAP_VALUE.to_string(),
 				// Some(vec![StackItem::MAP_VALUE.to_string()]),
 			))
 			.unwrap();

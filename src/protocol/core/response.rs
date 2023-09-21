@@ -55,7 +55,7 @@ where
 	}
 }
 
-impl<T> Future for NeoResponse<T> {
+impl<T: std::marker::Unpin> Future for NeoResponse<T> {
 	type Output = T;
 
 	fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {

@@ -1,7 +1,7 @@
 use crate::types::contract_parameter_type::ContractParameterType;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NEP6Contract {
 	pub script: Option<String>,
 
@@ -12,7 +12,7 @@ pub struct NEP6Contract {
 	pub nep6_parameters: Vec<NEP6Parameter>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct NEP6Parameter {
 	#[serde(rename = "name")]
 	pub param_name: String,

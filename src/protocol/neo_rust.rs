@@ -4,7 +4,6 @@ use crate::{
 		core::{
 			neo_trait::NeoTrait,
 			request::NeoRequest,
-			response::NeoResponse,
 			responses::{
 				contract_state::ContractState,
 				invocation_result::InvocationResult,
@@ -12,34 +11,23 @@ use crate::{
 				neo_address::NeoAddress,
 				neo_application_log::NeoApplicationLog,
 				neo_block::NeoBlock,
-				neo_find_states::{NeoFindStates, States},
-				neo_get_mem_pool::{MemPoolDetails, NeoGetMemPool},
-				neo_get_nep11transfers::{NeoGetNep11Transfers, Nep11Transfers},
-				neo_get_nep17balances::{NeoGetNep17Balances, Nep17Balances},
-				neo_get_nep17transfers::{NeoGetNep17Transfers, Nep17Transfers},
-				neo_get_next_block_validators::{NeoGetNextBlockValidators, Validator},
-				neo_get_peers::{NeoGetPeers, Peers},
-				neo_get_state_height::{NeoGetStateHeight, StateHeight},
-				neo_get_state_root::{NeoGetStateRoot, StateRoot},
-				neo_get_token_balances::TokenBalance,
-				neo_get_unclaimed_gas::{GetUnclaimedGas, NeoGetUnclaimedGas},
-				neo_get_version::{NeoGetVersion, NeoVersion},
-				neo_get_wallet_balance::{Balance, NeoGetWalletBalance},
-				neo_list_plugins::{NeoListPlugins, Plugin},
+				neo_find_states::States,
+				neo_get_mem_pool::MemPoolDetails,
+				neo_get_nep11balances::{Nep11Balance, Nep11Balances},
+				neo_get_nep11transfers::Nep11Transfers,
+				neo_get_nep17balances::Nep17Balances,
+				neo_get_nep17transfers::Nep17Transfers,
+				neo_get_next_block_validators::Validator,
+				neo_get_peers::Peers,
+				neo_get_state_height::StateHeight,
+				neo_get_state_root::StateRoot,
+				neo_get_unclaimed_gas::GetUnclaimedGas,
+				neo_get_version::NeoVersion,
+				neo_get_wallet_balance::Balance,
+				neo_list_plugins::Plugin,
 				neo_network_fee::NeoNetworkFee,
-				neo_response_aliases::{
-					NeoBlockCount, NeoBlockHash, NeoBlockHeaderCount, NeoCalculateNetworkFee,
-					NeoCloseWallet, NeoConnectionCount, NeoDumpPrivKey, NeoGetApplicationLog,
-					NeoGetBlock, NeoGetCommittee, NeoGetContractState, NeoGetNativeContracts,
-					NeoGetNep11Properties, NeoGetNewAddress, NeoGetProof, NeoGetRawBlock,
-					NeoGetRawMemPool, NeoGetRawTransaction, NeoGetState, NeoGetStorage,
-					NeoGetTransaction, NeoGetTransactionHeight, NeoGetWalletUnclaimedGas,
-					NeoImportPrivKey, NeoInvokeContractVerify, NeoInvokeFunction, NeoInvokeScript,
-					NeoListAddress, NeoOpenWallet, NeoSendFrom, NeoSendMany, NeoSendToAddress,
-					NeoSubmitBlock, NeoTerminateSession, NeoTraverseIterator, NeoVerifyProof,
-				},
-				neo_send_raw_transaction::{NeoSendRawTransaction, RawTransaction},
-				neo_validate_address::{NeoValidateAddress, ValidateAddress},
+				neo_send_raw_transaction::RawTransaction,
+				neo_validate_address::ValidateAddress,
 				transaction::Transaction,
 				transaction_send_token::TransactionSendToken,
 				transaction_signer::TransactionSigner,
@@ -54,11 +42,11 @@ use crate::{
 	transaction::signer::Signer,
 	types::{
 		contract_parameter::ContractParameter, Address, Bytes, ExternBase64, H160Externsion,
-		ValueExtension,
+		H256Def, ValueExtension,
 	},
 };
 use async_trait::async_trait;
-use futures::Stream;
+use bitvec::ptr::Mut;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256};
 use reqwest::Url;
@@ -74,19 +62,22 @@ lazy_static! {
 		Arc::new(Mutex::new(NeoRust::new_http_service()));
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct NeoRust<T>
 where
 	T: NeoService,
 {
-	config: Arc<NeoConfig>,
+	config: Arc<Mutex<NeoConfig>>,
 	neo_service: Arc<Mutex<T>>,
 }
 
-impl<T: NeoService> NeoRust<T> {
+impl<T: NeoService> NeoRust<T>
+where
+	T: NeoService,
+{
 	pub fn new_http_service() -> Self {
 		Self {
-			config: Arc::new(NeoConfig::default()),
+			config: Arc::new(Mutex::new(NeoConfig::default())),
 			neo_service: Arc::new(Mutex::new(HttpService::new(Url::from_str("").unwrap(), false))),
 		}
 	}
@@ -96,26 +87,26 @@ impl<T: NeoService> NeoRust<T> {
 	}
 
 	pub fn config(&self) -> &NeoConfig {
-		&self.config
+		&self.config.lock().unwrap()
 	}
 
 	pub fn nns_resolver(&self) -> H160 {
-		H160::from(self.config.nns_resolver.clone())
+		H160::from(self.config().nns_resolver.clone())
 	}
 
 	pub fn block_interval(&self) -> u32 {
-		self.config.block_interval as u32
+		self.config().block_interval
 	}
 
 	pub fn neo_rx(&self) -> &JsonRpc2 {
-		&self.config.scheduledExecutorService
+		&self.config().scheduledExecutorService
 	}
 	pub fn polling_interval(&self) -> u32 {
-		self.config.polling_interval as u32
+		self.config().polling_interval
 	}
 
 	pub fn max_valid_until_block_increment(&self) -> u32 {
-		self.config.max_valid_until_block_increment as u32
+		self.config().max_valid_until_block_increment
 	}
 
 	pub(crate) fn get_neo_service(&self) -> &T {
@@ -130,11 +121,10 @@ impl<T: NeoService> NeoRust<T> {
 		NeoRequest::new("dumpprivkey", vec![Value::String(script_hash.to_address())])
 	}
 
-	pub async fn get_network_magic_number(&mut self) -> Result<i32, NeoError> {
-		if self.config.network_magic.is_none() {
+	pub async fn get_network_magic_number(&mut self) -> Result<u32, NeoError> {
+		if self.config().network_magic.is_none() {
 			let magic = self
 				.get_version()
-				.await
 				.request()
 				.await
 				.unwrap()
@@ -145,10 +135,11 @@ impl<T: NeoService> NeoRust<T> {
 				.unwrap()
 				.network;
 			self.config
+				.get_mut()
 				.set_network_magic(magic)
 				.expect("Unable to set Network Magic Number");
 		}
-		Ok(self.config.network_magic.unwrap() as i32)
+		Ok(self.config().network_magic.unwrap())
 	}
 
 	pub async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, NeoError> {
@@ -160,11 +151,11 @@ impl<T: NeoService> NeoRust<T> {
 #[async_trait]
 impl<T: NeoService> NeoTrait for NeoRust<T> {
 	// Blockchain methods
-	fn get_best_block_hash(&self) -> NeoRequest<H256> {
+	fn get_best_block_hash(&self) -> NeoRequest<H256Def> {
 		NeoRequest::new("getbestblockhash", vec![])
 	}
 
-	fn get_block_hash(&self, block_index: i32) -> NeoRequest<H256> {
+	fn get_block_hash(&self, block_index: u32) -> NeoRequest<H256Def> {
 		NeoRequest::new("getblockhash", [block_index.to_value()].to_vec())
 	}
 
@@ -188,15 +179,15 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getblockheadercount", vec![])
 	}
 
-	fn get_block_count(&self) -> NeoRequest<i32> {
+	fn get_block_count(&self) -> NeoRequest<u32> {
 		NeoRequest::new("getblockcount", vec![])
 	}
 
-	fn get_block_header(&self, index: i32) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![index.to_value(), 1])
+	fn get_block_header(&self, block_hash: H256) -> NeoRequest<NeoBlock> {
+		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 1])
 	}
 
-	fn get_block_header_by_index(&self, index: i32) -> NeoRequest<NeoBlock> {
+	fn get_block_header_by_index(&self, index: u32) -> NeoRequest<NeoBlock> {
 		NeoRequest::new("getblockheader", vec![index.to_value(), 1.to_value()])
 	}
 
@@ -206,7 +197,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 0.to_value()])
 	}
 
-	fn get_raw_block_header_by_index(&self, index: i32) -> NeoRequest<String> {
+	fn get_raw_block_header_by_index(&self, index: u32) -> NeoRequest<String> {
 		NeoRequest::new("getblockheader", vec![index.to_value(), 0.to_value()])
 	}
 
@@ -230,7 +221,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getrawmempool", vec![1.to_value()])
 	}
 
-	fn get_raw_mem_pool(&self) -> NeoRequest<Vec<H256>> {
+	fn get_raw_mem_pool(&self) -> NeoRequest<Vec<H256Def>> {
 		NeoRequest::new("getrawmempool", vec![])
 	}
 
@@ -246,7 +237,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
 	}
 
-	fn get_storage(&self, contract_hash: H160, key: String) -> NeoRequest<String> {
+	fn get_storage(&self, contract_hash: H160, key: &str) -> NeoRequest<String> {
 		let params = [contract_hash.to_value(), key.to_value()];
 		NeoRequest::new("getstorage", params.to_vec())
 	}
@@ -265,7 +256,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getcommittee", vec![])
 	}
 
-	fn get_connection_count(&self) -> NeoRequest<i32> {
+	fn get_connection_count(&self) -> NeoRequest<u32> {
 		NeoRequest::new("getconnectioncount", vec![])
 	}
 
@@ -295,18 +286,15 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
 		let signers = signers.into_iter().map(TransactionSigner::from).collect();
 		NeoRequest::new("invokefunction", vec![contract_hash.to_value(), method, params, signers])
 	}
 
-	fn invoke_script(
-		&self,
-		hex: String,
-		signers: Vec<Box<dyn Signer>>,
-	) -> NeoRequest<InvocationResult> {
-		let signers = signers.into_iter().map(TransactionSigner::from).collect();
+	fn invoke_script(&self, hex: String, signers: Vec<Signer>) -> NeoRequest<InvocationResult> {
+		let signers: Vec<TransactionSigner> =
+			signers.into_iter().map(|signer| TransactionSigner::from(*signer)).collect();
 
 		NeoRequest::new("invokescript", vec![hex.to_value(), signers])
 	}
@@ -323,8 +311,8 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// More utility methods
 
-	fn validate_address(&self, address: String) -> NeoRequest<ValidateAddress> {
-		NeoRequest::new("validateaddress", vec![Value::String(address)])
+	fn validate_address(&self, address: &str) -> NeoRequest<ValidateAddress> {
+		NeoRequest::new("validateaddress", vec![address.to_value()])
 	}
 
 	// More wallet methods
@@ -350,7 +338,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getwalletunclaimedgas", vec![])
 	}
 
-	fn import_priv_key(&self, priv_key: String) -> NeoRequest<Address> {
+	fn import_priv_key(&self, priv_key: String) -> NeoRequest<NeoAddress> {
 		let params = [priv_key.to_value()].to_vec();
 		NeoRequest::new("importprivkey", params)
 	}
@@ -359,7 +347,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("calculatenetworkfee", vec![hex.to_value()])
 	}
 
-	fn list_address(&self) -> NeoRequest<Vec<Address>> {
+	fn list_address(&self) -> NeoRequest<Vec<NeoAddress>> {
 		NeoRequest::new("listaddress", vec![])
 	}
 	fn open_wallet(&self, path: String, password: String) -> NeoRequest<bool> {
@@ -369,8 +357,8 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn send_from(
 		&self,
 		token_hash: H160,
-		from: H160,
-		to: H160,
+		from: Address,
+		to: Address,
 		amount: u32,
 	) -> NeoRequest<Transaction> {
 		let params =
@@ -389,7 +377,12 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("sendmany", params)
 	}
 
-	fn send_to_address(&self, token_hash: H160, to: H160, amount: u32) -> NeoRequest<Transaction> {
+	fn send_to_address(
+		&self,
+		token_hash: H160,
+		to: Address,
+		amount: u32,
+	) -> NeoRequest<Transaction> {
 		let params = [token_hash.to_value(), to.to_value(), amount.to_value()].to_vec();
 		NeoRequest::new("sendtoaddress", params)
 	}
@@ -409,7 +402,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// NEP-17 methods
 
-	fn get_nep17_transfers_from(&self, script_hash: H160, from: i64) -> NeoRequest<Nep17Transfers> {
+	fn get_nep17_transfers_from(&self, script_hash: H160, from: u64) -> NeoRequest<Nep17Transfers> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
 		NeoRequest::new("getnep17transfers", params)
 	}
@@ -417,14 +410,14 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn get_nep17_transfers_range(
 		&self,
 		script_hash: H160,
-		from: i64,
-		to: i64,
+		from: u64,
+		to: u64,
 	) -> NeoRequest<Nep17Transfers> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
 		NeoRequest::new("getnep17transfers", params)
 	}
 
-	fn get_nep11_balances(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_balances(&self, script_hash: H160) -> NeoRequest<Nep11Balances> {
 		let params = [script_hash.to_value()].to_vec();
 		NeoRequest::new("getnep11balances", params)
 	}
@@ -436,7 +429,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getnep11transfers", params)
 	}
 
-	fn get_nep11_transfers_from(&self, script_hash: H160, from: i64) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_transfers_from(&self, script_hash: H160, from: u64) -> NeoRequest<Nep11Transfers> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
 		NeoRequest::new("getnep11transfers", params)
 	}
@@ -444,8 +437,8 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn get_nep11_transfers_range(
 		&self,
 		script_hash: H160,
-		from: i64,
-		to: i64,
+		from: u64,
+		to: u64,
 	) -> NeoRequest<Nep11Transfers> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
 		NeoRequest::new("getnep11transfers", params)
@@ -454,7 +447,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn get_nep11_properties(
 		&self,
 		script_hash: H160,
-		token_id: String,
+		token_id: &str,
 	) -> NeoRequest<HashMap<String, String>> {
 		let params = [script_hash.to_value(), token_id.to_value()].to_vec();
 		NeoRequest::new("getnep11properties", params)
@@ -467,14 +460,14 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// State service methods
 
-	fn get_proof(&self, root_hash: H256, contract_hash: H160, key: String) -> NeoRequest<String> {
+	fn get_proof(&self, root_hash: H256, contract_hash: H160, key: &str) -> NeoRequest<String> {
 		NeoRequest::new(
 			"getproof",
-			vec![root_hash.to_value(), contract_hash.to_value(), key.to_base64()],
+			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()],
 		)
 	}
 
-	fn verify_proof(&self, root_hash: H256, proof: String) -> NeoRequest<bool> {
+	fn verify_proof(&self, root_hash: H256, proof: &str) -> NeoRequest<bool> {
 		let params = [root_hash.to_value(), proof.to_value()].to_vec();
 		NeoRequest::new("verifyproof", params)
 	}
@@ -483,18 +476,18 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getstateheight", vec![])
 	}
 
-	fn get_state(&self, root_hash: H256, contract_hash: H160, key: String) -> NeoRequest<String> {
+	fn get_state(&self, root_hash: H256, contract_hash: H160, key: &str) -> NeoRequest<String> {
 		NeoRequest::new(
 			"getstate",
-			vec![root_hash.to_value(), contract_hash.to_value(), key.to_base64()],
+			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()], //key.to_base64()],
 		)
 	}
 	fn find_states(
 		&self,
 		root_hash: H256,
 		contract_hash: H160,
-		key_prefix: String,
-		start_key: Option<String>,
+		key_prefix: &str,
+		start_key: Option<&str>,
 		count: Option<u32>,
 	) -> NeoRequest<States> {
 		let mut params =
@@ -509,12 +502,12 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("findstates", params)
 	}
 
-	fn get_block_by_index(&self, index: i32, full_tx: bool) -> NeoRequest<NeoBlock> {
+	fn get_block_by_index(&self, index: u32, full_tx: bool) -> NeoRequest<NeoBlock> {
 		let full_tx = if full_tx { 1 } else { 0 };
 		NeoRequest::new("getblock", vec![index.to_value(), full_tx.to_value()])
 	}
 
-	fn get_raw_block_by_index(&self, index: i32) -> NeoRequest<String> {
+	fn get_raw_block_by_index(&self, index: u32) -> NeoRequest<String> {
 		NeoRequest::new("getblock", vec![index.to_value(), 0])
 	}
 
@@ -523,7 +516,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
 		let params = vec![
 			contract_hash.to_value(),
@@ -539,7 +532,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn invoke_script_diagnostics(
 		&self,
 		hex: String,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
 		let params = vec![hex.to_value(), signers.to_value(), true.to_value()];
 
@@ -550,14 +543,14 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		&self,
 		session_id: String,
 		iterator_id: String,
-		count: i32,
+		count: u32,
 	) -> NeoRequest<Vec<StackItem>> {
 		let params = vec![session_id.to_value(), iterator_id.to_value(), count.to_value()];
 
 		NeoRequest::new("traverseiterator", params)
 	}
 
-	fn terminate_session(&self, session_id: &String) -> NeoRequest<bool> {
+	fn terminate_session(&self, session_id: &str) -> NeoRequest<bool> {
 		NeoRequest::new("terminatesession", vec![session_id.to_value()])
 	}
 
@@ -565,7 +558,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
 		let signers = signers.into_iter().map(TransactionSigner::from).collect();
 
@@ -595,7 +588,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 	fn send_from_send_token(
 		&self,
 		send_token: &TransactionSendToken,
-		from: H160,
+		from: Address,
 	) -> NeoRequest<Transaction> {
 		let params = [from.to_value(), vec![send_token]].to_vec();
 		NeoRequest::new("sendmany", params)

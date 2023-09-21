@@ -1,22 +1,28 @@
-use crate::wallet::nep6contract::NEP6Contract;
+use crate::{types::Address, utils::*, wallet::nep6contract::NEP6Contract};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NEP6Account {
-	pub address: String,
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
+	pub address: Address,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub label: Option<String>,
 	#[serde(default)]
 	pub is_default: bool,
 	pub lock: bool,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub key: Option<String>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub contract: Option<NEP6Contract>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub extra: Option<HashMap<String, String>>,
 }
 
 impl NEP6Account {
 	pub fn new(
-		address: String,
+		address: Address,
 		label: Option<String>,
 		is_default: bool,
 		lock: bool,

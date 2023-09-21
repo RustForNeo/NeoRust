@@ -13,14 +13,14 @@ use crate::{
 		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
-	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
+	transaction::transaction_builder::TransactionBuilder,
 	types::{contract_parameter::ContractParameter, H160Externsion},
 	utils::*,
 };
 use async_trait::async_trait;
+use futures::{FutureExt, TryFutureExt};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::sync::{Mutex, MutexGuard};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContractManagement {
@@ -130,7 +130,7 @@ impl ContractManagement {
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, NeoError> {
 		let params = vec![nef.into(), manifest.into(), data.unwrap()];
-		let tx = self.invoke_function("deploy", params);
+		let tx = self.invoke_function("deploy", params).await;
 		tx.map_err(|e| NeoError::ContractError(e))
 	}
 }

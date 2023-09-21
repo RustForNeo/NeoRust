@@ -1,7 +1,7 @@
 use crate::protocol::core::responses::oracle_response_code::OracleResponseCode;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, __private::de::Content::ByteBuf};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum TransactionAttribute {
 	#[serde(rename = "HighPriority")]
@@ -31,7 +31,7 @@ impl TransactionAttribute {
 			TransactionAttribute::OracleResponse(OracleResponse { id, response_code, result }) => {
 				bytes.push(0x11);
 				bytes.extend(&id.to_be_bytes());
-				bytes.push(response_code.to_byte());
+				bytes.push(response_code.clone() as u8);
 				bytes.extend(result.as_bytes());
 			},
 		}

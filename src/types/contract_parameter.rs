@@ -141,11 +141,16 @@ pub enum ParameterValue {
 	Signature(String),
 	Array(Vec<ContractParameter>),
 	Map(Vec<serde_json::Value>),
+	Any,
 }
 
 impl ContractParameter {
 	pub fn new(typ: ContractParameterType) -> Self {
 		Self { name: None, typ, value: None }
+	}
+
+	pub fn get_type(&self) -> ContractParameterType {
+		self.typ.clone()
 	}
 
 	pub fn with_value(typ: ContractParameterType, value: ParameterValue) -> Self {

@@ -4,18 +4,22 @@ use crate::{
 	protocol::core::witness_rule::{
 		witness_condition::WitnessCondition, witness_rule::WitnessRule,
 	},
-	transaction::witness_scope::WitnessScope,
+	transaction::{
+		account_signer::AccountSigner, contract_signer::ContractSigner, witness_scope::WitnessScope,
+	},
 	types::PublicKey,
 };
 use primitive_types::H160;
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignerType {
 	Account,
 	Contract,
 }
 
-pub trait Signer {
+pub trait SignerTrait {
 	fn get_type(&self) -> SignerType;
 
 	fn get_signer_hash(&self) -> &H160;
@@ -29,6 +33,10 @@ pub trait Signer {
 	fn get_allowed_contracts(&self) -> &Vec<H160>;
 
 	// fn set_allowed_contracts(&mut self, allowed_contracts: Vec<H160>);
+
+	fn get_allowed_groups(&self) -> &Vec<PublicKey>;
+
+	fn get_rules(&self) -> &Vec<WitnessRule>;
 
 	// fn new(signer_hash: H160, scope: WitnessScope) -> Self {
 	//     Self {
@@ -139,5 +147,23 @@ pub trait Signer {
 			return Err(NeoError::InvalidData(format!("Too many {} in signer", name)))
 		}
 		Ok(())
+	}
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+pub enum Signer {
+	Account(AccountSigner),
+	Contract(ContractSigner),
+}
+
+impl From<AccountSigner> for Signer {
+	fn from(account_signer: AccountSigner) -> Self {
+		Signer::Account(account_signer)
+	}
+}
+
+impl From<ContractSigner> for Signer {
+	fn from(contract_signer: ContractSigner) -> Self {
+		Signer::Contract(contract_signer)
 	}
 }

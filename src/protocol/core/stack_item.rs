@@ -6,7 +6,7 @@ use std::collections::HashMap;
 // | doesn't satisfy `StackItem: Hash`
 // | doesn't satisfy `StackItem: std::cmp::Eq`
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StackItem {
 	#[serde(rename = "Any")]
@@ -44,7 +44,7 @@ pub enum StackItem {
 	InteropInterface { id: String, interface: String },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct MapEntry {
 	key: StackItem,
 	value: StackItem,
@@ -113,14 +113,14 @@ impl StackItem {
 
 	pub fn to_string(&self) -> String {
 		match self {
-			StackItem::Any(value) => format!("Any{{value={:?}}}", value),
-			StackItem::Pointer(value) => format!("Pointer{{value={}}}", value),
-			StackItem::Boolean(value) => format!("Boolean{{value={}}}", value),
-			StackItem::Integer(value) => format!("Integer{{value={}}}", value),
-			StackItem::ByteString(value) => format!("ByteString{{value={:?}}}", value),
-			StackItem::Buffer(value) => format!("Buffer{{value={:?}}}", value),
-			StackItem::Array(value) => {
-				let values = value.iter().map(StackItem::to_string).collect::<Vec<_>>().join(", ");
+			StackItem::Any { value: any } => format!("Any{{value={:?}}}", any),
+			StackItem::Pointer { value: pointer } => format!("Pointer{{value={}}}", pointer),
+			StackItem::Boolean { value: boolean } => format!("Boolean{{value={}}}", boolean),
+			StackItem::Integer { value: integer } => format!("Integer{{value={}}}", integer),
+			StackItem::ByteString { value: string } => format!("ByteString{{value={:?}}}", string),
+			StackItem::Buffer { value: buffer } => format!("Buffer{{value={:?}}}", buffer),
+			StackItem::Array { value: array } => {
+				let values = array.iter().map(StackItem::to_string).collect::<Vec<_>>().join(", ");
 				format!("Array{{value=[{}]}}", values)
 			},
 			StackItem::Struct(value) => {
@@ -183,15 +183,15 @@ impl StackItem {
 	}
 
 	pub fn as_address(&self) -> Option<Address> {
-		self.as_bytes().and_then(|bytes| Address::from_bytes(&bytes).ok())
+		self.as_bytes().and_then(|bytes| Address::from_slice(&bytes).ok())
 	}
 
 	pub fn as_hash160(&self) -> Option<H160> {
-		self.as_bytes().and_then(|bytes| H160::from_bytes(&bytes).ok())
+		self.as_bytes().and_then(|bytes| H160::from_slice(&bytes).ok())
 	}
 
 	pub fn as_hash256(&self) -> Option<H256> {
-		self.as_bytes().and_then(|bytes| H256::from_bytes(&bytes).ok())
+		self.as_bytes().and_then(|bytes| H256::from_slice(&bytes).ok())
 	}
 	pub fn len(&self) -> Option<usize> {
 		match self {

@@ -2,17 +2,17 @@ use crate::{
 	crypto::key_pair::KeyPair,
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode},
-	serialization::binary_writer::BinaryWriter,
 	types::{
 		call_flags::CallFlags,
 		contract_parameter::{ContractParameter, ParameterValue},
+		contract_parameter_type::ContractParameterType,
 		Bytes, PublicKey,
 	},
 };
-use futures::AsyncWriteExt;
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;
 use std::{collections::HashMap, error::Error};
+use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, PartialEq, Eq, Hash, CopyGetters, Setters)]
 #[getset(get_copy, set)]
@@ -20,7 +20,7 @@ use std::{collections::HashMap, error::Error};
 // note `new` below: generate `new()` that calls Default
 #[educe(Default(new))]
 pub struct ScriptBuilder {
-	writer: BinaryWriter,
+	pub(crate) script: Vec<u8>,
 }
 
 impl ScriptBuilder {
@@ -28,20 +28,20 @@ impl ScriptBuilder {
 	// 	Self { writer: BinaryWriter::new() }
 	// }
 
-	pub fn op_code(&mut self, op_codes: &[OpCode]) -> &mut Self {
+	pub async fn op_code(&mut self, op_codes: &[OpCode]) -> &mut Self {
 		for opcode in op_codes {
-			self.writer.write_u8(opcode.into());
+			self.script.write_u8(opcode.opcode()).await.expect("Failed to write opcode");
 		}
 		self
 	}
 
-	pub fn op_code_with_arg(&mut self, opcode: OpCode, argument: Bytes) -> &mut Self {
-		self.writer.write_u8(opcode.into());
-		let _ = self.writer.write(&argument);
+	pub async fn op_code_with_arg(&mut self, opcode: OpCode, argument: Bytes) -> &mut Self {
+		self.script.write_u8(opcode.opcode()).await.expect("");
+		let _ = self.script.write(&argument);
 		self
 	}
 
-	pub fn contract_call(
+	pub async fn contract_call(
 		&mut self,
 		hash160: &H160,
 		method: &str,
@@ -49,9 +49,9 @@ impl ScriptBuilder {
 		call_flags: CallFlags,
 	) -> Result<&mut Self, NeoError> {
 		if params.is_empty() {
-			self.op_code(&[OpCode::NewArray]);
+			self.op_code(&[OpCode::NewArray]).await;
 		} else {
-			self.push_params(params).unwrap();
+			self.push_params(params);
 		}
 
 		self.push_integer(call_flags.bits())
@@ -75,54 +75,53 @@ impl ScriptBuilder {
 		self.push_integer(params.len() as i64).unwrap().op_code(&[OpCode::Pack])
 	}
 
-	pub fn push_param(&mut self, param: &ContractParameter) -> Result<&mut Self, NeoError> {
-		match param {
-			None => self.op_code(&[OpCode::PushNull]),
-			Some(param) => {
-				match &param.value {
-					ParameterValue::Boolean(b) => self.push_bool(*b),
-					ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
-					ParameterValue::ByteArray(b)
-					| ParameterValue::Signature(b)
-					| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()),
-					ParameterValue::Hash160(h) => self.push_data(h.as_bytes().to_vec()),
-					ParameterValue::Hash256(h) => self.push_data(h.as_bytes().to_vec()),
-					ParameterValue::String(s) => self.push_data(s.as_bytes().to_vec()),
-					ParameterValue::Array(arr) => self.push_array(arr).unwrap(),
-					ParameterValue::Map(map) => {
-						// Create an empty HashMap to hold your ContractParameter key-value pairs
-						let mut map: HashMap<ContractParameter, ContractParameter> = HashMap::new();
-
-						// Iterate over pairs of elements in the vector
-						// (assuming the vector has an even number of elements)
-						for i in (0..map.len()).step_by(2) {
-							let key = ContractParameter::from_json_value(map[i].clone());
-							let value = ContractParameter::from_json_value(map[i + 1].clone());
-
-							// Insert the key-value pair into the HashMap
-							map.insert(key, value);
-						}
-
-						self.push_map(&map).unwrap()
-					},
-					_ =>
-						return Err(Error::IllegalArgument("Unsupported parameter type".to_string())),
-				}
-			},
+	pub async fn push_param(&mut self, param: &ContractParameter) -> Result<&mut Self, NeoError> {
+		if param.get_type() == ContractParameterType::Any {
+			self.op_code(&[OpCode::PushNull]).await;
 		}
+		match &param.value.unwrap() {
+			ParameterValue::Boolean(b) => self.push_bool(*b),
+			ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
+			ParameterValue::ByteArray(b)
+			| ParameterValue::Signature(b)
+			| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()),
+			ParameterValue::Hash160(h) => self.push_data(h.as_bytes().to_vec()),
+			ParameterValue::Hash256(h) => self.push_data(h.as_bytes().to_vec()),
+			ParameterValue::String(s) => self.push_data(s.as_bytes().to_vec()),
+			ParameterValue::Array(arr) => self.push_array(arr).unwrap(),
+			ParameterValue::Map(map) => {
+				// Create an empty HashMap to hold your ContractParameter key-value pairs
+				let mut map: HashMap<ContractParameter, ContractParameter> = HashMap::new();
+
+				// Iterate over pairs of elements in the vector
+				// (assuming the vector has an even number of elements)
+				for i in (0..map.len()).step_by(2) {
+					let key = ContractParameter::from_json_value(map[i].clone());
+					let value = ContractParameter::from_json_value(map[i + 1].clone());
+
+					// Insert the key-value pair into the HashMap
+					map.insert(key, value);
+				}
+
+				self.push_map(&map).unwrap()
+			},
+			_ => return Err(Error::IllegalArgument("Unsupported parameter type".to_string())),
+		}
+		.await;
+
 		Ok(self)
 	}
 
 	// Additional push_* methods
 
-	pub fn push_integer(&mut self, n: i64) -> Result<&mut Self, NeoError> {
+	pub async fn push_integer(&mut self, n: i64) -> Result<&mut Self, NeoError> {
 		if n == -1 {
-			self.op_code(&[OpCode::PushM1]);
+			self.op_code(&[OpCode::PushM1]).await;
 		} else if 0 <= n && n <= 16 {
-			self.op_code(&[OpCode::from_u8(OpCode::Push0.into() + n as u8).unwrap()]);
+			self.op_code(&[OpCode::from_u8(OpCode::Push0.into() + n as u8).unwrap()]).await;
 		} else {
 			let mut bytes = n.to_be_bytes();
-			match self.writer.size() {
+			match self.script.len() {
 				1 => self.op_code_with_arg(OpCode::PushInt8, bytes.to_vec().unwrap()),
 				2 => self.op_code_with_arg(OpCode::PushInt16, bytes.to_vec().unwrap()),
 				4 => self.op_code_with_arg(OpCode::PushInt32, bytes.to_vec().unwrap()),
@@ -130,20 +129,21 @@ impl ScriptBuilder {
 				16 => self.op_code_with_arg(OpCode::PushInt128, bytes.to_vec().unwrap()),
 				32 => self.op_code_with_arg(OpCode::PushInt256, bytes.to_vec().unwrap()),
 				_ => return Err(Error::NumericOverflow),
-			};
+			}
+			.await;
 		}
 		Ok(self)
 	}
 
 	fn pad_number(&self, n: i128, size: usize) -> Bytes {
-		let mut bytes = n.to_signed_bytes();
-		if self.writer.size() == size {
+		let mut bytes = n.to_vec().unwrap(); // .to_signed_bytes();
+		if self.script.len() == size {
 			return bytes
 		}
 		let pad_byte = if n.is_negative() { 0xff } else { 0 };
 		if n.is_negative() {
 			let mut padding =
-				Bytes::from_iter(std::iter::repeat(pad_byte).take(size - &self.writer.size()));
+				Bytes::from_iter(std::iter::repeat(pad_byte).take(size - &self.script.len()));
 			padding.append(&mut bytes);
 			padding
 		} else {
@@ -155,38 +155,35 @@ impl ScriptBuilder {
 
 	// Push data handling
 
-	pub fn push_data(&mut self, data: Bytes) -> Result<&mut Self, NeoError> {
+	pub async fn push_data(&mut self, data: Bytes) -> Result<&mut Self, NeoError> {
 		match data.len() {
 			0..=75 => {
-				self.op_code(&[OpCode::PushData1]);
-				self.writer.write_u8(data.len() as u8);
-				let _ = self.writer.write(&data);
+				self.op_code(&[OpCode::PushData1]).await;
+				self.script.write_u8(data.len() as u8).await.expect("Failed to write data");
+				let _ = self.script.write(&data);
 			},
 			76..=0xff => {
-				self.op_code(&[OpCode::PushData2]);
-				self.writer.write_u16(data.len() as u16);
-				let _ = self.writer.write(&data);
+				self.op_code(&[OpCode::PushData2]).await;
+				self.script.write_u16(data.len() as u16).await.expect("Failed to write data");
+				let _ = self.script.write(&data);
 			},
 			0x100..=0xffff => {
-				self.op_code(&[OpCode::PushData4]);
-				self.writer.write_u32(data.len() as u32);
-				let _ = self.writer.write(&data);
+				self.op_code(&[OpCode::PushData4]).await;
+				self.script.write_u32(data.len() as u32).await.expect("Failed to write data");
+				let _ = self.script.write(&data);
 			},
 			_ => return Err(NeoError::IllegalArgument("Data too long".to_string())),
 		}
 		Ok(self)
 	}
 
-	pub fn push_bool(&mut self, b: bool) -> &mut Self {
-		if b {
-			self.op_code(&[OpCode::PushTrue])
-		} else {
-			self.op_code(&[OpCode::PushFalse])
-		}
+	pub async fn push_bool(&mut self, b: bool) -> &mut Self {
+		if b { self.op_code(&[OpCode::PushTrue]) } else { self.op_code(&[OpCode::PushFalse]) }
+			.await;
 		self
 	}
 
-	pub fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, NeoError> {
+	pub async fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, NeoError> {
 		if arr.is_empty() {
 			self.op_code(&[OpCode::NewArray])
 		} else {
@@ -199,6 +196,7 @@ impl ScriptBuilder {
 				.collect();
 			self.push_params(&Some(arrr)).unwrap();
 		}
+		.await;
 		Ok(self)
 	}
 
@@ -223,7 +221,7 @@ impl ScriptBuilder {
 	}
 
 	pub fn to_bytes(&self) -> Bytes {
-		self.writer.into_bytes()
+		self.script.into_bytes()
 	}
 
 	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {
@@ -264,7 +262,7 @@ impl ScriptBuilder {
 			.unwrap();
 		Ok(sb.to_bytes())
 	}
-	pub fn build_contract_call_and_unwrap_iterator(
+	pub async fn build_contract_call_and_unwrap_iterator(
 		contract_hash: &H160,
 		method: &str,
 		params: &[ContractParameter],
@@ -272,18 +270,18 @@ impl ScriptBuilder {
 		call_flags: CallFlags,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = Self::new();
-		sb.push_int(max_items as i64).unwrap();
+		sb.push_integer(max_items as i64).unwrap();
 
 		sb.contract_call(contract_hash, method, params, call_flags).unwrap();
 
-		sb.op_code(&[OpCode::NewArray]).unwrap();
+		sb.op_code(&[OpCode::NewArray]).await;
 
-		let cycle_start = sb.writer.size();
-		sb.op_code(&[OpCode::Over]).unwrap();
+		let cycle_start = sb.script.len();
+		sb.op_code(&[OpCode::Over]).await;
 		sb.sys_call(InteropService::SystemIteratorNext).unwrap();
 
-		let jmp_if_not = sb.writer.size();
-		sb.op_code_arg(OpCode::JmpIf, &[0]).unwrap();
+		let jmp_if_not = sb.script.len();
+		sb.op_code_with_arg(OpCode::JmpIf, vec![0]).unwrap();
 
 		sb.op_code(&[OpCode::Dup, OpCode::Push2, OpCode::Pick])
 			.sys_call(InteropService::SystemIteratorValue)
@@ -297,14 +295,14 @@ impl ScriptBuilder {
 			])
 			.unwrap();
 
-		let jmp_if_max = sb.writer.size();
+		let jmp_if_max = sb.script.len();
 		sb.op_code_arg(OpCode::JmpIf, &[0]).unwrap();
 
-		let jmp_offset = sb.writer.size();
+		let jmp_offset = sb.script.len();
 		let jmp_bytes = (cycle_start - jmp_offset) as i8;
 		sb.op_code_arg(OpCode::Jmp, &[jmp_bytes]).unwrap();
 
-		let load_result = sb.writer.size();
+		let load_result = sb.script.len();
 		sb.op_code(&[OpCode::Nip, OpCode::Nip]).unwrap();
 
 		let mut script = sb.to_bytes();

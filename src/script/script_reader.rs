@@ -9,7 +9,8 @@ use crate::{
 	serialization::binary_reader::BinaryReader,
 	types::Bytes,
 };
-use std::{error::Error, hash::Hash};
+use std::hash::Hash;
+use tokio::io::AsyncReadExt;
 
 pub struct ScriptReader;
 
@@ -19,7 +20,7 @@ impl ScriptReader {
 	}
 
 	pub fn convert_to_op_code_string(script: &Bytes) -> String {
-		let mut reader = BinaryReader::new(script);
+		let mut reader = script.clone();
 		let mut result = String::new();
 		while reader.position() < script.len() {
 			if let Some(op_code) = OpCode::from_u8(reader.read_u8()) {

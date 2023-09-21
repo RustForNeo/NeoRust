@@ -6,7 +6,7 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	transaction::transaction_builder::TransactionBuilder,
-	types::PublicKey,
+	types::{PublicKey, ValueExtension},
 	utils::*,
 };
 use async_trait::async_trait;
@@ -64,7 +64,7 @@ impl RoleManagement {
 		let current_block_count =
 			NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
 
-		if block_index > current_block_count {
+		if block_index > current_block_count as i32 {
 			return Err(ContractError::InvalidNeoName(format!(
 				"Block index {} exceeds current block count {}",
 				block_index, current_block_count
@@ -85,10 +85,7 @@ impl RoleManagement {
 			))
 		}
 
-		let params: Vec<_> = pub_keys
-			.into_iter()
-			.map(|key| key.to_encoded_point(true).to_vec().into())
-			.collect();
+		let params: Vec<_> = pub_keys.into_iter().map(|key| key.to_value()).collect();
 
 		self.invoke_function("designateAsRole", vec![role.into(), params.into()])
 	}

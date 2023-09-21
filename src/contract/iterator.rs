@@ -6,7 +6,6 @@ use crate::{
 		core::{neo_trait::NeoTrait, stack_item::StackItem},
 		neo_rust::NeoRust,
 	},
-	transaction::signer::Signer,
 };
 
 use crate::protocol::http_service::HttpService;
@@ -32,7 +31,7 @@ impl<T> NeoIterator<T> {
 
 	pub async fn traverse(&self, count: i32) -> Result<Vec<T>, NeoError> {
 		let result = NeoRust::<HttpService>::instance()
-			.traverse_iterator(self.session_id.clone(), self.iterator_id.clone(), count)
+			.traverse_iterator(self.session_id.clone(), self.iterator_id.clone(), count as u32)
 			.request()
 			.await?;
 		let mapped = result.iter().map(|item| (self.mapper)(item.clone())).collect();
@@ -41,7 +40,7 @@ impl<T> NeoIterator<T> {
 
 	pub async fn terminate_session(&self) -> Result<(), NeoError> {
 		NeoRust::<HttpService>::instance()
-			.terminate_session(self.session_id.clone())
+			.terminate_session(&self.session_id)
 			.request()
 			.await
 			.expect("Could not terminate session");

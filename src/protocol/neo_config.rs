@@ -31,7 +31,7 @@ pub const DEFAULT_BLOCK_TIME: u64 = 15_000;
 pub const DEFAULT_ADDRESS_VERSION: u8 = 0x35;
 pub const MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE: u64 = 86_400_000;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Hash)]
 pub struct NeoConfig {
 	pub network_magic: Option<u32>,
 	pub block_interval: u32,

@@ -1,27 +1,25 @@
 use crate::{
-	crypto::wif::Wif,
+	crypto::{hash::HashableForVec, wif::Wif},
 	neo_error::NeoError,
 	script::script_builder::ScriptBuilder,
 	types::{H160Externsion, PrivateKey, PublicKey},
+	utils::*,
 };
 use getset::{CopyGetters, Getters};
-use p256::{
-	ecdsa::{signature::SignerMut, Signature},
-	elliptic_curve::sec1::ToEncodedPoint,
-};
+use p256::ecdsa::{signature::SignerMut, Signature, VerifyingKey};
 use primitive_types::H160;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::{error::Error, hash::Hash};
-
-#[derive(
-	Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Getters, CopyGetters, educe::Educe,
-)]
-#[educe(Default(new))]
+use serde_derive::{Deserialize, Serialize};
+use std::hash::Hash;
+#[derive(Debug, Clone, Getters, CopyGetters, Serialize, Deserialize)]
 pub struct KeyPair {
 	#[getset(get = "pub", set = "pub")]
+	#[serde(
+		serialize_with = "serialize_private_key",
+		deserialize_with = "deserialize_private_key"
+	)]
 	private_key: PrivateKey,
 	#[getset(get = "pub", set = "pub")]
+	#[serde(serialize_with = "serialize_public_key", deserialize_with = "deserialize_public_key")]
 	public_key: PublicKey,
 }
 
@@ -31,7 +29,7 @@ impl KeyPair {
 	// }
 
 	pub fn from_private_key(private_key: PrivateKey) -> Self {
-		let public_key = p256::PublicKey::from_secret_key(&private_key);
+		let public_key = VerifyingKey::from(&private_key); //. p256::PublicKey::from_secret_key(&private_key);
 		Self { private_key, public_key }
 	}
 
@@ -48,18 +46,17 @@ impl KeyPair {
 	}
 
 	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
-		let public_key = self.public_key.to_encoded_point(false);
-		let script = ScriptBuilder::build_verification_script(&public_key).unwrap();
-		Ok(H160::from_script(&script).unwrap())
+		let script = ScriptBuilder::build_verification_script(&self.public_key);
+		Ok(H160::from_script(&script))
 	}
 
 	pub fn sign(&mut self, message: &[u8]) -> Result<Signature, NeoError> {
-		let message = Sha256::digest(message);
-		let signature = self.private_key.sign(&message).unwrap();
+		let message = message.hash256();
+		let signature = self.private_key.sign(&message);
 		Ok(signature)
 	}
 
 	pub fn export_wif(&self) -> String {
-		self.private_key.to_be_bytes().as_slice().to_wif()
+		self.private_key.to_bytes().as_slice().to_wif()
 	}
 }

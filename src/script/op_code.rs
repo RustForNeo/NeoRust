@@ -1,6 +1,6 @@
 // op_code
 use num_enum::TryFromPrimitive;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use strum_macros::{Display, EnumCount, EnumString};
 
 #[derive(

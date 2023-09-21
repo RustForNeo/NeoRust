@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use num_bigint::BigInt;
 use num_traits::FromPrimitive;
 
-#[derive(Debug, Serialize, Deserialize, AsRef, Deref, IntoIterator, Index, IndexMut, Display)]
+#[derive(Debug, Serialize, Deserialize, AsRef, Deref, IntoIterator, Index, IndexMut)]
 struct Bytes(Vec<u8>);
 
 impl Bytes {

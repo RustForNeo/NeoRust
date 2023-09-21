@@ -40,6 +40,18 @@ pub enum NeoError {
 	TransactionError(#[from] TransactionError),
 	#[error("Unexpected returned type")]
 	UnexpectedReturnType,
+	#[error("Invalid private key")]
+	InvalidPrivateKey,
+	#[error("Invalid public key")]
+	InvalidPublicKey,
+	#[error("Invalid address")]
+	InvalidAddress,
+	#[error("Invalid signature")]
+	InvalidSignature,
+	#[error("Invalid encoding {0}")]
+	InvalidEncoding(String),
+	#[error("Invalid op code")]
+	InvalidOpCode,
 }
 
 impl Into<TransactionError> for NeoError {

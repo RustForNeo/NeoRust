@@ -1,13 +1,18 @@
 use crate::{
 	contract::{
-		contract_error::ContractError, name_service, nns_name::NNSName,
-		traits::smartcontract::SmartContractTrait,
+		contract_error::ContractError, name_service, name_service::NeoNameService,
+		nns_name::NNSName, traits::smartcontract::SmartContractTrait,
 	},
-	protocol::{core::record_type::RecordType, http_service::HttpService, neo_rust::NeoRust},
+	protocol::{
+		core::{neo_trait::NeoTrait, record_type::RecordType},
+		http_service::HttpService,
+		neo_rust::NeoRust,
+	},
 	types::H160Externsion,
 };
 use async_trait::async_trait;
 use decimal::d128;
+use futures::TryFutureExt;
 use primitive_types::H160;
 
 #[async_trait]
@@ -98,20 +103,21 @@ pub trait TokenTrait: SmartContractTrait {
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
 		let address = NeoRust::<HttpService>::instance()
-			.as_ref()
-			.unwrap()
-			.call_contract_func(
-				name_service::NeoNameService::CONTRACT_HASH,
-				"resolve",
+			.invoke_function(
+				&NeoNameService::new().script_hash(),
+				"resolve".to_string(),
 				vec![name.to_param().unwrap(), RecordType::TXT.to_param().unwrap()],
+				vec![],
 			)
+			.request()
 			.await
 			.unwrap()
-			.pop()
-			.and_then(|item| item.as_address())
+			.stack
+			.first()
+			.unwrap()
+			.clone()
 			.map(H160::from_address)
-			.ok_or_else(|| ContractError::RuntimeError("Address{&name}".to_string()))
-			.unwrap();
+			.into();
 
 		Ok(address)
 	}

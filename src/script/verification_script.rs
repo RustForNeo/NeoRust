@@ -2,13 +2,14 @@ use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode, script_builder::ScriptBuilder},
 	serialization::binary_reader::BinaryReader,
-	types::{Bytes, PublicKey},
+	types::{Bytes, PublicKey, PublicKeyExtension},
 };
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
+use serde_derive::{Deserialize, Serialize};
 use std::vec;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct VerificationScript {
 	script: Bytes,
 }
@@ -22,30 +23,39 @@ impl VerificationScript {
 		Self { script: script.to_vec().unwrap() }
 	}
 
-	pub fn from_public_key(public_key: &PublicKey) -> Self {
+	pub async fn from_public_key(public_key: &PublicKey) -> Self {
 		let mut builder = ScriptBuilder::new();
 		builder
-			.push_data(public_key.to_bytes())
+			.push_data(public_key.to_encoded_point(false).as_bytes().to_vec())
+			.await
 			.unwrap()
 			.op_code(&vec![OpCode::Syscall])
+			.await
 			.push_data(InteropService::SystemCryptoCheckSig.hash().into_bytes())
-			.expect("");
+			.await
+			.unwrap();
 		Self::from(builder.to_bytes())
 	}
 
-	pub fn from_multisig(public_keys: &[PublicKey], threshold: u8) -> Self {
+	pub async fn from_multisig(public_keys: &[PublicKey], threshold: u8) -> Self {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
-		builder.push_int(threshold as i64).expect("Threshold must be between 1 and 16");
-		for key in public_keys {
-			builder
-				.push_data(key.to_encoded_point(false).to_vec().unwrap())
-				.expect("TODO: panic message");
-		}
 		builder
-			.push_int(public_keys.len() as i64)
-			.OpCode(OpCode::Syscall)
-			.push_data(InteropService::SystemCryptoCheckMultisig.hash().as_bytes());
+			.push_integer(threshold as i64)
+			.await
+			.expect("Threshold must be between 1 and 16");
+		for key in public_keys {
+			builder.push_data(key.to_vec()).await.unwrap();
+		}
+		let a = builder
+			.push_integer(public_keys.len() as i64)
+			.await
+			.unwrap()
+			.op_code(vec![OpCode::Syscall].as_slice())
+			.await
+			.push_data(InteropService::SystemCryptoCheckMultisig.hash().into_bytes())
+			.await
+			.unwrap();
 		Self::from(builder.to_bytes())
 	}
 
@@ -69,7 +79,7 @@ impl VerificationScript {
 
 		let mut m = 0;
 		while reader.read_u8() == OpCode::PushData1 as u8 {
-			let len = reader.read_u8().unwrap();
+			let len = reader.read_u8();
 			if len != 33 {
 				return false
 			}
@@ -100,7 +110,7 @@ impl VerificationScript {
 
 	// other methods
 	pub fn hash(&self) -> H160 {
-		H160::from_data(&self.script)
+		H160::from_slice(&self.script)
 	}
 
 	pub fn get_signatures(&self) -> Vec<Signature> {
@@ -108,7 +118,7 @@ impl VerificationScript {
 		let mut signatures = vec![];
 
 		while reader.read_u8() == OpCode::PushData1 as u8 {
-			let len = reader.read_u8().unwrap();
+			let len = reader.read_u8();
 			let sig = Signature::from_slice(&reader.read_bytes(len as usize).unwrap());
 			signatures.push(sig);
 		}

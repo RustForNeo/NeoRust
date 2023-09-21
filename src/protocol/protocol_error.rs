@@ -10,7 +10,7 @@ pub enum ProtocolError {
 	#[error("Client connection error: {message}")]
 	ClientConnection { message: String },
 	#[error("Cannot cast {item} to {target}")]
-	StackItemCast { item: StackItem, target: String },
+	StackItemCast { item: String, target: String },
 	#[error("Illegal state: {message}")]
 	IllegalState { message: String },
 	#[error("HTTP error: {0}")]

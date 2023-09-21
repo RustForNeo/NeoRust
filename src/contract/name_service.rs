@@ -88,15 +88,15 @@ impl NeoNameService {
 	const EXPIRATION_PROPERTY: &'static str = "expiration";
 	const ADMIN_PROPERTY: &'static str = "admin";
 
-	pub fn new(script_hash: H160) -> Self {
-		Self { script_hash }
+	pub fn new() -> Self {
+		Self { script_hash: NeoRust::<HttpService>::instance().nns_resolver().clone() }
 	}
 
 	// Implementation
 
 	async fn add_root(&self, root: &str) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![root.to_string().into()];
-		self.invoke_function(Self::ADD_ROOT, args)
+		self.invoke_function(Self::ADD_ROOT, args).await
 	}
 
 	async fn get_roots(&self) -> Result<NeoIterator<String>, ContractError> {
@@ -127,7 +127,7 @@ impl NeoNameService {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), owner.into()];
-		self.invoke_function(Self::REGISTER, args)
+		self.invoke_function(Self::REGISTER, args).await
 	}
 
 	// Set admin for a name
@@ -140,7 +140,7 @@ impl NeoNameService {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), admin.into()];
-		self.invoke_function(Self::SET_ADMIN, args)
+		self.invoke_function(Self::SET_ADMIN, args).await
 	}
 
 	// Set record
@@ -153,7 +153,7 @@ impl NeoNameService {
 	) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into(), data.into()];
 
-		self.invoke_function(Self::SET_RECORD, args)
+		self.invoke_function(Self::SET_RECORD, args).await
 	}
 
 	// Delete record
@@ -164,7 +164,7 @@ impl NeoNameService {
 		record_type: RecordType,
 	) -> Result<TransactionBuilder, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into()];
-		self.invoke_function(Self::DELETE_RECORD, args)
+		self.invoke_function(Self::DELETE_RECORD, args).await
 	}
 
 	pub async fn is_available(&self, name: &str) -> Result<bool, ContractError> {
@@ -175,7 +175,7 @@ impl NeoNameService {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), years.into()];
-		self.invoke_function(Self::RENEW, args)
+		self.invoke_function(Self::RENEW, args).await
 	}
 
 	// Other methods...

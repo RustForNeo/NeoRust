@@ -1,47 +1,24 @@
 use crate::{
 	protocol::core::{
 		request::NeoRequest,
-		response::NeoResponse,
 		responses::{
-			contract_state::ContractState,
-			invocation_result::InvocationResult,
-			native_contract_state::NativeContractState,
-			neo_address::NeoAddress,
-			neo_application_log::NeoApplicationLog,
-			neo_block::NeoBlock,
-			neo_find_states::{NeoFindStates, States},
-			neo_get_mem_pool::{MemPoolDetails, NeoGetMemPool},
-			neo_get_nep11balances::Nep11Balances,
-			neo_get_nep11transfers::Nep11Transfers,
-			neo_get_nep17balances::Nep17Balances,
-			neo_get_nep17transfers::Nep17Transfers,
-			neo_get_next_block_validators::{NeoGetNextBlockValidators, Validator},
-			neo_get_peers::{NeoGetPeers, Peers},
-			neo_get_state_height::{NeoGetStateHeight, StateHeight},
-			neo_get_state_root::{NeoGetStateRoot, StateRoot},
-			neo_get_unclaimed_gas::{GetUnclaimedGas, NeoGetUnclaimedGas},
-			neo_get_version::{NeoGetVersion, NeoVersion},
-			neo_get_wallet_balance::{Balance, NeoGetWalletBalance},
-			neo_list_plugins::Plugin,
-			neo_network_fee::NeoNetworkFee,
-			neo_response_aliases::{
-				NeoBlockCount, NeoBlockHash, NeoBlockHeaderCount, NeoCalculateNetworkFee,
-				NeoCloseWallet, NeoConnectionCount, NeoDumpPrivKey, NeoGetApplicationLog,
-				NeoGetCommittee, NeoGetContractState, NeoGetNativeContracts, NeoGetProof,
-				NeoGetRawBlock, NeoGetRawMemPool, NeoGetRawTransaction, NeoGetState, NeoGetStorage,
-				NeoGetTransaction, NeoGetTransactionHeight, NeoGetWalletUnclaimedGas,
-				NeoInvokeContractVerify, NeoInvokeScript, NeoOpenWallet, NeoSendFrom,
-				NeoTerminateSession, NeoTraverseIterator, NeoVerifyProof,
-			},
-			neo_send_raw_transaction::{NeoSendRawTransaction, RawTransaction},
-			neo_validate_address::ValidateAddress,
-			transaction::Transaction,
+			contract_state::ContractState, invocation_result::InvocationResult,
+			native_contract_state::NativeContractState, neo_address::NeoAddress,
+			neo_application_log::NeoApplicationLog, neo_block::NeoBlock, neo_find_states::States,
+			neo_get_mem_pool::MemPoolDetails, neo_get_nep11balances::Nep11Balances,
+			neo_get_nep11transfers::Nep11Transfers, neo_get_nep17balances::Nep17Balances,
+			neo_get_nep17transfers::Nep17Transfers, neo_get_next_block_validators::Validator,
+			neo_get_peers::Peers, neo_get_state_height::StateHeight, neo_get_state_root::StateRoot,
+			neo_get_unclaimed_gas::GetUnclaimedGas, neo_get_version::NeoVersion,
+			neo_get_wallet_balance::Balance, neo_list_plugins::Plugin,
+			neo_network_fee::NeoNetworkFee, neo_send_raw_transaction::RawTransaction,
+			neo_validate_address::ValidateAddress, transaction::Transaction,
 			transaction_send_token::TransactionSendToken,
 		},
 		stack_item::StackItem,
 	},
 	transaction::signer::Signer,
-	types::contract_parameter::ContractParameter,
+	types::{contract_parameter::ContractParameter, Address, H256Def},
 };
 use async_trait::async_trait;
 use primitive_types::{H160, H256};
@@ -50,25 +27,25 @@ use std::collections::HashMap;
 #[async_trait]
 pub trait NeoTrait {
 	// Blockchain Methods
-	fn get_best_block_hash(&self) -> NeoRequest<H256>;
+	fn get_best_block_hash(&self) -> NeoRequest<H256Def>;
 
-	fn get_block_hash(&self, block_index: i32) -> NeoRequest<H256>;
+	fn get_block_hash(&self, block_index: u32) -> NeoRequest<H256Def>;
 
 	fn get_block(&self, block_hash: H256, return_full_tx: bool) -> NeoRequest<NeoBlock>;
 
 	fn get_raw_block(&self, block_hash: H256) -> NeoRequest<String>;
 
-	fn get_block_header_count(&self) -> NeoRequest<i32>;
+	fn get_block_header_count(&self) -> NeoRequest<u32>;
 
-	fn get_block_count(&self) -> NeoRequest<i32>;
+	fn get_block_count(&self) -> NeoRequest<u32>;
 
 	fn get_block_header(&self, block_hash: H256) -> NeoRequest<NeoBlock>;
 
-	fn get_block_header_by_index(&self, index: i32) -> NeoRequest<NeoBlock>;
+	fn get_block_header_by_index(&self, index: u32) -> NeoRequest<NeoBlock>;
 
 	fn get_raw_block_header(&self, block_hash: H256) -> NeoRequest<String>;
 
-	fn get_raw_block_header_by_index(&self, index: i32) -> NeoRequest<String>;
+	fn get_raw_block_header_by_index(&self, index: u32) -> NeoRequest<String>;
 
 	fn get_native_contracts(&self) -> NeoRequest<Vec<NativeContractState>>;
 
@@ -78,7 +55,7 @@ pub trait NeoTrait {
 
 	fn get_mem_pool(&self) -> NeoRequest<MemPoolDetails>;
 
-	fn get_raw_mem_pool(&self) -> NeoRequest<Vec<H256>>;
+	fn get_raw_mem_pool(&self) -> NeoRequest<Vec<H256Def>>;
 
 	fn get_transaction(&self, tx_hash: H256) -> NeoRequest<Transaction>;
 
@@ -86,7 +63,7 @@ pub trait NeoTrait {
 
 	fn get_storage(&self, contract_hash: H160, key: &str) -> NeoRequest<String>;
 
-	fn get_transaction_height(&self, tx_hash: H256) -> NeoRequest<i32>;
+	fn get_transaction_height(&self, tx_hash: H256) -> NeoRequest<u32>;
 
 	fn get_next_block_validators(&self) -> NeoRequest<Vec<Validator>>;
 
@@ -94,7 +71,7 @@ pub trait NeoTrait {
 
 	// Node Methods
 
-	fn get_connection_count(&self) -> NeoRequest<i32>;
+	fn get_connection_count(&self) -> NeoRequest<u32>;
 
 	fn get_peers(&self) -> NeoRequest<Peers>;
 
@@ -111,14 +88,10 @@ pub trait NeoTrait {
 		contract_hash: &H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult>;
 
-	fn invoke_script(
-		&self,
-		hex: String,
-		signers: Vec<Box<dyn Signer>>,
-	) -> NeoRequest<InvocationResult>;
+	fn invoke_script(&self, hex: String, signers: Vec<Signer>) -> NeoRequest<InvocationResult>;
 
 	fn get_unclaimed_gas(&self, script_hash: H160) -> NeoRequest<GetUnclaimedGas>;
 
@@ -151,9 +124,9 @@ pub trait NeoTrait {
 	fn send_from(
 		&self,
 		token_hash: H160,
-		from: H160,
-		to: H160,
-		amount: i32,
+		from: Address,
+		to: Address,
+		amount: u32,
 	) -> NeoRequest<Transaction>;
 
 	fn send_many(
@@ -162,7 +135,12 @@ pub trait NeoTrait {
 		send_tokens: Vec<TransactionSendToken>,
 	) -> NeoRequest<Transaction>;
 
-	fn send_to_address(&self, token_hash: H160, to: H160, amount: i32) -> NeoRequest<Transaction>;
+	fn send_to_address(
+		&self,
+		token_hash: H160,
+		to: Address,
+		amount: u32,
+	) -> NeoRequest<Transaction>;
 
 	// Application Logs
 
@@ -204,7 +182,7 @@ pub trait NeoTrait {
 
 	// StateService Methods
 
-	fn get_state_root(&self, index: i32) -> NeoRequest<StateRoot>;
+	fn get_state_root(&self, index: u32) -> NeoRequest<StateRoot>;
 
 	fn get_proof(&self, root_hash: H256, contract_hash: H160, key: &str) -> NeoRequest<String>;
 
@@ -220,14 +198,14 @@ pub trait NeoTrait {
 		contract_hash: H160,
 		prefix: &str,
 		start_key: Option<&str>,
-		count: Option<i32>,
+		count: Option<u32>,
 	) -> NeoRequest<States>;
 
 	// Additional Blockchain Methods
 
-	fn get_block_by_index(&self, index: i32, full_tx: bool) -> NeoRequest<NeoBlock>;
+	fn get_block_by_index(&self, index: u32, full_tx: bool) -> NeoRequest<NeoBlock>;
 
-	fn get_raw_block_by_index(&self, index: i32) -> NeoRequest<String>;
+	fn get_raw_block_by_index(&self, index: u32) -> NeoRequest<String>;
 
 	// Additional Smart Contract Methods
 
@@ -236,29 +214,29 @@ pub trait NeoTrait {
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult>;
 
 	fn invoke_script_diagnostics(
 		&self,
 		hex: String,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult>;
 
 	fn traverse_iterator(
 		&self,
 		session_id: String,
 		iterator_id: String,
-		count: i32,
+		count: u32,
 	) -> NeoRequest<Vec<StackItem>>;
 
-	fn terminate_session(&self, session_id: String) -> NeoRequest<bool>;
+	fn terminate_session(&self, session_id: &str) -> NeoRequest<bool>;
 
 	fn invoke_contract_verify(
 		&self,
 		contract_hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<Box<dyn Signer>>,
+		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult>;
 
 	// Additional Wallet Methods
@@ -273,6 +251,6 @@ pub trait NeoTrait {
 	fn send_from_send_token(
 		&self,
 		send_token: &TransactionSendToken,
-		from: H160,
+		from: Address,
 	) -> NeoRequest<Transaction>;
 }

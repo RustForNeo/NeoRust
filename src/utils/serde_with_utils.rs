@@ -7,6 +7,7 @@ use serde_big_array_substrate::big_array;
 use serde_substrate as serde;
 
 use crate::utils::*;
+use crypto::scrypt::ScryptParams;
 use hex;
 use primitive_types::{H256, U256};
 use reqwest::Url;
@@ -20,7 +21,10 @@ use tiny_keccak::{Hasher, Keccak};
 use crate::contract::nef_file::MethodToken;
 use serde::ser::{SerializeMap, SerializeSeq};
 
-use crate::{types::Address, utils::util::*};
+use crate::{
+	types::{Address, PrivateKey, PrivateKeyExtension, PublicKey, PublicKeyExtension},
+	utils::util::*,
+};
 
 pub fn serialize_bytes<S>(item: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -148,6 +152,72 @@ where
 	let mut seq = serializer.serialize_seq(Some(item.len()))?;
 	for i in item {
 		seq.serialize_element(&encode_string_h160(i))?;
+	}
+	seq.end()
+}
+
+// PrivateKey
+
+// "serialize_private_key", deserialize_with = "deserialize_private_key")]
+
+pub fn deserialize_private_key<'de, D>(deserializer: D) -> Result<PrivateKey, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: String = Deserialize::deserialize(deserializer)?;
+	let pubkey_bytes = parse_string_h256(&s).as_bytes();
+	let key = PrivateKey::from_slice(pubkey_bytes).unwrap();
+	Ok(key)
+}
+
+pub fn serialize_private_key<S>(item: &PrivateKey, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let item_str = encode_string_h256(&H256::from_slice(&item.to_vec()));
+	serializer.serialize_str(&item_str)
+}
+
+// PublicKey
+pub fn deserialize_public_key<'de, D>(deserializer: D) -> Result<PublicKey, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: String = Deserialize::deserialize(deserializer)?;
+	let pubkey_bytes = parse_string_h256(&s).as_bytes();
+	let key = PublicKey::from_slice(pubkey_bytes).unwrap();
+	Ok(key)
+}
+
+pub fn serialize_public_key<S>(item: &PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let item_str = encode_string_h256(&H256::from_slice(&item.to_vec()));
+	serializer.serialize_str(&item_str)
+}
+
+pub fn deserialize_vec_public_key<'de, D>(deserializer: D) -> Result<Vec<PublicKey>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let string_seq = <Vec<String>>::deserialize(deserializer)?;
+	let mut vec: Vec<PublicKey> = Vec::new();
+	for v_str in string_seq {
+		let v = parse_string_h256(&v_str).as_bytes();
+		let key = PublicKey::from_slice(v).unwrap();
+		vec.push(key);
+	}
+	Ok(vec)
+}
+
+pub fn serialize_vec_public_key<S>(item: &Vec<PublicKey>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let mut seq = serializer.serialize_seq(Some(item.len()))?;
+	for i in item {
+		seq.serialize_element(&encode_string_h256(&H256::from_slice(&i.to_vec())))?;
 	}
 	seq.end()
 }

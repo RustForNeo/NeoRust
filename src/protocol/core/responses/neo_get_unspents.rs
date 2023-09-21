@@ -12,7 +12,7 @@ pub struct Unspents {
 	pub balances: Vec<Balance>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Hash)]
 pub struct Balance {
 	#[serde(rename = "unspent")]
 	pub unspent_transactions: Vec<UnspentTransaction>,

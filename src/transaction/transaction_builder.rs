@@ -17,20 +17,36 @@ use crate::{
 	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
 };
 use primitive_types::H160;
-use std::str::FromStr;
+use std::{
+	hash::{Hash, Hasher},
+	str::FromStr,
+};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters, MutGetters, CopyGetters, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
-	signers: Vec<Box<dyn Signer>>,
+	signers: Vec<Signer>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
 	attributes: Vec<TransactionAttribute>,
 	script: Option<Bytes>,
 	fee_consumer: Option<Box<dyn Fn(u64, u64)>>,
 	fee_error: Option<TransactionError>,
+}
+
+impl Hash for TransactionBuilder {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.version.hash(state);
+		self.nonce.hash(state);
+		self.valid_until_block.hash(state);
+		self.signers.hash(state);
+		self.additional_network_fee.hash(state);
+		self.additional_system_fee.hash(state);
+		self.attributes.hash(state);
+		self.script.hash(state);
+	}
 }
 
 impl TransactionBuilder {
@@ -162,7 +178,10 @@ impl TransactionBuilder {
 	async fn get_network_fee(&mut self) -> Result<u64, TransactionError> {
 		let unsigned_tx = self.get_unsigned_tx().await.unwrap();
 
-		let fee = NeoRust::<HttpService>::instance().get_network_fee(unsigned_tx).await.unwrap();
+		let fee = NeoRust::<HttpService>::instance()
+			.calculate_network_fee(unsigned_tx.serialize())
+			.await
+			.unwrap();
 		Ok(fee)
 	}
 
@@ -186,7 +205,7 @@ impl TransactionBuilder {
 		Err(TransactionError::InvalidSender)
 	}
 
-	fn is_account_signer(signer: &Box<dyn Signer>) -> bool {
+	fn is_account_signer(signer: &Signer) -> bool {
 		// let sig = <T as Signer>::SignerType;
 		if signer.get_type() == SignerType::Account {
 			return true
@@ -220,12 +239,11 @@ impl TransactionBuilder {
 				transaction.add_witness(Witness::create(tx_bytes, key_pair).unwrap()).unwrap();
 			} else {
 				let contract_signer = signer as &mut ContractSigner;
-				transaction
-					.add_witness(
-						Witness::create_contract_witness(contract_signer.verify_params.clone())
-							.unwrap(),
-					)
-					.unwrap();
+				transaction.add_witness(
+					Witness::create_contract_witness(contract_signer.verify_params.clone())
+						.await
+						.unwrap(),
+				);
 			}
 		}
 
@@ -244,11 +262,12 @@ impl TransactionBuilder {
 		}
 
 		if self.valid_until_block.is_none() {
-			let current_block_count = NeoRust::<HttpService>::instance().get_block_count().await;
+			let current_block_count =
+				NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
 			self.valid_until_block = Some(
-				current_block_count
+				(current_block_count
 					+ NeoRust::<HttpService>::instance().max_valid_until_block_increment()
-					- 1,
+					- 1) as u32,
 			);
 		}
 
