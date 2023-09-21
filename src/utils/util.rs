@@ -20,8 +20,7 @@ use rand::{
 
 use crate::types::{Address, PublicKey};
 use futures::AsyncWriteExt;
-use p256::{elliptic_curve::bigint::U64, U256};
-use primitive_types::{H160, H256};
+use primitive_types::{H160, H256, U256};
 use std::collections::HashMap;
 
 pub fn keccak_hash(msg: &[u8]) -> [u8; 32] {
@@ -47,11 +46,11 @@ pub fn keccak_hash(msg: &[u8]) -> [u8; 32] {
 //     res
 // }
 
-pub fn parse_string_u64(u64_str: &str) -> U64 {
+pub fn parse_string_u64(u64_str: &str) -> u64 {
 	if u64_str.starts_with("0x") {
-		U64::from_str_radix(u64_str, 16).unwrap()
+		u64::from_str_radix(u64_str, 16).unwrap()
 	} else {
-		U64::from_str_radix(u64_str, 10).unwrap()
+		u64::from_str_radix(u64_str, 10).unwrap()
 	}
 }
 

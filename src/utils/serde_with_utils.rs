@@ -8,8 +8,7 @@ use serde_substrate as serde;
 
 use crate::utils::*;
 use hex;
-use p256::{elliptic_curve::bigint::U64, U256};
-use primitive_types::H256;
+use primitive_types::{H256, U256};
 use reqwest::Url;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -96,7 +95,7 @@ where
 	Ok(v)
 }
 
-pub fn serialize_u64<S>(item: &U64, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_u64<S>(item: &u64, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
 {
@@ -104,7 +103,7 @@ where
 	serializer.serialize_str(&item_str)
 }
 
-pub fn deserialize_u64<'de, D>(deserializer: D) -> Result<U64, D::Error>
+pub fn deserialize_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
 	D: Deserializer<'de>,
 {

@@ -50,7 +50,7 @@ impl RoleManagement {
 			.as_array()
 			.unwrap()
 			.into_iter()
-			.map(|item| item.as_bytes().to_vec().into())
+			.map(|item| PublicKey::try_from(item.as_bytes().unwrap().as_slice()).unwrap())
 			.collect();
 
 		Ok(designated)
@@ -62,7 +62,7 @@ impl RoleManagement {
 		}
 
 		let current_block_count =
-			NeoRust::<HttpService>::instance().get_block_count().await.unwrap().get_result();
+			NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
 
 		if block_index > current_block_count {
 			return Err(ContractError::InvalidNeoName(format!(

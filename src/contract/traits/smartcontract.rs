@@ -72,7 +72,7 @@ pub trait SmartContractTrait {
 
 		let item = output.stack[0].clone();
 		item.as_str()
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["String".to_string()]))
+			.ok_or_else(|| ContractError::UnexpectedReturnType("String".to_string()))
 	}
 
 	async fn call_function_returning_int(
@@ -86,7 +86,7 @@ pub trait SmartContractTrait {
 
 		let item = output.stack[0].clone();
 		item.as_i32()
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Int".to_string()]))
+			.ok_or_else(|| ContractError::UnexpectedReturnType("Int".to_string()))
 	}
 
 	async fn call_function_returning_bool(
@@ -100,7 +100,7 @@ pub trait SmartContractTrait {
 
 		let item = output.stack[0].clone();
 		item.as_bool()
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Bool".to_string()]))
+			.ok_or_else(|| ContractError::UnexpectedReturnType("Bool".to_string()))
 	}
 
 	// Other methods
@@ -125,7 +125,7 @@ pub trait SmartContractTrait {
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
 		if output.has_state_fault() {
-			Err(ContractError::UnexpectedReturnType(vec![output.exception.unwrap()]))
+			Err(ContractError::UnexpectedReturnType(output.exception.unwrap()))
 		} else {
 			Ok(())
 		}
@@ -143,7 +143,7 @@ pub trait SmartContractTrait {
 		let item = &output.stack[0];
 		item.as_bytes()
 			.and_then(H160::from_slice)
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Script hash".to_string()]))
+			.ok_or_else(|| ContractError::UnexpectedReturnType("Script hash".to_string()))
 	}
 
 	async fn call_function_returning_iterator<U>(
@@ -159,7 +159,7 @@ pub trait SmartContractTrait {
 		let item = &output.stack[0];
 		let interface = item
 			.as_interop()
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Iterator".to_string()]))
+			.ok_or_else(|| ContractError::UnexpectedReturnType("Iterator".to_string()))
 			.unwrap();
 
 		let session_id = output

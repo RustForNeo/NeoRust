@@ -123,7 +123,7 @@ impl NeoURI {
 			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))
 			.unwrap();
 
-		let mut token = FungibleTokenContract::new(&tokenHash);
+		let mut token = &mut FungibleTokenContract::new(&tokenHash);
 
 		// Validate amount precision
 		let amount_scale = amount.digits() as u8; //.scale();
@@ -147,13 +147,9 @@ impl NeoURI {
 			)))
 		}
 
+		let amt = token.to_fractions(amount).await.unwrap() as i32;
 		token
-			.transfer_from_account(
-				sender,
-				recipient,
-				token.to_fractions(amount).unwrap() as i32,
-				None,
-			)
+			.transfer_from_account(sender, recipient, amt, None)
 			.map_err(|e| NeoError::from(e))
 	}
 

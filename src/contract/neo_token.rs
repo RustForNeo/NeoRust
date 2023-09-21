@@ -9,7 +9,10 @@ use crate::{
 	neo_error::NeoError,
 	protocol::core::{responses::neo_account_state::AccountState, stack_item::StackItem},
 	transaction::transaction_builder::TransactionBuilder,
-	types::PublicKey,
+	types::{
+		contract_parameter::ContractParameter, contract_parameter_type::ContractParameterType,
+		PublicKey,
+	},
 	utils::*,
 	wallet::account::Account,
 };
@@ -95,8 +98,23 @@ impl NeoToken {
 	}
 
 	async fn get_candidates(&self) -> Result<Vec<Candidate>, ContractError> {
-		let candidates = self.call_function_returning_candidates("getCandidates").await.unwrap();
-		candidates.into_iter().map(Candidate::from).collect()
+		let candidates = self.call_invoke_function("getCandidates", vec![], vec![]).await.unwrap();
+		let item = candidates.stack.first().unwrap();
+		if let StackItem::Array { value: array } = item {
+			Ok(array
+				.to_vec()
+				.chunks(2)
+				.filter_map(|v| {
+					if v.len() == 2 {
+						Some(Candidate::from(v.to_vec()).unwrap())
+					} else {
+						None
+					}
+				})
+				.collect::<Vec<Candidate>>())
+		} else {
+			Err(ContractError::UnexpectedReturnType("Candidates".to_string()))
+		}
 	}
 
 	async fn is_candidate(&self, public_key: &PublicKey) -> Result<bool, ContractError> {
@@ -116,8 +134,8 @@ impl NeoToken {
 		candidate: Option<&PublicKey>,
 	) -> Result<TransactionBuilder, ContractError> {
 		let params = match candidate {
-			Some(key) => vec![voter.into(), key.to_stack_item()],
-			None => vec![voter.into(), StackItem::null()],
+			Some(key) => vec![voter.into(), key.into()],
+			None => vec![voter.into(), ContractParameter::new(ContractParameterType::Any)],
 		};
 
 		self.invoke_function("vote", params)
@@ -163,19 +181,33 @@ impl NeoToken {
 			.call_invoke_function("getAccountState", vec![account.into()], vec![])
 			.await
 			.unwrap()
-			.get_result()
 			.stack
-			.pop()
-			.unwrap();
+			.first()
+			.unwrap()
+			.clone();
 
 		match result {
-			StackItem::Any => Ok(AccountState::with_no_balance()),
-			StackItem::Array(items) if items.len() >= 3 => {
-				let balance = items[0].as_i64().unwrap();
-				let update_height = items[1].as_i64().unwrap();
-				let public_key = items[2].as_public_key().cloned();
+			StackItem::Any { value: any } => Ok(AccountState::with_no_balance()),
+			StackItem::Array { value: items } if items.len() >= 3 => {
+				let balance = items[0].as_int().unwrap();
+				let update_height = items[1].as_int();
+				let public_key = items[2].clone();
 
-				Ok(AccountState { balance, balance_height: update_height, public_key })
+				if let StackItem::Any { value: any } = public_key {
+					return Ok(AccountState {
+						balance,
+						balance_height: update_height,
+						public_key: None,
+					})
+				} else {
+					let pubkey =
+						PublicKey::try_from(public_key.as_bytes().unwrap().as_slice()).unwrap();
+					Ok(AccountState {
+						balance,
+						balance_height: update_height,
+						public_key: Some(pubkey),
+					})
+				}
 			},
 			_ => Err(ContractError::InvalidNeoName("Account state malformed".to_string())),
 		}
@@ -186,7 +218,7 @@ impl NeoToken {
 		function: &str,
 	) -> Result<Vec<PublicKey>, NeoError> {
 		let result = self.call_invoke_function(function, vec![], vec![]).await.unwrap();
-		let stack_item = result.stack.first().ok_or(Err(())).unwrap();
+		let stack_item = result.stack.first().unwrap();
 
 		if let StackItem::Array { value: array } = stack_item {
 			let keys = array
