@@ -1,4 +1,7 @@
-use crate::types::{contract_parameter_type::ContractParameterType, PublicKey};
+use crate::{
+	contract::{nef_file::NefFile, role_management::Role},
+	types::{contract_parameter_type::ContractParameterType, PublicKey},
+};
 use base64::encode;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
@@ -7,15 +10,125 @@ use sha3::Digest;
 use std::hash::{Hash, Hasher};
 use strum_macros::{Display, EnumString};
 
-#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 pub struct ContractParameter {
+	#[serde(skip_serializing_if = "Option::is_none")]
 	name: Option<String>,
 	#[serde(rename = "type")]
 	typ: ContractParameterType,
-	pub(crate) value: Option<ParameterValue>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub value: Option<ParameterValue>,
 }
 
-#[derive(Display, EnumString, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+impl From<&H160> for ContractParameter {
+	fn from(value: &H160) -> Self {
+		Self::hash160(value)
+	}
+}
+
+impl From<H160> for ContractParameter {
+	fn from(value: H160) -> Self {
+		Self::hash160(&value)
+	}
+}
+
+impl From<u8> for ContractParameter {
+	fn from(value: u8) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<i32> for ContractParameter {
+	fn from(value: i32) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<u32> for ContractParameter {
+	fn from(value: u32) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<u64> for ContractParameter {
+	fn from(value: u64) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<Role> for ContractParameter {
+	fn from(value: Role) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<&str> for ContractParameter {
+	fn from(value: &str) -> Self {
+		Self::string(value.to_string())
+	}
+}
+
+impl From<usize> for ContractParameter {
+	fn from(value: usize) -> Self {
+		Self::integer(value as i64)
+	}
+}
+
+impl From<&[u8]> for ContractParameter {
+	fn from(value: &[u8]) -> Self {
+		Self::byte_array(value.to_vec())
+	}
+}
+
+impl From<Vec<u8>> for ContractParameter {
+	fn from(value: Vec<u8>) -> Self {
+		Self::byte_array(value)
+	}
+}
+
+impl From<&PublicKey> for ContractParameter {
+	fn from(value: &PublicKey) -> Self {
+		Self::public_key(value)
+	}
+}
+
+impl From<&H256> for ContractParameter {
+	fn from(value: &H256) -> Self {
+		Self::hash256(value)
+	}
+}
+
+impl From<&Vec<ContractParameter>> for ContractParameter {
+	fn from(value: &Vec<ContractParameter>) -> Self {
+		Self::array(value.clone())
+	}
+}
+
+impl From<&[(ContractParameter, ContractParameter)]> for ContractParameter {
+	fn from(value: &[(ContractParameter, ContractParameter)]) -> Self {
+		Self::map(value.to_vec())
+	}
+}
+
+impl From<&NefFile> for ContractParameter {
+	fn from(value: &NefFile) -> Self {
+		Self::string(serde_json::to_string(&value).unwrap())
+	}
+}
+
+impl From<String> for ContractParameter {
+	fn from(value: String) -> Self {
+		Self::string(value)
+	}
+}
+
+impl From<&String> for ContractParameter {
+	fn from(value: &String) -> Self {
+		Self::string(value.to_string())
+	}
+}
+
+#[derive(Display, EnumString, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum ParameterValue {
 	Boolean(bool),

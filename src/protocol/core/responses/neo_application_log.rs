@@ -1,13 +1,16 @@
 use crate::{
 	protocol::core::{responses::invocation_result::Notification, stack_item::StackItem},
 	types::vm_state::VMState,
+	utils::*,
 };
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct NeoApplicationLog {
 	#[serde(rename = "txid")]
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
 	pub transaction_id: H256,
 	pub executions: Vec<Execution>,
 }

@@ -1,9 +1,11 @@
-use crate::protocol::core::responses::contract_manifest::ContractManifest;
+use crate::{protocol::core::responses::contract_manifest::ContractManifest, utils::*};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize, Hash, Debug)]
 pub struct ExpressContractState {
+	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address")]
 	pub hash: H160,
 	pub manifest: ContractManifest,
 }

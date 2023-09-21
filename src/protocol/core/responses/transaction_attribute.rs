@@ -50,9 +50,9 @@ impl TransactionAttribute {
 				let slice_len = bytes[1..9].len();
 				array[8 - slice_len..].copy_from_slice(&bytes[1..9]);
 				let id = u64::from_be_bytes(array);
-				let response_code = OracleResponseCode::try_from(bytes[9])?;
+				let response_code = OracleResponseCode::try_from(bytes[9]).unwrap();
 				let result =
-					String::from_utf8(bytes[10..].to_vec()).map_err(|_| "Invalid UTF-8")?;
+					String::from_utf8(bytes[10..].to_vec()).map_err(|_| "Invalid UTF-8").unwrap();
 
 				Ok(TransactionAttribute::OracleResponse(OracleResponse {
 					id: id as u32,

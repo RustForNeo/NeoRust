@@ -3,6 +3,8 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::utils::*;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct InvocationResult {
 	pub script: String,
@@ -91,6 +93,8 @@ pub struct Diagnostics {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct InvokedContract {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub hash: H160,
 	pub invoked_contracts: Option<Vec<InvokedContract>>,
 }
@@ -105,6 +109,8 @@ pub struct StorageChange {
 // Notification
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
 pub struct Notification {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub contract: H160,
 	pub event_name: String,
 	pub state: NotificationState,

@@ -3,7 +3,10 @@ use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+// | doesn't satisfy `StackItem: Hash`
+// | doesn't satisfy `StackItem: std::cmp::Eq`
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StackItem {
 	#[serde(rename = "Any")]
@@ -90,7 +93,7 @@ impl StackItem {
 
 	pub const INTEROP_INTERFACE_BYTE: u8 = 0x60;
 
-	fn as_bool(&self) -> Option<bool> {
+	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			StackItem::Boolean { value } => Some(*value),
 			StackItem::Integer { value } => Some(value != &0),
@@ -98,10 +101,10 @@ impl StackItem {
 		}
 	}
 
-	fn as_string(&self) -> Option<String> {
+	pub fn as_string(&self) -> Option<String> {
 		match self {
 			StackItem::ByteString { value } | StackItem::Buffer { value } =>
-				hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok())?,
+				hex::decode(value).ok().map(|bytes| String::from_utf8(bytes).ok()).unwrap(),
 			StackItem::Integer { value } => Some(value.to_string()),
 			StackItem::Boolean { value } => Some(value.to_string()),
 			_ => None,
@@ -151,14 +154,14 @@ impl StackItem {
 		}
 	}
 
-	fn as_array(&self) -> Option<Vec<StackItem>> {
+	pub fn as_array(&self) -> Option<Vec<StackItem>> {
 		match self {
 			StackItem::Array { value } | StackItem::Struct { value } => Some(value.clone()),
 			_ => None,
 		}
 	}
 
-	fn as_int(&self) -> Option<i64> {
+	pub fn as_int(&self) -> Option<i64> {
 		match self {
 			StackItem::Integer { value } => Some(*value),
 			StackItem::Boolean { value } => Some(if *value { 1 } else { 0 }),
@@ -166,7 +169,7 @@ impl StackItem {
 		}
 	}
 
-	fn as_map(&self) -> Option<HashMap<StackItem, StackItem>> {
+	pub fn as_map(&self) -> Option<HashMap<StackItem, StackItem>> {
 		match self {
 			StackItem::Map { value } => {
 				let mut map = HashMap::new();
@@ -179,15 +182,15 @@ impl StackItem {
 		}
 	}
 
-	fn as_address(&self) -> Option<Address> {
+	pub fn as_address(&self) -> Option<Address> {
 		self.as_bytes().and_then(|bytes| Address::from_bytes(&bytes).ok())
 	}
 
-	fn as_hash160(&self) -> Option<H160> {
+	pub fn as_hash160(&self) -> Option<H160> {
 		self.as_bytes().and_then(|bytes| H160::from_bytes(&bytes).ok())
 	}
 
-	fn as_hash256(&self) -> Option<H256> {
+	pub fn as_hash256(&self) -> Option<H256> {
 		self.as_bytes().and_then(|bytes| H256::from_bytes(&bytes).ok())
 	}
 	pub fn len(&self) -> Option<usize> {
@@ -214,4 +217,63 @@ impl StackItem {
 	}
 
 	// ...
+}
+
+impl From<String> for StackItem {
+	fn from(value: String) -> Self {
+		StackItem::ByteString { value }
+	}
+}
+
+impl From<H160> for StackItem {
+	fn from(value: H160) -> Self {
+		StackItem::ByteString { value: value.to_string() }
+	}
+}
+
+impl From<u8> for StackItem {
+	fn from(value: u8) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<i8> for StackItem {
+	fn from(value: i8) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<u16> for StackItem {
+	fn from(value: u16) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<i16> for StackItem {
+	fn from(value: i16) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<u32> for StackItem {
+	fn from(value: u32) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<i32> for StackItem {
+	fn from(value: i32) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+
+impl From<u64> for StackItem {
+	fn from(value: u64) -> Self {
+		StackItem::Integer { value: value as i64 }
+	}
+}
+impl From<&str> for StackItem {
+	fn from(value: &str) -> Self {
+		StackItem::ByteString { value: value.to_string() }
+	}
 }

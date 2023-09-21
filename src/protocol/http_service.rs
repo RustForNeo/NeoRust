@@ -44,10 +44,7 @@ impl HttpService {
 
 #[async_trait]
 impl NeoService for HttpService {
-	async fn send<'a, T>(&self, request: &NeoRequest<T>) -> Result<NeoResponse<T>, NeoError>
-	where
-		T: Serialize + Deserialize<'a>,
-	{
+	async fn send<'a, T>(&'a self, request: &'a NeoRequest<T>) -> Result<NeoResponse<T>, NeoError> {
 		let mut client = self.client.post(self.url.clone());
 
 		client = client.header("Content-Type", Self::JSON_MEDIA_TYPE).json(&request);
@@ -57,19 +54,19 @@ impl NeoService for HttpService {
 		}
 		client = client.body(&request.to_json());
 
-		let response = client.send().await?;
+		let response = client.send().await.unwrap();
 
 		if response.status().is_success() {
 			if self.include_raw_responses {
 				// Return raw response along with bytes
-				// let (bytes, response) = http_service.perform_io(payload).await?;
-				// let result = response.json::<NeoResponse<U>>().await?;
+				// let (bytes, response) = http_service.perform_io(payload).await.unwrap();
+				// let result = response.json::<NeoResponse<U>>().await.unwrap();
 			}
 
-			let result = response.json::<NeoResponse<T>>().await?;
+			let result = response.json::<NeoResponse<T>>().await.unwrap();
 			Ok(result.get_result())
 		} else {
-			let result = response.json::<Value>().await?;
+			let result = response.json::<Value>().await.unwrap();
 			Err(result)
 		}
 		.expect("Failed to parse response")

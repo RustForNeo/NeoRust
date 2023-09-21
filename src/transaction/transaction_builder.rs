@@ -1,9 +1,9 @@
 use crate::{
 	constant::NeoConstants,
-	contract::gas_token::GasToken,
 	neo_error::NeoError,
 	protocol::{
 		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 	transaction::{
@@ -17,9 +17,9 @@ use crate::{
 	types::{contract_parameter::ContractParameter, Bytes, H160Externsion},
 };
 use primitive_types::H160;
-use std::{error::Error, str::FromStr};
+use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {
 	version: u8,
 	nonce: u32,
@@ -121,12 +121,13 @@ impl TransactionBuilder {
 		}
 
 		// Get fees
-		let system_fee = self.get_system_fee().await?;
-		let network_fee = self.get_network_fee().await?;
+		let system_fee = self.get_system_fee().await.unwrap();
+		let network_fee = self.get_network_fee().await.unwrap();
 
 		// Check sender balance if needed
 		if let Some(fee_consumer) = &self.fee_consumer {
-			let sender_balance = NeoRust::instance().get_sender_balance().await?;
+			let sender_balance =
+				NeoRust::<HttpService>::instance().get_sender_balance().await.unwrap();
 			if network_fee + system_fee > sender_balance {
 				fee_consumer(network_fee + system_fee, sender_balance);
 			}
@@ -136,12 +137,12 @@ impl TransactionBuilder {
 		Ok(SerializableTransaction::new(
 			self.version,
 			self.nonce,
-			self.valid_until_block?,
+			self.valid_until_block.unwrap(),
 			self.clone().signers,
 			system_fee as i64,
 			network_fee as i64,
 			self.clone().attributes,
-			self.clone().script?,
+			self.clone().script.unwrap(),
 			vec![],
 		))
 	}
@@ -149,21 +150,19 @@ impl TransactionBuilder {
 	async fn get_system_fee(&self) -> Result<u64, TransactionError> {
 		let script = self.script.as_ref().unwrap();
 
-		let response = NeoRust::instance()
-			.invoke_script(
-				script.to_hex(),
-				vec![ContractParameter::hash160(self.signers[0].get_signer_hash())],
-			)
+		let response = NeoRust::<HttpService>::instance()
+			.invoke_script(script.to_hex(), vec![self.signers[0]])
 			.await
 			.request()
-			.await?;
-		Ok(u64::from_str(response.gas_consumed.as_str())?) // example
+			.await
+			.unwrap();
+		Ok(u64::from_str(response.gas_consumed.as_str()).unwrap()) // example
 	}
 
 	async fn get_network_fee(&mut self) -> Result<u64, TransactionError> {
-		let unsigned_tx = self.get_unsigned_tx().await?;
+		let unsigned_tx = self.get_unsigned_tx().await.unwrap();
 
-		let fee = NeoRust::instance().get_network_fee(unsigned_tx).await?;
+		let fee = NeoRust::<HttpService>::instance().get_network_fee(unsigned_tx).await.unwrap();
 		Ok(fee)
 	}
 
@@ -173,14 +172,15 @@ impl TransactionBuilder {
 		let sender = &self.signers[0];
 
 		if Self::is_account_signer(sender) {
-			let balance = NeoRust::instance()
+			let balance = NeoRust::<HttpService>::instance()
 				.invoke_function(
 					&Self::GAS_TOKEN_HASH,
-					Self::BALANCE_OF_FUNCTION.into_string(),
+					Self::BALANCE_OF_FUNCTION.to_string(),
 					vec![ContractParameter::hash160(sender.get_signer_hash())],
 					vec![],
 				)
-				.await?;
+				.await
+				.unwrap();
 			return Ok(balance)
 		}
 		Err(TransactionError::InvalidSender)
@@ -196,7 +196,7 @@ impl TransactionBuilder {
 
 	// Sign transaction
 	pub async fn sign(&mut self) -> Result<SerializableTransaction, NeoError> {
-		let mut transaction = self.get_unsigned_transaction().await?;
+		let mut transaction = self.get_unsigned_transaction().await.unwrap();
 
 		for signer in &mut transaction.signers {
 			if Self::is_account_signer(signer) {
@@ -214,15 +214,18 @@ impl TransactionBuilder {
                       "Cannot create transaction signature because account does not hold a private key."
                           .to_string(),
                   )
-              })?;
+              }).unwrap();
 
-				let tx_bytes = transaction.get_hash_data().await?;
-				transaction.add_witness(Witness::create(tx_bytes, key_pair)?)?;
+				let tx_bytes = transaction.get_hash_data().await.unwrap();
+				transaction.add_witness(Witness::create(tx_bytes, key_pair).unwrap()).unwrap();
 			} else {
 				let contract_signer = signer as &mut ContractSigner;
-				transaction.add_witness(Witness::create_contract_witness(
-					contract_signer.verify_params.clone(),
-				)?)?;
+				transaction
+					.add_witness(
+						Witness::create_contract_witness(contract_signer.verify_params.clone())
+							.unwrap(),
+					)
+					.unwrap();
 			}
 		}
 
@@ -241,9 +244,11 @@ impl TransactionBuilder {
 		}
 
 		if self.valid_until_block.is_none() {
-			let current_block_count = NeoRust::instance().get_block_count().await;
+			let current_block_count = NeoRust::<HttpService>::instance().get_block_count().await;
 			self.valid_until_block = Some(
-				current_block_count + NeoRust::instance().max_valid_until_block_increment() - 1,
+				current_block_count
+					+ NeoRust::<HttpService>::instance().max_valid_until_block_increment()
+					- 1,
 			);
 		}
 
@@ -255,7 +260,7 @@ impl TransactionBuilder {
 		}
 
 		if self.is_high_priority() {
-			let is_allowed = self.is_allowed_for_high_priority().await?;
+			let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
 			if !is_allowed {
 				return Err(NeoError::IllegalState(
 					"Only committee members can send high priority transactions.".to_string(),
@@ -264,16 +269,16 @@ impl TransactionBuilder {
 			}
 		}
 
-		let system_fee = self.get_system_fee_for_script().await?;
-		let network_fee = self.calc_network_fee().await?;
+		let system_fee = self.get_system_fee_for_script().await.unwrap();
+		let network_fee = self.calc_network_fee().await.unwrap();
 		let fees = system_fee + network_fee;
 
 		if let Some(fee_error) = &self.fee_error {
-			if !self.can_send_cover_fees(fees).await? {
+			if !self.can_send_cover_fees(fees).await.unwrap() {
 				return Err(fee_error.clone().into())
 			}
 		} else if let Some(consumer) = &mut self.fee_consumer {
-			let gas_balance = self.get_sender_gas_balance().await?;
+			let gas_balance = self.get_sender_gas_balance().await.unwrap();
 			consumer(fees, gas_balance);
 		}
 

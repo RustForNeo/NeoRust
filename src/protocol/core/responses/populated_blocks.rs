@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct PopulatedBlocks {
 	pub cache_id: String,
 	pub blocks: Vec<i32>,

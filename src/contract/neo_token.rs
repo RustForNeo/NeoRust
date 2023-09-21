@@ -6,9 +6,11 @@ use crate::{
 			token::TokenTrait,
 		},
 	},
+	neo_error::NeoError,
 	protocol::core::{responses::neo_account_state::AccountState, stack_item::StackItem},
 	transaction::transaction_builder::TransactionBuilder,
 	types::PublicKey,
+	utils::*,
 	wallet::account::Account,
 };
 use async_trait::async_trait;
@@ -17,8 +19,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NeoToken {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	script_hash: H160,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	total_supply: Option<u64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	decimals: Option<u8>,
 	symbol: Option<String>,
 }
@@ -46,7 +52,8 @@ impl NeoToken {
 		account: &Account,
 		block_height: i32,
 	) -> Result<i64, ContractError> {
-		self.unclaimed_gas(account, block_height).await
+		self.unclaimed_gas_contract(&account.get_script_hash().unwrap(), block_height)
+			.await
 	}
 
 	async fn unclaimed_gas_contract(
@@ -82,16 +89,23 @@ impl NeoToken {
 	// Committee and Candidates Information
 
 	async fn get_committee(&self) -> Result<Vec<PublicKey>, ContractError> {
-		self.call_function_returning_list_of_keys("getCommittee").await
+		self.call_function_returning_list_of_public_keys("getCommittee")
+			.await
+			.map_err(|e| ContractError::UnexpectedReturnType(e.to_string()))
 	}
 
 	async fn get_candidates(&self) -> Result<Vec<Candidate>, ContractError> {
-		let candidates = self.call_function_returning_candidates("getCandidates").await?;
+		let candidates = self.call_function_returning_candidates("getCandidates").await.unwrap();
 		candidates.into_iter().map(Candidate::from).collect()
 	}
 
 	async fn is_candidate(&self, public_key: &PublicKey) -> Result<bool, ContractError> {
-		Ok(self.get_candidates().await?.into_iter().any(|c| c.public_key == *public_key))
+		Ok(self
+			.get_candidates()
+			.await
+			.unwrap()
+			.into_iter()
+			.any(|c| c.public_key == *public_key))
 	}
 
 	// Voting
@@ -147,7 +161,8 @@ impl NeoToken {
 	async fn get_account_state(&self, account: &H160) -> Result<AccountState, ContractError> {
 		let result = self
 			.call_invoke_function("getAccountState", vec![account.into()], vec![])
-			.await?
+			.await
+			.unwrap()
 			.get_result()
 			.stack
 			.pop()
@@ -156,13 +171,39 @@ impl NeoToken {
 		match result {
 			StackItem::Any => Ok(AccountState::with_no_balance()),
 			StackItem::Array(items) if items.len() >= 3 => {
-				let balance = items[0].as_i64()?;
-				let update_height = items[1].as_i64()?;
+				let balance = items[0].as_i64().unwrap();
+				let update_height = items[1].as_i64().unwrap();
 				let public_key = items[2].as_public_key().cloned();
 
 				Ok(AccountState { balance, balance_height: update_height, public_key })
 			},
 			_ => Err(ContractError::InvalidNeoName("Account state malformed".to_string())),
+		}
+	}
+
+	async fn call_function_returning_list_of_public_keys(
+		&self,
+		function: &str,
+	) -> Result<Vec<PublicKey>, NeoError> {
+		let result = self.call_invoke_function(function, vec![], vec![]).await.unwrap();
+		let stack_item = result.stack.first().ok_or(Err(())).unwrap();
+
+		if let StackItem::Array { value: array } = stack_item {
+			let keys = array
+				.iter()
+				.map(|item| {
+					if let StackItem::ByteString { value: bytes } = item {
+						PublicKey::try_from(bytes.as_bytes())
+							.map_err(|_| NeoError::UnexpectedReturnType)
+					} else {
+						Err(NeoError::UnexpectedReturnType)
+					}
+				})
+				.collect::<Result<Vec<PublicKey>, NeoError>>()?;
+
+			Ok(keys)
+		} else {
+			Err(NeoError::UnexpectedReturnType)
 		}
 	}
 }
@@ -215,8 +256,8 @@ pub struct Candidate {
 
 impl Candidate {
 	fn from(items: Vec<StackItem>) -> Result<Self, ContractError> {
-		let key = items[0].as_public_key()?;
-		let votes = items[1].as_i32()?;
+		let key = items[0].as_public_key().unwrap();
+		let votes = items[1].as_i32().unwrap();
 		Ok(Self { public_key: key, votes })
 	}
 }

@@ -2,7 +2,7 @@ use crate::types::contract_parameter::ContractParameter;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ContractParametersContext {
 	pub type_: String,
 	pub hash: String,
@@ -28,7 +28,7 @@ impl ContractParametersContext {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ContextItem {
 	pub script: String,
 	pub parameters: Option<Vec<ContractParameter>>,

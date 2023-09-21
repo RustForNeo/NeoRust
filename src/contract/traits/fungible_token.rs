@@ -13,18 +13,18 @@ pub trait FungibleTokenTrait: TokenTrait {
 	const TRANSFER: &'static str = "transfer";
 
 	async fn get_balance_of(&self, account: &Account) -> Result<i32, ContractError> {
-		self.get_balance_of_hash160(account.get_script_hash()?).await
+		self.get_balance_of_hash160(account.get_script_hash().unwrap()).await
 	}
 
 	async fn get_balance_of_hash160(&self, script_hash: H160) -> Result<i32, ContractError> {
-		self.call_function_returning_int(FungibleTokenTrait::BALANCE_OF, vec![script_hash.into()])
+		self.call_function_returning_int(Self::BALANCE_OF, vec![script_hash.into()])
 			.await
 	}
 
 	async fn get_total_balance(&self, wallet: &Wallet) -> Result<i32, ContractError> {
 		let mut sum = 0;
 		for (_, account) in &wallet.accounts {
-			sum += self.get_balance_of(account).await?;
+			sum += self.get_balance_of(account).await.unwrap();
 		}
 		Ok(sum)
 	}
@@ -36,7 +36,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160(from.get_script_hash()?, to, amount, data)
+		self.transfer_from_hash160(from.get_script_hash().unwrap(), to, amount, data)
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
 
@@ -53,7 +53,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 			))
 		}
 
-		let transfer_script = self.build_transfer_script(from, to, amount, data)?;
+		let transfer_script = self.build_transfer_script(from, to, amount, data).unwrap();
 		Ok(TransactionBuilder::new().script(transfer_script))
 	}
 
@@ -66,7 +66,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 	) -> Result<Bytes, ContractError> {
 		self.build_invoke_function_script(
 			FungibleTokenTrait::TRANSFER,
-			vec![from.into(), to.into(), amount.into(), data],
+			vec![from.into(), to.into(), amount.into(), data.unwrap()],
 		)
 	}
 
@@ -79,7 +79,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160_to_nns(from.get_script_hash()?, to, amount, data)
+		self.transfer_from_hash160_to_nns(from.get_script_hash().unwrap(), to, amount, data)
 			.await
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
@@ -91,7 +91,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		let script_hash = self.resolve_nns_text_record(to).await?;
+		let script_hash = self.resolve_nns_text_record(to).await.unwrap();
 		self.transfer_from_hash160(from, script_hash, amount, data)
 	}
 }

@@ -1,8 +1,11 @@
+use crate::utils::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct ContractMethodToken {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	hash: H160,
 	method: String,
 	param_count: u32,

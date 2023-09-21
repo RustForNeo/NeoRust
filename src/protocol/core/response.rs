@@ -1,5 +1,10 @@
 use crate::neo_error::NeoError;
 use serde::{Deserialize, Serialize};
+use std::{
+	future::Future,
+	pin::Pin,
+	task::{Context, Poll},
+};
 
 pub trait ResponseTrait<'a, T>
 where
@@ -12,7 +17,9 @@ where
 pub struct NeoResponse<T> {
 	jsonrpc: &'static str,
 	id: u64,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	result: Option<T>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	error: Option<Error>,
 }
 
@@ -44,6 +51,17 @@ where
 		match self.error {
 			Some(err) => Err(NeoError::InvalidData(err.message)),
 			None => Ok(self.result.unwrap()),
+		}
+	}
+}
+
+impl<T> Future for NeoResponse<T> {
+	type Output = T;
+
+	fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+		match &self.get_mut().result {
+			Some(v) => Poll::Ready(v.clone()),
+			None => Poll::Pending,
 		}
 	}
 }

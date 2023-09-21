@@ -1,15 +1,23 @@
+#![feature(const_trait_impl)]
 use crate::{
-	contract::contract_error::ContractError,
+	contract::{
+		contract_error::ContractError,
+		iterator::NeoIterator,
+		traits::{
+			nft::NonFungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+		},
+	},
 	protocol::{
 		core::{neo_trait::NeoTrait, stack_item::StackItem},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 	transaction::transaction_builder::TransactionBuilder,
-	types::contract_parameter::ContractParameter,
+	utils::*,
 };
-use p256::pkcs8::der::Decode;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use std::string::ToString;
 
 #[repr(u8)]
 enum RecordType {
@@ -47,10 +55,16 @@ enum RecordType {
 pub struct NameState {
 	pub name: String,
 	pub expiration: u32,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub admin: Option<H160>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NeoNameService {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	script_hash: H160,
 }
 
@@ -70,9 +84,9 @@ impl NeoNameService {
 	const RESOLVE: &'static str = "resolve";
 	const PROPERTIES: &'static str = "properties";
 
-	const NAME_PROPERTY: &'static [u8] = b"name";
-	const EXPIRATION_PROPERTY: &'static [u8] = b"expiration";
-	const ADMIN_PROPERTY: &'static [u8] = b"admin";
+	const NAME_PROPERTY: &'static str = "name";
+	const EXPIRATION_PROPERTY: &'static str = "expiration";
+	const ADMIN_PROPERTY: &'static str = "admin";
 
 	pub fn new(script_hash: H160) -> Self {
 		Self { script_hash }
@@ -85,9 +99,13 @@ impl NeoNameService {
 		self.invoke_function(Self::ADD_ROOT, args)
 	}
 
-	async fn get_roots(&self) -> Result<Vec<String>, ContractError> {
+	async fn get_roots(&self) -> Result<NeoIterator<String>, ContractError> {
 		let args = vec![];
-		let roots = self.call_function_iter(Self::ROOTS, args, |item| item.get_str())?;
+		let roots = self
+			.call_function_returning_iterator(Self::ROOTS, args, |item| Ok(item.to_string()))
+			.await
+			.unwrap();
+
 		Ok(roots)
 	}
 
@@ -106,7 +124,7 @@ impl NeoNameService {
 		name: &str,
 		owner: H160,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.check_domain_name_availability(name, true).await?;
+		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), owner.into()];
 		self.invoke_function(Self::REGISTER, args)
@@ -119,7 +137,7 @@ impl NeoNameService {
 		name: &str,
 		admin: H160,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.check_domain_name_availability(name, true).await?;
+		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), admin.into()];
 		self.invoke_function(Self::SET_ADMIN, args)
@@ -149,27 +167,12 @@ impl NeoNameService {
 		self.invoke_function(Self::DELETE_RECORD, args)
 	}
 
-	async fn owner_of(&self, name: &[u8]) -> Result<H160, ContractError> {
-		self.call_function("ownerOf", vec![name.into()])
-			.await?
-			.as_address()
-			.map(Into::into)
-	}
-
-	pub async fn get_price(&self, length: u32) -> Result<u32, ContractError> {
-		let args = vec![length.into()];
-		self.call_function::<i64>(Self::GET_PRICE, args)
-			.await?
-			.try_into()
-			.map_err(Into::into)
-	}
-
 	pub async fn is_available(&self, name: &str) -> Result<bool, ContractError> {
 		let args = vec![name.into()];
-		self.call_function::<bool>(Self::IS_AVAILABLE, args).await
+		self.call_function_returning_bool(Self::IS_AVAILABLE, args).await
 	}
 	pub async fn renew(&self, name: &str, years: u32) -> Result<TransactionBuilder, ContractError> {
-		self.check_domain_name_availability(name, true).await?;
+		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), years.into()];
 		self.invoke_function(Self::RENEW, args)
@@ -178,54 +181,90 @@ impl NeoNameService {
 	// Other methods...
 	async fn get_name_state(&self, name: &[u8]) -> Result<NameState, ContractError> {
 		let args = vec![name.into()];
-		let result = self.invoke_function(Self::PROPERTIES, args).await?;
+		let result = NeoRust::<HttpService>::instance()
+			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, vec![])
+			.request()
+			.await
+			.unwrap()
+			.stack[0]
+			.clone();
 
-		let map = result.as_map()?;
-		let name = map.get(Self::NAME_PROPERTY)?.as_str()?;
-		let expiration = map.get(Self::EXPIRATION_PROPERTY)?.as_i64()? as u32;
-		let admin = map.get(Self::ADMIN_PROPERTY)?.as_address()?;
+		let map = result.as_map().unwrap();
+		let name = map
+			.get(&StackItem::ByteString { value: Self::NAME_PROPERTY.to_string() })
+			.unwrap()
+			.as_string()
+			.unwrap();
+		let expiration = map
+			.get(&StackItem::ByteString { value: Self::EXPIRATION_PROPERTY.to_string() })
+			.unwrap()
+			.as_int()
+			.unwrap() as u32;
+		let admin = map
+			.get(&StackItem::ByteString { value: Self::ADMIN_PROPERTY.to_string() })
+			.unwrap()
+			.as_address()
+			.unwrap();
 
-		Ok(NameState { name, expiration, admin: admin.map(Into::into) })
+		Ok(NameState { name, expiration, admin: admin.into() })
 	}
 	async fn check_domain_name_availability(
 		&self,
 		name: &str,
 		should_be_available: bool,
 	) -> Result<(), ContractError> {
-		let is_available = self.is_available(name).await?;
+		let is_available = self.is_available(name).await.unwrap();
 
-		if &should_be_available && !&is_available {
-			return Err("Domain name already taken".into())
+		if should_be_available && !is_available {
+			return Err(ContractError::DomainNameNotAvailable(
+				"Domain name already taken".to_string(),
+			))
 		} else if !should_be_available && is_available {
-			return Err("Domain name not registered".into())
+			return Err(ContractError::DomainNameNotRegistered(
+				"Domain name not registered".to_string(),
+			))
 		}
 
 		Ok(())
 	}
-	async fn invoke_function(
-		&self,
-		operation: &str,
-		args: Vec<StackItem>,
-	) -> Result<TransactionBuilder, ContractError> {
-		let script_hash = &self.script_hash;
-		let tx_builder = TransactionBuilder::call_contract(script_hash, operation, args);
-		Ok(tx_builder)
+}
+
+impl TokenTrait for NeoNameService {
+	fn total_supply(&self) -> Option<u64> {
+		todo!()
 	}
 
-	async fn call_function<'a, U: Decode<'a>>(
-		&self,
-		operation: &str,
-		args: Vec<ContractParameter>,
-	) -> Result<U, ContractError> {
-		let script_hash = &self.script_hash;
+	fn set_total_supply(&mut self, total_supply: u64) {
+		todo!()
+	}
 
-		let result = NeoRust::instance()
-			.invoke_function(script_hash, operation.to_string(), args, vec![])
-			.await
-			.request()
-			.await?
-			.as_interop()?;
+	fn decimals(&self) -> Option<u8> {
+		Some(0)
+	}
 
-		result.decode()
+	fn set_decimals(&mut self, decimals: u8) {
+		panic!("Cannot set decimals for NNS")
+	}
+
+	fn symbol(&self) -> Option<String> {
+		Some("NNS".to_string())
+	}
+
+	fn set_symbol(&mut self, symbol: String) {
+		panic!("Cannot set symbol for NNS")
 	}
 }
+
+impl SmartContractTrait for NeoNameService {
+	fn set_name(&mut self, name: String) {}
+
+	fn script_hash(&self) -> H160 {
+		self.script_hash
+	}
+
+	fn set_script_hash(&mut self, script_hash: H160) {
+		self.script_hash = script_hash;
+	}
+}
+
+impl NonFungibleTokenTrait for NeoNameService {}

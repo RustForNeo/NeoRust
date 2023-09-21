@@ -34,7 +34,7 @@ impl Wallet {
 	}
 
 	pub fn add_account(&mut self, account: Account) {
-		self.accounts.insert(account.get_script_hash(), account);
+		self.accounts.insert(account.get_script_hash().unwrap(), account);
 	}
 
 	pub fn set_default_account(&mut self, script_hash: H160) {
@@ -46,7 +46,7 @@ impl Wallet {
 	pub fn to_nep6(&self) -> Result<NEP6Wallet, WalletError> {
 		let accounts = self.accounts.values().map(|a| a.to_nep6()).collect();
 
-		Ok(NEP6Wallet {
+		Ok(NEP6Wallet::new {
 			name: self.name.clone(),
 			version: self.version.clone(),
 			scrypt: self.scrypt_params.clone(),
@@ -56,33 +56,34 @@ impl Wallet {
 	}
 
 	pub fn from_nep6(nep6: NEP6Wallet) -> Result<Self, WalletError> {
-		let accounts = nep6.accounts.into_iter().map(Account::from_nep6).collect();
+		let accounts = nep6.accounts().into_iter().map(Account::from_nep6).collect();
 
 		let default_account = nep6
-			.accounts
+			.accounts()
 			.iter()
 			.find(|a| a.is_default)
 			.map(|a| a.get_script_hash())
-			.ok_or(WalletError::NoDefaultAccount)?;
+			.ok_or(WalletError::NoDefaultAccount)
+			.unwrap();
 
 		Ok(Self {
-			name: nep6.name,
-			version: nep6.version,
-			scrypt_params: nep6.scrypt,
+			name: nep6.name().clone(),
+			version: nep6.version().clone(),
+			scrypt_params: nep6.scrypt().clone(),
 			accounts,
 			default_account,
 		})
 	}
 	pub fn save_to_file(&self, path: PathBuf) -> Result<(), WalletError> {
 		// Convert wallet to NEP6
-		let nep6 = self.to_nep6()?;
+		let nep6 = self.to_nep6().unwrap();
 
 		// Encode as JSON
-		let json = serde_json::to_string(&nep6)?;
+		let json = serde_json::to_string(&nep6).unwrap();
 
 		// Write to file at path
-		let mut file = File::create(path)?;
-		file.write_all(json.as_bytes())?;
+		let mut file = File::create(path).unwrap();
+		file.write_all(json.as_bytes()).unwrap();
 
 		Ok(())
 	}

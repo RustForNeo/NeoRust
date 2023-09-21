@@ -572,7 +572,7 @@ impl OpCode {
 			| Self::JmpLeL
 			| Self::CallL
 			| Self::EndTryL
-			| Self::SysCall => Some(OperandSize::with_size(4)),
+			| Self::Syscall => Some(OperandSize::with_size(4)),
 
 			Self::PushInt64 | Self::TryL => Some(OperandSize::with_size(8)),
 

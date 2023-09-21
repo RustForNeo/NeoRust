@@ -1,5 +1,8 @@
-use crate::contract::traits::{
-	fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+use crate::{
+	contract::traits::{
+		fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+	},
+	utils::*,
 };
 use async_trait::async_trait;
 use primitive_types::H160;
@@ -7,9 +10,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GasToken {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	script_hash: H160,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	total_supply: Option<u64>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	decimals: Option<u8>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	symbol: Option<String>,
 }
 

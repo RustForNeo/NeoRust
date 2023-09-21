@@ -80,7 +80,7 @@ impl StringExt for String {
 
 	fn address_to_scripthash(&self) -> Result<Vec<u8>, &'static str> {
 		if self.is_valid_address() {
-			let data = self.base58_decoded().ok_or("Invalid address")?;
+			let data = self.base58_decoded().ok_or("Invalid address").unwrap();
 			let mut scripthash = data[1..21].to_vec();
 			scripthash.reverse();
 			Ok(scripthash)

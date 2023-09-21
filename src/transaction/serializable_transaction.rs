@@ -1,14 +1,17 @@
 use crate::{
 	constant::NeoConstants,
 	neo_error::NeoError,
-	protocol::{core::responses::transaction_attribute::TransactionAttribute, neo_rust::NeoRust},
+	protocol::{
+		core::responses::transaction_attribute::TransactionAttribute, http_service::HttpService,
+		neo_rust::NeoRust,
+	},
 	transaction::{signer::Signer, transaction_error::TransactionError, witness::Witness},
 	types::Bytes,
 };
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SerializableTransaction {
 	version: u8,
 	nonce: u32,
@@ -68,23 +71,29 @@ impl SerializableTransaction {
 		}
 
 		// Get hex encoding
-		let hex = hex::encode(self.serialize());
+		let hex = hex::encode(self.serialize().await);
 
 		// Send using NeoRust
-		let neo_rust = NeoRust::instance().as_ref().ok_or(NeoError::NeoRustNotInitialized)?;
+		let neo_rust = NeoRust::<HttpService>::instance()
+			.as_ref()
+			.ok_or(NeoError::NeoRustNotInitialized)
+			.unwrap();
 
-		neo_rust.send_raw_transaction(hex).await?;
+		neo_rust.send_raw_transaction(hex).await.unwrap();
 
-		self.block_count_when_sent = Some(neo_rust.get_block_count().await?);
+		self.block_count_when_sent = Some(neo_rust.get_block_count().await.unwrap());
 
 		Ok(())
 	}
 
 	// Get hash data
 	pub fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-		let neo_rust = NeoRust::instance().as_ref().ok_or(NeoError::NeoRustNotInitialized)?;
+		let neo_rust = NeoRust::<HttpService>::instance()
+			.as_ref()
+			.ok_or(NeoError::NeoRustNotInitialized)
+			.unwrap();
 
-		let network_magic = neo_rust.get_network_magic()?;
+		let network_magic = neo_rust.get_network_magic().unwrap();
 		let data = self.serialize_without_witnesses();
 
 		Ok(network_magic + data.sha256())
@@ -125,27 +134,27 @@ impl SerializableTransaction {
 	pub fn deserialize(bytes: &[u8]) -> Result<Self, TransactionError> {
 		let mut reader = Bytes::from(bytes);
 
-		let version = reader.read_u8()?;
-		let nonce = reader.read_u32()?;
-		let valid_until_block = reader.read_u32()?;
+		let version = reader.read_u8().unwrap();
+		let nonce = reader.read_u32().unwrap();
+		let valid_until_block = reader.read_u32().unwrap();
 
 		// Read signers
-		let signers_len = reader.read_var_u32()?;
+		let signers_len = reader.read_var_u32().unwrap();
 		let mut signers = Vec::new();
 		for _ in 0..signers_len {
-			let signer = Signer::deserialize(&mut reader)?;
+			let signer = Signer::deserialize(&mut reader).unwrap();
 			signers.push(signer);
 		}
 
 		// Read attributes
-		let attributes_len = reader.read_var_u32()?;
+		let attributes_len = reader.read_var_u32().unwrap();
 		let mut attributes = Vec::new();
 		for _ in 0..attributes_len {
-			let attribute = TransactionAttribute::deserialize(&mut reader)?;
+			let attribute = TransactionAttribute::deserialize(&mut reader).unwrap();
 			attributes.push(attribute);
 		}
 
-		let script = reader.read_var_bytes()?;
+		let script = reader.read_var_bytes().unwrap();
 
 		Ok(Self {
 			version,

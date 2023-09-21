@@ -6,6 +6,6 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait NeoService: Send + Sync {
-	fn send<T>(&self, request: &NeoRequest<T>) -> Result<NeoResponse<T>, NeoError>;
+	fn send<'a, T>(&'a self, request: &'a NeoRequest<T>) -> Result<NeoResponse<T>, NeoError>;
 	fn close(&self);
 }

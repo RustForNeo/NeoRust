@@ -5,6 +5,7 @@ use crate::{
 	script::script_builder::ScriptBuilder,
 	types::Bytes,
 };
+use p256::ecdsa::signature::Signer;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, CopyGetters, Setters)]
 #[getset(get_copy, set)]
@@ -43,7 +44,7 @@ impl InvocationScript {
 
 	pub fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
 		let message_hash = message.hash256();
-		let signature = key_pair.private_key().sign((&message_hash, key_pair)?);
+		let signature = key_pair.private_key().sign((&message_hash, key_pair).unwrap());
 		let mut builder = ScriptBuilder::new();
 		// Convert signature to bytes
 		let mut signature_bytes = [0; 64];

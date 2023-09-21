@@ -1,3 +1,4 @@
+use crate::utils::*;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +21,8 @@ pub struct Nep11Transfer {
 	pub token_id: String,
 	pub timestamp: u64,
 	#[serde(rename = "assethash")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub asset_hash: H160,
 	#[serde(rename = "transferaddress")]
 	pub transfer_address: String,
@@ -29,5 +32,7 @@ pub struct Nep11Transfer {
 	#[serde(rename = "transfernotifyindex")]
 	pub transfer_notify_index: u32,
 	#[serde(rename = "txhash")]
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
 	pub tx_hash: H256,
 }

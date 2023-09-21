@@ -1,6 +1,6 @@
 use crate::{
 	neo_error::NeoError,
-	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
+	protocol::{core::neo_trait::NeoTrait, http_service::HttpService, neo_rust::NeoRust},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use std::{error::Error, time::Duration};
@@ -35,7 +35,7 @@ impl BlockIndexPolling {
 
 		interval
 			.map(move |_| {
-				let latest_block_index = NeoRust::instance()
+				let latest_block_index = NeoRust::<HttpService>::instance()
 					.get_block_count()
 					.execute(executor)
 					.map(|res| res.get_result() - 1);
@@ -43,16 +43,16 @@ impl BlockIndexPolling {
 				async move {
 					let curr_index = self.current_block_index.get_index().await;
 
-					if let Some(latest_index) = latest_block_index.await? {
+					if let Some(latest_index) = latest_block_index.await.unwrap() {
 						if curr_index.map(|i| latest_index > i).unwrap_or(true) {
 							self.current_block_index.set_index(latest_index).await;
 							Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
 						} else {
 							Ok(None)
 						}
-					} else {
-						Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
 					}
+
+					Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
 				}
 			})
 			.try_flatten()

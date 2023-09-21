@@ -1,3 +1,4 @@
+use crate::utils::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -22,5 +23,7 @@ pub struct Nep17Balance {
 	#[serde(rename = "lastupdatedblock")]
 	pub last_updated_block: f64,
 	#[serde(rename = "assethash")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub asset_hash: H160,
 }

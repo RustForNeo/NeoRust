@@ -1,6 +1,7 @@
 use crate::{
 	crypto::{key_pair::KeyPair, nep2::NEP2},
-	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
+	neo_error::NeoError,
+	protocol::{core::neo_trait::NeoTrait, http_service::HttpService, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
 	types::{
 		contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey,
@@ -58,12 +59,14 @@ impl Account {
 		signing_threshold: Option<i32>,
 		nr_of_participants: Option<i32>,
 	) -> Result<Self, WalletError> {
-		let address = key_pair.get_address()?;
+		let address = key_pair.get_address().unwrap();
 		Ok(Self {
 			key_pair: Some(key_pair),
 			address,
 			label: Some(address.to_string()),
-			verification_script: Some(VerificationScript::from_public_key(&key_pair.public_key)?),
+			verification_script: Some(
+				VerificationScript::from_public_key(&key_pair.public_key()).unwrap(),
+			),
 			is_locked: false,
 			encrypted_private_key: None,
 			wallet: None,
@@ -97,8 +100,8 @@ impl Account {
 	}
 
 	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
-		let private_key = PrivateKey::from_private_key_wif(wif)?;
-		let key_pair = KeyPair::from_private_key(private_key)?;
+		let private_key = PrivateKey::from_private_key_wif(wif).unwrap();
+		let key_pair = KeyPair::from_private_key(private_key).unwrap();
 		Self::from_key_pair(key_pair, None, None)
 	}
 
@@ -107,14 +110,14 @@ impl Account {
 			match nep6_account.contract {
 				Some(ref contract) if !contract.script.is_empty() => {
 					let script = contract.script.as_bytes();
-					let verification_script = VerificationScript::from_bytes(script)?;
+					let verification_script = VerificationScript::from_bytes(script).unwrap();
 					let signing_threshold = if verification_script.is_multisig() {
-						Some(verification_script.get_signing_threshold()?)
+						Some(verification_script.get_signing_threshold().unwrap())
 					} else {
 						None
 					};
 					let nr_of_participants = if verification_script.is_multisig() {
-						Some(verification_script.get_nr_of_accounts()?)
+						Some(verification_script.get_nr_of_accounts().unwrap())
 					} else {
 						None
 					};
@@ -161,9 +164,10 @@ impl Account {
 		let encrypted_private_key = self
 			.encrypted_private_key
 			.as_ref()
-			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))?;
-		let key_pair = NEP2::decrypt(password, encrypted_private_key)?;
-		self.key_pair = Some(KeyPair::from_private_key(&key_pair));
+			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))
+			.unwrap();
+		let key_pair = NEP2::decrypt(password, encrypted_private_key).unwrap();
+		self.key_pair = Some(KeyPair::from_private_key(key_pair));
 		Ok(())
 	}
 
@@ -171,14 +175,15 @@ impl Account {
 		let key_pair = self
 			.key_pair
 			.as_ref()
-			.ok_or(WalletError::AccountState("No decrypted key pair present".to_string()))?;
-		let encrypted_private_key = NEP2::encrypt(password, &key_pair.private_key)?;
+			.ok_or(WalletError::AccountState("No decrypted key pair present".to_string()))
+			.unwrap();
+		let encrypted_private_key = NEP2::encrypt(password, &key_pair.private_key()).unwrap();
 		self.encrypted_private_key = Some(encrypted_private_key);
 		self.key_pair = None;
 		Ok(())
 	}
 
-	pub fn get_script_hash(&self) -> Result<H160, WalletError> {
+	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
 		H160::from_address(&self.address)
 	}
 
@@ -193,10 +198,12 @@ impl Account {
 	}
 
 	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
-		let balances = NeoRust::instance().get_nep17_balances(self.get_script_hash()?).await;
+		let balances = NeoRust::<HttpService>::instance()
+			.get_nep17_balances(self.get_script_hash().unwrap())
+			.await;
 		let mut nep17_balances = HashMap::new();
 		for balance in balances {
-			nep17_balances.insert(balance.asset_hash, balance.amount.to_i32()?);
+			nep17_balances.insert(balance.asset_hash, balance.amount.to_i32().unwrap());
 		}
 		Ok(nep17_balances)
 	}
@@ -211,8 +218,8 @@ impl Account {
 		let contract = match &self.verification_script {
 			Some(script) => {
 				let parameters = if script.is_multisig() {
-					let threshold = script.get_signing_threshold()?;
-					let nr_accounts = script.get_nr_of_accounts()?;
+					let threshold = script.get_signing_threshold().unwrap();
+					let nr_accounts = script.get_nr_of_accounts().unwrap();
 					(0..nr_accounts)
 						.map(|i| NEP6Parameter {
 							param_name: format!("signature{}", i),
@@ -251,10 +258,13 @@ impl Account {
 	// Static methods
 
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
-		let address = H160::from_script(&script.to_bytes()?).to_address();
+		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
 
 		let (signing_threshold, nr_of_participants) = if script.is_multisig() {
-			(Some(script.get_signing_threshold()?), Some(script.get_nr_of_accounts()?))
+			(
+				Some(script.get_signing_threshold().unwrap()),
+				Some(script.get_nr_of_accounts().unwrap()),
+			)
 		} else {
 			(None, None)
 		};
@@ -270,8 +280,8 @@ impl Account {
 	}
 
 	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
-		let script = VerificationScript::from_public_key(public_key)?;
-		let address = H160::from_script(&script.to_bytes()?).to_address();
+		let script = VerificationScript::from_public_key(public_key).unwrap();
+		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
 
 		Ok(Self {
 			address,
@@ -285,8 +295,8 @@ impl Account {
 		public_keys: &[PublicKey],
 		signing_threshold: i32,
 	) -> Result<Self, WalletError> {
-		let script = VerificationScript::multisig(public_keys, signing_threshold)?;
-		let address = H160::from_script(&script.to_bytes()?).to_address();
+		let script = VerificationScript::multisig(public_keys, signing_threshold).unwrap();
+		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
 
 		Ok(Self {
 			address,
@@ -299,7 +309,7 @@ impl Account {
 	}
 
 	pub fn from_address(address: &str) -> Result<Self, WalletError> {
-		let address = Address::from_str(address)?;
+		let address = Address::from_str(address).unwrap();
 		Ok(Self { address, label: Some(address.to_string()), ..Default::default() })
 	}
 
@@ -309,7 +319,7 @@ impl Account {
 	}
 
 	pub fn create() -> Result<Self, WalletError> {
-		let key_pair = KeyPair::create()?;
+		let key_pair = KeyPair::create().unwrap();
 		Self::from_key_pair(key_pair, None, None)
 	}
 }

@@ -70,7 +70,8 @@ use std::{
 };
 
 lazy_static! {
-	pub static ref NEO_RUST_INSTANCE: Mutex<NeoRust<HttpService>> = Mutex::new(NeoRust::new());
+	pub static ref NEO_HTTP_INSTANCE: Arc<Mutex<NeoRust<HttpService>>> =
+		Arc::new(Mutex::new(NeoRust::new_http_service()));
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -83,14 +84,15 @@ where
 }
 
 impl<T: NeoService> NeoRust<T> {
-	pub fn new() -> Self {
+	pub fn new_http_service() -> Self {
 		Self {
 			config: Arc::new(NeoConfig::default()),
 			neo_service: Arc::new(Mutex::new(HttpService::new(Url::from_str("").unwrap(), false))),
 		}
 	}
-	pub fn instance() -> MutexGuard<'static, Self> {
-		NEO_RUST_INSTANCE.lock().unwrap()
+
+	pub fn instance() -> MutexGuard<'static, NeoRust<T>> {
+		NEO_HTTP_INSTANCE.lock().unwrap()
 	}
 
 	pub fn config(&self) -> &NeoConfig {
@@ -124,7 +126,7 @@ impl<T: NeoService> NeoRust<T> {
 		&mut self.neo_service.lock().as_mut().unwrap()
 	}
 
-	pub async fn dump_private_key(&self, script_hash: H160) -> NeoRequest<String> {
+	pub fn dump_private_key(&self, script_hash: H160) -> NeoRequest<String> {
 		NeoRequest::new("dumpprivkey", vec![Value::String(script_hash.to_address())])
 	}
 
@@ -134,11 +136,13 @@ impl<T: NeoService> NeoRust<T> {
 				.get_version()
 				.await
 				.request()
-				.await?
+				.await
+				.unwrap()
 				.protocol
 				.ok_or(NeoError::IllegalState(
 					"Unable to read Network Magic Number from Version".to_string(),
-				))?
+				))
+				.unwrap()
 				.network;
 			self.config
 				.set_network_magic(magic)
@@ -148,7 +152,7 @@ impl<T: NeoService> NeoRust<T> {
 	}
 
 	pub async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, NeoError> {
-		let magic_int = self.get_network_magic_number().await? & 0xFFFF_FFFF;
+		let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
 		Ok(magic_int.to_be_bytes().to_vec())
 	}
 }
@@ -156,15 +160,15 @@ impl<T: NeoService> NeoRust<T> {
 #[async_trait]
 impl<T: NeoService> NeoTrait for NeoRust<T> {
 	// Blockchain methods
-	async fn get_best_block_hash(&self) -> NeoRequest<H256> {
+	fn get_best_block_hash(&self) -> NeoRequest<H256> {
 		NeoRequest::new("getbestblockhash", vec![])
 	}
 
-	async fn get_block_hash(&self, block_index: i32) -> NeoRequest<H256> {
+	fn get_block_hash(&self, block_index: i32) -> NeoRequest<H256> {
 		NeoRequest::new("getblockhash", [block_index.to_value()].to_vec())
 	}
 
-	async fn get_block(&self, block_hash: H256, full_tx: bool) -> NeoRequest<NeoBlock> {
+	fn get_block(&self, block_hash: H256, full_tx: bool) -> NeoRequest<NeoBlock> {
 		if full_tx {
 			NeoRequest::new("getblock", [block_hash.to_value(), 1].to_vec())
 		} else {
@@ -174,21 +178,21 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// More methods...
 
-	async fn get_raw_block(&self, block_hash: H256) -> NeoRequest<String> {
+	fn get_raw_block(&self, block_hash: H256) -> NeoRequest<String> {
 		NeoRequest::new("getblock", vec![block_hash.to_value(), 0])
 	}
 
 	// Node methods
 
-	async fn get_block_header_count(&self) -> NeoRequest<u32> {
+	fn get_block_header_count(&self) -> NeoRequest<u32> {
 		NeoRequest::new("getblockheadercount", vec![])
 	}
 
-	async fn get_block_count(&self) -> NeoRequest<i32> {
+	fn get_block_count(&self) -> NeoRequest<i32> {
 		NeoRequest::new("getblockcount", vec![])
 	}
 
-	async fn get_block_header(&self, index: i32) -> NeoRequest<NeoBlock> {
+	fn get_block_header(&self, index: i32) -> NeoRequest<NeoBlock> {
 		NeoRequest::new("getblockheader", vec![index.to_value(), 1])
 	}
 
@@ -208,13 +212,13 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// Utility methods
 
-	async fn get_native_contracts(&self) -> NeoRequest<Vec<NativeContractState>> {
+	fn get_native_contracts(&self) -> NeoRequest<Vec<NativeContractState>> {
 		NeoRequest::new("getnativecontracts", vec![])
 	}
 
 	// Wallet methods
 
-	async fn get_contract_state(&self, hash: H160) -> NeoRequest<ContractState> {
+	fn get_contract_state(&self, hash: H160) -> NeoRequest<ContractState> {
 		NeoRequest::new("getcontractstate", vec![hash.to_value()])
 	}
 
@@ -232,7 +236,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// Application logs
 
-	async fn get_transaction(&self, hash: H256) -> NeoRequest<Transaction> {
+	fn get_transaction(&self, hash: H256) -> NeoRequest<Transaction> {
 		NeoRequest::new("getrawtransaction", vec![hash.to_value(), 1])
 	}
 
@@ -242,51 +246,51 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
 	}
 
-	async fn get_storage(&self, contract_hash: H160, key: String) -> NeoRequest<String> {
+	fn get_storage(&self, contract_hash: H160, key: String) -> NeoRequest<String> {
 		let params = [contract_hash.to_value(), key.to_value()];
 		NeoRequest::new("getstorage", params.to_vec())
 	}
 	// Blockchain methods
 
-	async fn get_transaction_height(&self, tx_hash: H256) -> NeoRequest<u32> {
+	fn get_transaction_height(&self, tx_hash: H256) -> NeoRequest<u32> {
 		let params = [tx_hash.to_value()];
 		NeoRequest::new("gettransactionheight", params.to_vec())
 	}
 
-	async fn get_next_block_validators(&self) -> NeoRequest<Vec<Validator>> {
+	fn get_next_block_validators(&self) -> NeoRequest<Vec<Validator>> {
 		NeoRequest::new("getnextblockvalidators", vec![])
 	}
 
-	async fn get_committee(&self) -> NeoRequest<Vec<String>> {
+	fn get_committee(&self) -> NeoRequest<Vec<String>> {
 		NeoRequest::new("getcommittee", vec![])
 	}
 
-	async fn get_connection_count(&self) -> NeoRequest<i32> {
+	fn get_connection_count(&self) -> NeoRequest<i32> {
 		NeoRequest::new("getconnectioncount", vec![])
 	}
 
-	async fn get_peers(&self) -> NeoRequest<Peers> {
+	fn get_peers(&self) -> NeoRequest<Peers> {
 		NeoRequest::new("getpeers", vec![])
 	}
 
 	// Smart contract methods
 
-	async fn get_version(&self) -> NeoRequest<NeoVersion> {
+	fn get_version(&self) -> NeoRequest<NeoVersion> {
 		NeoRequest::new("getversion", vec![])
 	}
 
-	async fn send_raw_transaction(&self, hex: String) -> NeoRequest<RawTransaction> {
+	fn send_raw_transaction(&self, hex: String) -> NeoRequest<RawTransaction> {
 		NeoRequest::new("sendrawtransaction", vec![hex.to_value()])
 	}
 	// More node methods
 
-	async fn submit_block(&self, hex: String) -> NeoRequest<bool> {
+	fn submit_block(&self, hex: String) -> NeoRequest<bool> {
 		NeoRequest::new("submitblock", vec![hex.to_value()])
 	}
 
 	// More blockchain methods
 
-	async fn invoke_function(
+	fn invoke_function(
 		&self,
 		contract_hash: &H160,
 		method: String,
@@ -297,7 +301,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("invokefunction", vec![contract_hash.to_value(), method, params, signers])
 	}
 
-	async fn invoke_script(
+	fn invoke_script(
 		&self,
 		hex: String,
 		signers: Vec<Box<dyn Signer>>,
@@ -309,36 +313,36 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// More smart contract methods
 
-	async fn get_unclaimed_gas(&self, hash: H160) -> NeoRequest<GetUnclaimedGas> {
+	fn get_unclaimed_gas(&self, hash: H160) -> NeoRequest<GetUnclaimedGas> {
 		NeoRequest::new("getunclaimedgas", vec![hash.to_value()])
 	}
 
-	async fn list_plugins(&self) -> NeoRequest<Vec<Plugin>> {
+	fn list_plugins(&self) -> NeoRequest<Vec<Plugin>> {
 		NeoRequest::new("listplugins", vec![]);
 	}
 
 	// More utility methods
 
-	async fn validate_address(&self, address: String) -> NeoRequest<ValidateAddress> {
+	fn validate_address(&self, address: String) -> NeoRequest<ValidateAddress> {
 		NeoRequest::new("validateaddress", vec![Value::String(address)])
 	}
 
 	// More wallet methods
 
-	async fn close_wallet(&self) -> NeoRequest<bool> {
+	fn close_wallet(&self) -> NeoRequest<bool> {
 		NeoRequest::new("closewallet", vec![])
 	}
 
-	async fn dump_priv_key(&self, script_hash: H160) -> NeoRequest<String> {
+	fn dump_priv_key(&self, script_hash: H160) -> NeoRequest<String> {
 		let params = [script_hash.to_value()].to_vec();
 		NeoRequest::new("dumpprivkey", params)
 	}
 
-	async fn get_wallet_balance(&self, token_hash: H160) -> NeoRequest<Balance> {
+	fn get_wallet_balance(&self, token_hash: H160) -> NeoRequest<Balance> {
 		NeoRequest::new("getwalletbalance", vec![token_hash.to_value()])
 	}
 
-	async fn get_new_address(&self) -> NeoRequest<String> {
+	fn get_new_address(&self) -> NeoRequest<String> {
 		NeoRequest::new("getnewaddress", vec![])
 	}
 
@@ -346,23 +350,23 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getwalletunclaimedgas", vec![])
 	}
 
-	async fn import_priv_key(&self, priv_key: String) -> NeoRequest<Address> {
+	fn import_priv_key(&self, priv_key: String) -> NeoRequest<Address> {
 		let params = [priv_key.to_value()].to_vec();
 		NeoRequest::new("importprivkey", params)
 	}
 
-	async fn calculate_network_fee(&self, hex: String) -> NeoRequest<NeoNetworkFee> {
+	fn calculate_network_fee(&self, hex: String) -> NeoRequest<NeoNetworkFee> {
 		NeoRequest::new("calculatenetworkfee", vec![hex.to_value()])
 	}
 
-	async fn list_address(&self) -> NeoRequest<Vec<Address>> {
+	fn list_address(&self) -> NeoRequest<Vec<Address>> {
 		NeoRequest::new("listaddress", vec![])
 	}
-	async fn open_wallet(&self, path: String, password: String) -> NeoRequest<bool> {
+	fn open_wallet(&self, path: String, password: String) -> NeoRequest<bool> {
 		NeoRequest::new("openwallet", vec![path.to_value(), password.to_value()])
 	}
 
-	async fn send_from(
+	fn send_from(
 		&self,
 		token_hash: H160,
 		from: H160,
@@ -376,50 +380,41 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 
 	// Transaction methods
 
-	async fn send_many(
+	fn send_many(
 		&self,
 		from: Option<H160>,
 		send_tokens: Vec<TransactionSendToken>,
 	) -> NeoRequest<Transaction> {
-		let params = [from?.to_value(), send_tokens.to_value()].to_vec();
+		let params = [from.unwrap().to_value(), send_tokens.to_value()].to_vec();
 		NeoRequest::new("sendmany", params)
 	}
 
-	async fn send_to_address(
-		&self,
-		token_hash: H160,
-		to: H160,
-		amount: u32,
-	) -> NeoRequest<Transaction> {
+	fn send_to_address(&self, token_hash: H160, to: H160, amount: u32) -> NeoRequest<Transaction> {
 		let params = [token_hash.to_value(), to.to_value(), amount.to_value()].to_vec();
 		NeoRequest::new("sendtoaddress", params)
 	}
 
-	async fn get_application_log(&self, tx_hash: H256) -> NeoRequest<NeoApplicationLog> {
+	fn get_application_log(&self, tx_hash: H256) -> NeoRequest<NeoApplicationLog> {
 		NeoRequest::new("getapplicationlog", vec![tx_hash.to_value()])
 	}
 
-	async fn get_nep17_balances(&self, script_hash: H160) -> NeoRequest<Nep17Balances> {
+	fn get_nep17_balances(&self, script_hash: H160) -> NeoRequest<Nep17Balances> {
 		NeoRequest::new("getnep17balances", [script_hash.to_value()].to_vec())
 	}
 
-	async fn get_nep17_transfers(&self, script_hash: H160) -> NeoRequest<Nep17Transfers> {
+	fn get_nep17_transfers(&self, script_hash: H160) -> NeoRequest<Nep17Transfers> {
 		let params = [script_hash.to_value()].to_vec();
 		NeoRequest::new("getnep17transfers", params)
 	}
 
 	// NEP-17 methods
 
-	async fn get_nep17_transfers_from(
-		&self,
-		script_hash: H160,
-		from: i64,
-	) -> NeoRequest<Nep17Transfers> {
+	fn get_nep17_transfers_from(&self, script_hash: H160, from: i64) -> NeoRequest<Nep17Transfers> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
 		NeoRequest::new("getnep17transfers", params)
 	}
 
-	async fn get_nep17_transfers_range(
+	fn get_nep17_transfers_range(
 		&self,
 		script_hash: H160,
 		from: i64,
@@ -429,28 +424,24 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getnep17transfers", params)
 	}
 
-	async fn get_nep11_balances(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_balances(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
 		let params = [script_hash.to_value()].to_vec();
 		NeoRequest::new("getnep11balances", params)
 	}
 
 	// NEP-11 methods
 
-	async fn get_nep11_transfers(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_transfers(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
 		let params = [script_hash.to_value()].to_vec();
 		NeoRequest::new("getnep11transfers", params)
 	}
 
-	async fn get_nep11_transfers_from(
-		&self,
-		script_hash: H160,
-		from: i64,
-	) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_transfers_from(&self, script_hash: H160, from: i64) -> NeoRequest<Nep11Transfers> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
 		NeoRequest::new("getnep11transfers", params)
 	}
 
-	async fn get_nep11_transfers_range(
+	fn get_nep11_transfers_range(
 		&self,
 		script_hash: H160,
 		from: i64,
@@ -460,7 +451,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getnep11transfers", params)
 	}
 
-	async fn get_nep11_properties(
+	fn get_nep11_properties(
 		&self,
 		script_hash: H160,
 		token_id: String,
@@ -469,46 +460,36 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("getnep11properties", params)
 	}
 
-	async fn get_state_root(&self, block_index: u32) -> NeoRequest<StateRoot> {
+	fn get_state_root(&self, block_index: u32) -> NeoRequest<StateRoot> {
 		let params = [block_index.to_value()].to_vec();
 		NeoRequest::new("getstateroot", params)
 	}
 
 	// State service methods
 
-	async fn get_proof(
-		&self,
-		root_hash: H256,
-		contract_hash: H160,
-		key: String,
-	) -> NeoRequest<String> {
+	fn get_proof(&self, root_hash: H256, contract_hash: H160, key: String) -> NeoRequest<String> {
 		NeoRequest::new(
 			"getproof",
 			vec![root_hash.to_value(), contract_hash.to_value(), key.to_base64()],
 		)
 	}
 
-	async fn verify_proof(&self, root_hash: H256, proof: String) -> NeoRequest<bool> {
+	fn verify_proof(&self, root_hash: H256, proof: String) -> NeoRequest<bool> {
 		let params = [root_hash.to_value(), proof.to_value()].to_vec();
 		NeoRequest::new("verifyproof", params)
 	}
 
-	async fn get_state_height(&self) -> NeoRequest<StateHeight> {
+	fn get_state_height(&self) -> NeoRequest<StateHeight> {
 		NeoRequest::new("getstateheight", vec![])
 	}
 
-	async fn get_state(
-		&self,
-		root_hash: H256,
-		contract_hash: H160,
-		key: String,
-	) -> NeoRequest<String> {
+	fn get_state(&self, root_hash: H256, contract_hash: H160, key: String) -> NeoRequest<String> {
 		NeoRequest::new(
 			"getstate",
 			vec![root_hash.to_value(), contract_hash.to_value(), key.to_base64()],
 		)
 	}
-	async fn find_states(
+	fn find_states(
 		&self,
 		root_hash: H256,
 		contract_hash: H160,
@@ -576,11 +557,11 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("traverseiterator", params)
 	}
 
-	async fn terminate_session(&self, session_id: &String) -> NeoRequest<bool> {
+	fn terminate_session(&self, session_id: &String) -> NeoRequest<bool> {
 		NeoRequest::new("terminatesession", vec![session_id.to_value()])
 	}
 
-	async fn invoke_contract_verify(
+	fn invoke_contract_verify(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
@@ -591,19 +572,19 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("invokecontractverify", vec![hash.to_value(), params, signers])
 	}
 
-	async fn get_raw_mempool(&self) -> NeoRequest<MemPoolDetails> {
+	fn get_raw_mempool(&self) -> NeoRequest<MemPoolDetails> {
 		NeoRequest::new("getrawmempool", vec![])
 	}
 
-	async fn import_private_key(&self, wif: String) -> NeoRequest<NeoAddress> {
+	fn import_private_key(&self, wif: String) -> NeoRequest<NeoAddress> {
 		NeoRequest::new("importprivkey", vec![wif.to_value()])
 	}
 
-	async fn get_block_header_hash(&self, hash: H256) -> NeoRequest<NeoBlock> {
+	fn get_block_header_hash(&self, hash: H256) -> NeoRequest<NeoBlock> {
 		NeoRequest::new("getblockheader", vec![hash.to_value(), 1])
 	}
 
-	async fn send_to_address_send_token(
+	fn send_to_address_send_token(
 		&self,
 		send_token: &TransactionSendToken,
 	) -> NeoRequest<Transaction> {
@@ -611,7 +592,7 @@ impl<T: NeoService> NeoTrait for NeoRust<T> {
 		NeoRequest::new("sendtoaddress", params)
 	}
 
-	async fn send_from_send_token(
+	fn send_from_send_token(
 		&self,
 		send_token: &TransactionSendToken,
 		from: H160,

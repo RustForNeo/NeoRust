@@ -1,3 +1,4 @@
+#![feature(const_trait_impl)]
 pub mod contract_error;
 pub mod contract_management;
 pub mod fungible_token_contract;

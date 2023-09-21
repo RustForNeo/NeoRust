@@ -2,6 +2,7 @@ use crate::{
 	contract::{contract_error::ContractError, traits::smartcontract::SmartContractTrait},
 	transaction::transaction_builder::TransactionBuilder,
 	types::H160Externsion,
+	utils::*,
 };
 use async_trait::async_trait;
 use primitive_types::H160;
@@ -9,6 +10,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyContract {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	script_hash: H160,
 }
 
@@ -60,7 +63,7 @@ impl PolicyContract {
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
-		let account = H160::from_address(address)?;
+		let account = H160::from_address(address).unwrap();
 		self.block_account(&account)
 	}
 
@@ -72,7 +75,7 @@ impl PolicyContract {
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
-		let account = H160::from_address(address)?;
+		let account = H160::from_address(address).unwrap();
 		self.unblock_account(&account)
 	}
 }

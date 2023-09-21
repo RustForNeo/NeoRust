@@ -8,7 +8,7 @@ pub struct NNSName {
 
 impl NNSName {
 	pub fn new(name: &str) -> Result<Self, ContractError> {
-		Self::validate(name, true)?;
+		Self::validate(name, true).unwrap();
 		Ok(Self { name: name.to_owned() })
 	}
 
@@ -27,7 +27,7 @@ impl NNSName {
 		}
 
 		for fragment in &fragments {
-			Self::validate_fragment(fragment, fragment == fragments.last().unwrap())?;
+			Self::validate_fragment(fragment, fragment == fragments.last().unwrap()).unwrap();
 		}
 
 		Ok(())
@@ -63,7 +63,7 @@ impl NNSName {
 	}
 
 	pub fn validate(name: &str, allow_multi_fragments: bool) -> Result<(), ContractError> {
-		Self::is_valid(name, allow_multi_fragments)?;
+		Self::is_valid(name, allow_multi_fragments).unwrap();
 		Ok(())
 	}
 
@@ -83,7 +83,7 @@ pub struct NNSRoot {
 
 impl NNSRoot {
 	pub fn new(root: &str) -> Result<Self, ContractError> {
-		Self::validate(root)?;
+		Self::validate(root).unwrap();
 		Ok(Self { root: root.to_owned() })
 	}
 

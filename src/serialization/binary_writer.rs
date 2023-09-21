@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::hash::Hasher;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BinaryWriter {
 	data: Vec<u8>,
 }

@@ -4,11 +4,15 @@ use crate::{
 		fungible_token_contract::FungibleTokenContract,
 		gas_token::GasToken,
 		neo_token::NeoToken,
-		traits::{smartcontract::SmartContractTrait, token::TokenTrait},
+		traits::{
+			fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait,
+			token::TokenTrait,
+		},
 	},
 	neo_error::NeoError,
 	transaction::transaction_builder::TransactionBuilder,
 	types::H160Externsion,
+	utils::*,
 	wallet::account::Account,
 };
 use decimal::d128;
@@ -17,11 +21,21 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, str::FromStr};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeoURI {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(deserialize_with = "deserialize_url")]
+	#[serde(serialize_with = "serialize_url")]
 	uri: Option<Url>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	recipient: Option<H160>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	token: Option<H160>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	amount: Option<d128>,
 }
 
@@ -36,7 +50,7 @@ impl NeoURI {
 	}
 
 	pub fn from_uri(uri_string: &str) -> Result<Self, ContractError> {
-		let parts: Vec<&str> = uri_string.split("?").collect();
+		let parts: Vec<&str> = uri_string.split(".unwrap()").collect();
 		let base = parts[0];
 		let query = if parts.len() > 1 { Some(parts[1]) } else { None };
 
@@ -48,7 +62,7 @@ impl NeoURI {
 			return Err(ContractError::InvalidNeoName("Invalid NEP-9 URI".to_string()))
 		}
 
-		let mut neo_uri = Self::new().to(H160::from_address(base_parts[1])?);
+		let mut neo_uri = Self::new().to(H160::from_address(base_parts[1]).unwrap());
 
 		if let Some(query_str) = query {
 			for part in query_str.split("&") {
@@ -59,10 +73,10 @@ impl NeoURI {
 
 				match kv[0] {
 					"asset" if neo_uri.token.is_none() => {
-						neo_uri.token(H160::from_str(kv[1].clone())?)?;
+						neo_uri.token(H160::from_str(kv[1].clone()).unwrap());
 					},
 					"amount" if neo_uri.amount.is_none() => {
-						neo_uri.amount = Some(kv[1].parse()?);
+						neo_uri.amount = Some(kv[1].parse().unwrap());
 					},
 					_ => {},
 				}
@@ -98,18 +112,21 @@ impl NeoURI {
 	) -> Result<TransactionBuilder, NeoError> {
 		let recipient = self
 			.recipient
-			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))?;
+			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))
+			.unwrap();
 		let amount = self
 			.amount
-			.ok_or(ContractError::InvalidStateError("Amount not set".to_string()))?;
+			.ok_or(ContractError::InvalidStateError("Amount not set".to_string()))
+			.unwrap();
 		let tokenHash = self
 			.token
-			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))?;
+			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))
+			.unwrap();
 
 		let mut token = FungibleTokenContract::new(&tokenHash);
 
 		// Validate amount precision
-		let amount_scale = amount.scale();
+		let amount_scale = amount.digits() as u8; //.scale();
 
 		if Self::is_neo_token(&tokenHash) && amount_scale > 0 {
 			return Err(NeoError::from(ContractError::InvalidArgError(
@@ -117,20 +134,27 @@ impl NeoURI {
 			)))
 		}
 
-		if Self::is_gas_token(&tokenHash) && amount_scale > GasToken::new().decimals() {
+		if Self::is_gas_token(&tokenHash) && amount_scale > GasToken::new().decimals().unwrap() {
 			return Err(NeoError::from(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
 			)))
 		}
 
-		let decimals = token.get_decimals().await?;
+		let decimals = token.get_decimals().await.unwrap();
 		if amount_scale > decimals {
 			return Err(NeoError::from(ContractError::InvalidArgError(
 				"Too many decimal places for token".to_string(),
 			)))
 		}
 
-		token.transfer(sender, recipient, token.to_fractions(amount)).await
+		token
+			.transfer_from_account(
+				sender,
+				recipient,
+				token.to_fractions(amount).unwrap() as i32,
+				None,
+			)
+			.map_err(|e| NeoError::from(e))
 	}
 
 	// Helpers
@@ -159,7 +183,7 @@ impl NeoURI {
 		self.token = match token_str {
 			Self::NEO_TOKEN_STRING => Some(NeoToken::new().script_hash()),
 			Self::GAS_TOKEN_STRING => Some(GasToken::new().script_hash()),
-			_ => Some(token_str.parse()?),
+			_ => Some(token_str.parse().unwrap()),
 		};
 		Ok(self)
 	}
@@ -196,13 +220,14 @@ impl NeoURI {
 	pub fn build_uri(mut self) -> Result<Self, NeoError> {
 		let recipient = self
 			.recipient
-			.ok_or(ContractError::InvalidStateError("No recipient set".to_string()))?;
+			.ok_or(ContractError::InvalidStateError("No recipient set".to_string()))
+			.unwrap();
 
-		let base = format!("{}:{}", Self::NEO_SCHEME, recipient.to_address()?);
+		let base = format!("{}:{}", Self::NEO_SCHEME, recipient.to_address());
 		let query = self.build_query();
-		let uri_str = if query.is_empty() { base } else { format!("{}?{}", base, query) };
+		let uri_str = if query.is_empty() { base } else { format!("{}.unwrap(){}", base, query) };
 
-		self.uri = Some(uri_str.parse()?);
+		self.uri = Some(uri_str.parse().unwrap());
 		Ok(self)
 	}
 }

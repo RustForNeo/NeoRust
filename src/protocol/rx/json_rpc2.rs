@@ -5,6 +5,7 @@ use crate::{
 			block_index::BlockIndexPolling, neo_trait::NeoTrait,
 			responses::neo_response_aliases::NeoGetBlock,
 		},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 };
@@ -35,7 +36,7 @@ impl JsonRpc2 {
 		polling_interval: i32,
 	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
 		self.block_index_publisher(polling_interval).and_then(|index| {
-			NeoRust::instance()
+			NeoRust::<HttpService>::instance()
 				.get_block(index, full_transaction_objects)
 				.execute(&mut self.executor_service)
 		})
@@ -54,7 +55,7 @@ impl JsonRpc2 {
 		}
 
 		futures::stream::iter(blocks).and_then(|block| {
-			NeoRust::instance()
+			NeoRust::<HttpService>::instance()
 				.get_block(block, full_transaction_objects)
 				.execute(&mut self.executor_service)
 		})
@@ -66,7 +67,7 @@ impl JsonRpc2 {
 		full_transaction_objects: bool,
 		on_caught_up_publisher: impl Stream<Item = Result<NeoGetBlock, NeoError>>,
 	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
-		let latest_block = self.latest_block_index_publisher().await?;
+		let latest_block = self.latest_block_index_publisher().await.unwrap();
 
 		if start_block >= latest_block {
 			Box::pin(on_caught_up_publisher)
@@ -97,9 +98,10 @@ impl JsonRpc2 {
 	}
 
 	pub async fn latest_block_index_publisher(&self) -> Result<i32, NeoError> {
-		NeoRust::instance()
+		NeoRust::<HttpService>::instance()
 			.get_block_count()
-			.execute(&mut self.executor_service)?
+			.execute(&mut self.executor_service)
+			.unwrap()
 			.get_result()
 			- 1
 	}

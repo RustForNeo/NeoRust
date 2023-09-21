@@ -6,9 +6,8 @@ use crate::{
 };
 use async_trait::async_trait;
 use primitive_types::H160;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct FungibleTokenContract {
 	script_hash: H160,
 	total_supply: Option<u64>,

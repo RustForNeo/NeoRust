@@ -2,8 +2,12 @@
 
 use crate::{
 	neo_error::NeoError,
-	protocol::{core::response::ResponseTrait, neo_rust::NeoRust},
+	protocol::{
+		core::response::ResponseTrait, http_service::HttpService, neo_rust::NeoRust,
+		neo_service::NeoService,
+	},
 };
+use futures::future::ready;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -39,7 +43,10 @@ where
 	}
 
 	pub async fn request(&self) -> Result<T, NeoError> {
-		let response = NeoRust::instance().get_neo_service().send(self).await.unwrap();
+		let neo_rust_instance = NeoRust::<HttpService>::instance();
+		let service = neo_rust_instance.get_neo_service();
+		let response = ready(service.send(self)).await.unwrap();
+
 		response.get_result()
 	}
 }

@@ -4,14 +4,16 @@ use crate::{
 		transaction_signer::TransactionSigner,
 	},
 	types::vm_state::VMState,
+	utils::*,
 };
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct Transaction {
 	#[serde(rename = "hash")]
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
 	pub hash: H256,
 
 	#[serde(rename = "size")]
@@ -48,6 +50,8 @@ pub struct Transaction {
 	pub witnesses: Vec<NeoWitness>,
 
 	#[serde(rename = "blockhash")]
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
 	pub block_hash: Option<H256>,
 
 	#[serde(rename = "confirmations")]

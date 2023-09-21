@@ -45,47 +45,50 @@ impl ScriptBuilder {
 		&mut self,
 		hash160: &H160,
 		method: &str,
-		params: &[Option<ContractParameter>],
+		params: &[ContractParameter],
 		call_flags: CallFlags,
 	) -> Result<&mut Self, NeoError> {
 		if params.is_empty() {
 			self.op_code(&[OpCode::NewArray]);
 		} else {
-			self.push_params(params)?;
+			self.push_params(params).unwrap();
 		}
 
-		self.push_integer(call_flags.bits())?
+		self.push_integer(call_flags.bits())
+			.unwrap()
 			.push_data(method.as_bytes().to_vec())
 			.push_data(hash160.to_bytes())
 			.sys_call(InteropService::SystemContractCall)
 	}
 
 	pub fn sys_call(&mut self, operation: InteropService) -> &mut Self {
-		self.op_code(&[OpCode::Syscall]).push_data(operation.to_hash().as_bytes())?
+		self.op_code(&[OpCode::Syscall])
+			.push_data(operation.to_hash().as_bytes())
+			.unwrap()
 	}
 
-	pub fn push_params(&mut self, params: &[Option<ContractParameter>]) -> &mut Self {
+	pub fn push_params(&mut self, params: &[ContractParameter]) -> &mut Self {
 		for param in params {
-			self.push_param(param)?;
+			self.push_param(param).unwrap();
 		}
 
-		self.push_integer(params.len() as i64)?.op_code(&[OpCode::Pack])?
+		self.push_integer(params.len() as i64).unwrap().op_code(&[OpCode::Pack])
 	}
 
-	pub fn push_param(&mut self, param: &Option<ContractParameter>) -> Result<&mut Self, NeoError> {
+	pub fn push_param(&mut self, param: &ContractParameter) -> Result<&mut Self, NeoError> {
 		match param {
 			None => self.op_code(&[OpCode::PushNull]),
 			Some(param) => {
 				match &param.value {
 					ParameterValue::Boolean(b) => self.push_bool(*b),
-					ParameterValue::Integer(i) => self.push_integer(i.clone())?,
+					ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
 					ParameterValue::ByteArray(b)
 					| ParameterValue::Signature(b)
 					| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()),
 					ParameterValue::Hash160(h) => self.push_data(h.as_bytes().to_vec()),
 					ParameterValue::Hash256(h) => self.push_data(h.as_bytes().to_vec()),
 					ParameterValue::String(s) => self.push_data(s.as_bytes().to_vec()),
-					ParameterValue::Array(arr) => self.push_array(arr)?,
+					ParameterValue::Array(arr) => self.push_array(arr).unwrap(),
 					ParameterValue::Map(map) => {
 						// Create an empty HashMap to hold your ContractParameter key-value pairs
 						let mut map: HashMap<ContractParameter, ContractParameter> = HashMap::new();
@@ -100,7 +103,7 @@ impl ScriptBuilder {
 							map.insert(key, value);
 						}
 
-						self.push_map(&map)?
+						self.push_map(&map).unwrap()
 					},
 					_ =>
 						return Err(Error::IllegalArgument("Unsupported parameter type".to_string())),
@@ -194,7 +197,7 @@ impl ScriptBuilder {
 					vv
 				})
 				.collect();
-			self.push_params(&Some(arrr))?;
+			self.push_params(&Some(arrr)).unwrap();
 		}
 		Ok(self)
 	}
@@ -206,11 +209,11 @@ impl ScriptBuilder {
 		for (k, v) in map {
 			let kk: ContractParameter = k.clone().into();
 			let vv: ContractParameter = v.clone().into();
-			self.push_param(&Some(vv))?;
-			self.push_param(&Some(kk))?;
+			self.push_param(&vv).unwrap();
+			self.push_param(&kk).unwrap();
 		}
 
-		Ok(self.push_integer(map.len() as i64)?.op_code(&[OpCode::PackMap]))
+		Ok(self.push_integer(map.len() as i64).unwrap().op_code(&[OpCode::PackMap]))
 	}
 
 	// Additional helper methods
@@ -225,21 +228,22 @@ impl ScriptBuilder {
 
 	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {
 		let mut sb = ScriptBuilder::new();
-		sb.push_data(pub_key.to_encoded_point(false).as_bytes().to_vec())?
+		sb.push_data(pub_key.to_encoded_point(false).as_bytes().to_vec())
+			.unwrap()
 			.sys_call(InteropService::SystemCryptoCheckSig);
 		sb.to_bytes()
 	}
 
 	pub fn build_multisig_script(pubkeys: &[KeyPair], threshold: u8) -> Result<Bytes, NeoError> {
 		let mut sb = ScriptBuilder::new();
-		sb.push_int(threshold as i64)?;
+		sb.push_int(threshold as i64).unwrap();
 		for pk in pubkeys
 			.iter()
 			.sorted_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)))
 		{
-			sb.push_data(pk.to_encoded_point(true))?;
+			sb.push_data(pk.to_encoded_point(true)).unwrap();
 		}
-		sb.push_int(pubkeys.len() as i64)?;
+		sb.push_int(pubkeys.len() as i64).unwrap();
 		sb.sys_call(InteropService::SystemCryptoCheckMultisig);
 		Ok(sb.to_bytes())
 	}
@@ -250,32 +254,36 @@ impl ScriptBuilder {
 		name: &str,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = ScriptBuilder::new();
-		sb.op_code(&[OpCode::Abort])?
-			.push_data(sender.to_array()?.as_slice())?
-			.push_int(nef_checksum as i64)?
-			.push_data(name.as_bytes())?;
+		sb.op_code(&[OpCode::Abort])
+			.unwrap()
+			.push_data(sender.to_array().unwrap().as_slice())
+			.unwrap()
+			.push_int(nef_checksum as i64)
+			.unwrap()
+			.push_data(name.as_bytes())
+			.unwrap();
 		Ok(sb.to_bytes())
 	}
 	pub fn build_contract_call_and_unwrap_iterator(
 		contract_hash: &H160,
 		method: &str,
-		params: &[Option<ContractParameter>],
+		params: &[ContractParameter],
 		max_items: u32,
 		call_flags: CallFlags,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = Self::new();
-		sb.push_int(max_items as i64)?;
+		sb.push_int(max_items as i64).unwrap();
 
-		sb.contract_call(contract_hash, method, params, call_flags)?;
+		sb.contract_call(contract_hash, method, params, call_flags).unwrap();
 
-		sb.op_code(&[OpCode::NewArray])?;
+		sb.op_code(&[OpCode::NewArray]).unwrap();
 
 		let cycle_start = sb.writer.size();
-		sb.op_code(&[OpCode::Over])?;
-		sb.sys_call(InteropService::SystemIteratorNext)?;
+		sb.op_code(&[OpCode::Over]).unwrap();
+		sb.sys_call(InteropService::SystemIteratorNext).unwrap();
 
 		let jmp_if_not = sb.writer.size();
-		sb.op_code_arg(OpCode::JmpIf, &[0])?;
+		sb.op_code_arg(OpCode::JmpIf, &[0]).unwrap();
 
 		sb.op_code(&[OpCode::Dup, OpCode::Push2, OpCode::Pick])
 			.sys_call(InteropService::SystemIteratorValue)
@@ -286,17 +294,18 @@ impl ScriptBuilder {
 				OpCode::Push3,
 				OpCode::Pick,
 				OpCode::Ge,
-			])?;
+			])
+			.unwrap();
 
 		let jmp_if_max = sb.writer.size();
-		sb.op_code_arg(OpCode::JmpIf, &[0])?;
+		sb.op_code_arg(OpCode::JmpIf, &[0]).unwrap();
 
 		let jmp_offset = sb.writer.size();
 		let jmp_bytes = (cycle_start - jmp_offset) as i8;
-		sb.op_code_arg(OpCode::Jmp, &[jmp_bytes])?;
+		sb.op_code_arg(OpCode::Jmp, &[jmp_bytes]).unwrap();
 
 		let load_result = sb.writer.size();
-		sb.op_code(&[OpCode::Nip, OpCode::Nip])?;
+		sb.op_code(&[OpCode::Nip, OpCode::Nip]).unwrap();
 
 		let mut script = sb.to_bytes();
 		let jmp_not_bytes = (load_result - jmp_if_not) as i8;

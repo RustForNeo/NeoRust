@@ -1,8 +1,9 @@
+use crate::utils::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize)]
 pub struct NeoGetNep11Balances {
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub balances: Option<Nep11Balances>,
 }
 
@@ -20,6 +21,8 @@ pub struct Nep11Balance {
 	pub decimals: String,
 	pub tokens: Vec<Nep11Token>,
 	#[serde(rename = "assethash")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub asset_hash: H160,
 }
 

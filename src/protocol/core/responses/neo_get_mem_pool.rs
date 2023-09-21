@@ -1,3 +1,4 @@
+use crate::utils::*;
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +10,10 @@ pub struct NeoGetMemPool {
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct MemPoolDetails {
 	pub height: u32,
+	#[serde(serialize_with = "serialize_vec_h256")]
+	#[serde(deserialize_with = "deserialize_vec_h256")]
 	pub verified: Vec<H256>,
+	#[serde(serialize_with = "serialize_vec_h256")]
+	#[serde(deserialize_with = "deserialize_vec_h256")]
 	pub unverified: Vec<H256>,
 }

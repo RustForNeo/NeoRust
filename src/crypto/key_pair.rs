@@ -42,20 +42,20 @@ impl KeyPair {
 	}
 
 	pub fn get_address(&self) -> Result<String, NeoError> {
-		let script_hash = self.get_script_hash()?;
+		let script_hash = self.get_script_hash().unwrap();
 		let address = script_hash.to_address();
 		Ok(address)
 	}
 
 	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
 		let public_key = self.public_key.to_encoded_point(false);
-		let script = ScriptBuilder::build_verification_script(&public_key)?;
-		Ok(H160::from_script(&script)?)
+		let script = ScriptBuilder::build_verification_script(&public_key).unwrap();
+		Ok(H160::from_script(&script).unwrap())
 	}
 
 	pub fn sign(&mut self, message: &[u8]) -> Result<Signature, NeoError> {
 		let message = Sha256::digest(message);
-		let signature = self.private_key.sign(&message)?;
+		let signature = self.private_key.sign(&message).unwrap();
 		Ok(signature)
 	}
 

@@ -1,6 +1,6 @@
 use num_enum::TryFromPrimitive;
 use strum_macros::{Display, EnumString};
-#[derive(Display, EnumString, TryFromPrimitive, Debug, PartialEq, Eq)]
+#[derive(Display, EnumString, TryFromPrimitive, Debug, PartialEq, Eq, Clone)]
 #[repr(u8)]
 pub enum WitnessScope {
 	#[strum(serialize = "None")]

@@ -3,9 +3,11 @@ use crate::{
 	neo_error::NeoError,
 	protocol::{
 		core::{
-			neo_trait::NeoTrait, responses::invocation_result::InvocationResult,
+			neo_trait::NeoTrait,
+			responses::{contract_manifest::ContractManifest, invocation_result::InvocationResult},
 			stack_item::StackItem,
 		},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},
@@ -19,23 +21,34 @@ use primitive_types::H160;
 pub trait SmartContractTrait {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
+	async fn name(&self) -> String {
+		self.get_manifest().await.name.unwrap()
+	}
+	fn set_name(&mut self, name: String) {
+		panic!("Cannot set name for NNS")
+	}
+
 	fn script_hash(&self) -> H160;
 
-	fn set_script_hash(&self, script_hash: H160);
+	fn set_script_hash(&mut self, script_hash: H160) {
+		panic!("Cannot set script hash for NNS")
+	}
 
 	fn invoke_function(
 		&self,
 		function: &str,
-		params: Vec<Option<ContractParameter>>,
+		params: Vec<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		let script = self.build_invoke_function_script(function, params)?;
-		Ok(TransactionBuilder::new().script(script))
+		let script = self.build_invoke_function_script(function, params).unwrap();
+		let mut builder = TransactionBuilder::new();
+		builder.set_script(script);
+		Ok(builder)
 	}
 
 	fn build_invoke_function_script(
 		&self,
 		function: &str,
-		params: Vec<Option<ContractParameter>>,
+		params: Vec<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
 		if function.is_empty() {
 			return Err(ContractError::InvalidNeoName("Function name cannot be empty".to_string()))
@@ -43,7 +56,8 @@ pub trait SmartContractTrait {
 
 		let script = ScriptBuilder::new()
 			.contract_call(&self.script_hash(), function, params.as_slice(), CallFlags::None)
-			.build();
+			.unwrap()
+			.to_bytes();
 
 		Ok(script)
 	}
@@ -53,8 +67,8 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<String, ContractError> {
-		let output = self.call_invoke_function(function, params, vec![]).await?;
-		self.throw_if_fault_state(&output)?;
+		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
+		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
 		item.as_str()
@@ -66,8 +80,9 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<i32, ContractError> {
-		let output = self.call_invoke_function(function, params, vec![]).await?.get_result();
-		self.throw_if_fault_state(&output)?;
+		let output =
+			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
 		item.as_i32()
@@ -79,8 +94,9 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<bool, ContractError> {
-		let output = self.call_invoke_function(function, params, vec![]).await?.get_result();
-		self.throw_if_fault_state(&output)?;
+		let output =
+			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
 		item.as_bool()
@@ -100,7 +116,7 @@ pub trait SmartContractTrait {
 				"Function cannot be empty".to_string(),
 			)))
 		}
-		NeoRust::instance()
+		NeoRust::<HttpService>::instance()
 			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
 			.await
 			.request()
@@ -121,8 +137,8 @@ pub trait SmartContractTrait {
 		function: &str,
 		params: Vec<ContractParameter>,
 	) -> Result<H160, ContractError> {
-		let output = self.call_invoke_function(function, params, vec![]).await?;
-		self.throw_if_fault_state(&output)?;
+		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
+		self.throw_if_fault_state(&output).unwrap();
 
 		let item = &output.stack[0];
 		item.as_bytes()
@@ -136,17 +152,20 @@ pub trait SmartContractTrait {
 		params: Vec<ContractParameter>,
 		mapper: impl Fn(StackItem) -> Result<U, ContractError>,
 	) -> Result<NeoIterator<U>, ContractError> {
-		let output = self.call_invoke_function(function, params, vec![]).await?.get_result();
-		self.throw_if_fault_state(&output)?;
+		let output =
+			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		self.throw_if_fault_state(&output).unwrap();
 
 		let item = &output.stack[0];
 		let interface = item
 			.as_interop()
-			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Iterator".to_string()]))?;
+			.ok_or_else(|| ContractError::UnexpectedReturnType(vec!["Iterator".to_string()]))
+			.unwrap();
 
 		let session_id = output
 			.session_id
-			.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))?;
+			.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))
+			.unwrap();
 
 		Ok(NeoIterator::new(session_id, interface.iterator_id, mapper))
 	}
@@ -164,17 +183,19 @@ pub trait SmartContractTrait {
 				function,
 				params.iter().filter_map(|p| Some(p)).collect(),
 				CallFlags::All,
-			)?
+			)
+			.unwrap()
 			.build();
 
-		let output = NeoRust::instance()
+		let output = NeoRust::<HttpService>::instance()
 			.invoke_script(script.to_bytes().to_hex(), vec![])
-			.await?
+			.await
+			.unwrap()
 			.get_result();
 
-		self.throw_if_fault_state(&output)?;
+		self.throw_if_fault_state(&output).unwrap();
 
-		let items = output.stack[0].to_array()?.into_iter().map(mapper).collect();
+		let items = output.stack[0].to_array().unwrap().into_iter().map(mapper).collect();
 
 		Ok(items)
 	}
@@ -197,5 +218,14 @@ pub trait SmartContractTrait {
 			.push_data(contract_name.as_bytes().to_vec());
 
 		Ok(H160::from_slice(script.to_bytes().as_slice()))
+	}
+
+	async fn get_manifest(&self) -> ContractManifest {
+		NeoRust::<HttpService>::instance()
+			.get_contract_state(self.script_hash())
+			.request()
+			.await
+			.unwrap()
+			.manifest
 	}
 }

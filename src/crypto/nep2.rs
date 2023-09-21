@@ -22,7 +22,7 @@ pub struct NEP2;
 
 impl NEP2 {
 	pub fn decrypt(password: &str, nep2_string: &str) -> Result<PrivateKey, &'static str> {
-		let nep2_data = base58check_decode(nep2_string); //nep2_string.from_base58check()?;
+		let nep2_data = base58check_decode(nep2_string).unwrap(); //nep2_string.from_base58check().unwrap();
 
 		if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
 			return Err("Invalid NEP2 length")
@@ -38,23 +38,22 @@ impl NEP2 {
 		let address_hash = &nep2_data[3..7];
 		let encrypted = &nep2_data[7..39];
 
-		let derived_key = Self.derive_scrypt_key(password, address_hash)?;
+		let derived_key = Self::derive_scrypt_key(password, address_hash).unwrap();
 		let derived_half1 = &derived_key[..32];
 		let derived_half2 = &derived_key[32..];
 
-		let decrypted_half1 = Self.aes_decrypt(encrypted[..16], derived_half2)?;
-		let decrypted_half2 = Self.aes_decrypt(&encrypted[16..], derived_half2)?;
+		let decrypted_half1 = Self::aes_decrypt(&encrypted[..16], derived_half2).unwrap();
+		let decrypted_half2 = Self::aes_decrypt(&encrypted[16..], derived_half2).unwrap();
 
-		let private_key = Self
-			.xor_keys(&decrypted_half1, derived_half1)
-			.chain(Self.xor_keys(&decrypted_half2, derived_half2))
+		let private_key = Self::xor_keys(&decrypted_half1, derived_half1)
+			.chain(Self::xor_keys(&decrypted_half2, derived_half2))
 			.collect::<Vec<_>>();
 
 		let private_key = PrivateKey::from_bytes(private_key.as_slice()).unwrap();
 		let public_key = PublicKey::from(private_key);
 
 		let new_address_hash =
-			Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
+			Self::address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes()).unwrap();
 
 		if new_address_hash != address_hash {
 			return Err("Invalid passphrase")
@@ -66,15 +65,17 @@ impl NEP2 {
 	pub fn encrypt(password: &str, private_key: &PrivateKey) -> Result<String, &'static str> {
 		let public_key = PublicKey::from(private_key);
 		let address_hash =
-			Self.address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes())?;
-		let derived_key = Self.derive_scrypt_key(password, &address_hash)?;
+			Self::address_hash_from_pubkey(public_key.to_encoded_point(true).as_bytes()).unwrap();
+		let derived_key = Self::derive_scrypt_key(password, &address_hash).unwrap();
 		let derived_half1 = &derived_key[..32];
 		let derived_half2 = &derived_key[32..];
 
 		let encrypted_half1 =
-			Self.aes_encrypt(Self.xor_keys(&private_key[..16], derived_half1), derived_half2)?;
+			Self::aes_encrypt(Self::xor_keys(&private_key[..16], derived_half1), derived_half2)
+				.unwrap();
 		let encrypted_half2 =
-			Self.aes_encrypt(Self.xor_keys(&private_key[16..], derived_half1), derived_half2)?;
+			Self::aes_encrypt(Self::xor_keys(&private_key[16..], derived_half1), derived_half2)
+				.unwrap();
 
 		let mut nep2_data = vec![NEP2_PREFIX_1, NEP2_PREFIX_2, NEP2_FLAGBYTE];
 		nep2_data.extend_from_slice(address_hash.as_slice());
@@ -87,7 +88,7 @@ impl NEP2 {
 	}
 
 	fn derive_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
-		let params = ScryptParams::new(14, 8, 1)?;
+		let params = ScryptParams::new(14, 8, 1).unwrap();
 		let mut hash = [0u8; DKLEN];
 		let _ = scrypt(password.as_bytes(), salt, &params, &mut hash).map_err(|_| "Scrypt error");
 		Ok(hash.to_vec())

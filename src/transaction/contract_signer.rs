@@ -9,7 +9,7 @@ use crate::{
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct ContractSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,

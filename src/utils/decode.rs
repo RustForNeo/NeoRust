@@ -39,7 +39,7 @@ struct SafeDecode<T: FromStr> {
 
 impl<T: FromStr> SafeDecode<T> {
 	fn new(s: &str) -> Result<Self, T::Err> {
-		let value = T::from_str(s)?;
+		let value = T::from_str(s).unwrap();
 		Ok(Self { value })
 	}
 }

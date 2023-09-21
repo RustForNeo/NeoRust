@@ -4,7 +4,7 @@ use crate::protocol::core::witness_rule::{
 use futures::TryStreamExt;
 use serde::{ser::SerializeTuple, Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct WitnessRule {
 	pub action: WitnessAction,
 	pub condition: WitnessCondition,
@@ -21,9 +21,9 @@ impl Serialize for WitnessRule {
 	where
 		S: Serializer,
 	{
-		let mut tuple = serializer.serialize_tuple(2)?;
-		tuple.serialize_element(&self.action.byte())?;
-		tuple.serialize_element(&self.condition.serialize(serializer)?)?;
+		let mut tuple = serializer.serialize_tuple(2).unwrap();
+		tuple.serialize_element(&self.action.byte()).unwrap();
+		tuple.serialize_element(&self.condition.serialize(serializer).unwrap()).unwrap();
 		tuple.end()
 	}
 }
@@ -35,9 +35,9 @@ impl<'de> Deserialize<'de> for WitnessRule {
 	where
 		D: Deserializer<'de>,
 	{
-		let (action_byte, condition) = Deserialize::deserialize(deserializer)?;
+		let (action_byte, condition) = Deserialize::deserialize(deserializer).unwrap();
 
-		let action = WitnessAction::from_u8(action_byte).map_err(serde::de::Error::custom)?;
+		let action = WitnessAction::from_u8(action_byte).map_err(serde::de::Error::custom).unwrap();
 
 		Ok(Self { action, condition })
 	}

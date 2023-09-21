@@ -2,10 +2,12 @@ use crate::{
 	contract::{contract_error::ContractError, traits::smartcontract::SmartContractTrait},
 	protocol::{
 		core::{neo_trait::NeoTrait, stack_item::StackItem},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 	transaction::transaction_builder::TransactionBuilder,
 	types::PublicKey,
+	utils::*,
 };
 use async_trait::async_trait;
 use num_enum::TryFromPrimitive;
@@ -15,6 +17,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleManagement {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	script_hash: H160,
 }
 
@@ -31,7 +35,7 @@ impl RoleManagement {
 		role: Role,
 		block_index: i32,
 	) -> Result<Vec<PublicKey>, ContractError> {
-		self.check_block_index_validity(block_index).await?;
+		self.check_block_index_validity(block_index).await.unwrap();
 
 		let invocation = self
 			.call_invoke_function(
@@ -39,10 +43,12 @@ impl RoleManagement {
 				vec![role.into(), block_index.into()],
 				vec![],
 			)
-			.await?;
+			.await
+			.unwrap();
 
-		let designated = invocation.get_result().stack[0]
-			.to_array()?
+		let designated = invocation.stack[0]
+			.as_array()
+			.unwrap()
 			.into_iter()
 			.map(|item| item.as_bytes().to_vec().into())
 			.collect();
@@ -55,7 +61,8 @@ impl RoleManagement {
 			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
 		}
 
-		let current_block_count = NeoRust::instance().get_block_count().await?.get_result();
+		let current_block_count =
+			NeoRust::<HttpService>::instance().get_block_count().await.unwrap().get_result();
 
 		if block_index > current_block_count {
 			return Err(ContractError::InvalidNeoName(format!(
@@ -118,6 +125,6 @@ impl Role {
 
 impl From<Role> for StackItem {
 	fn from(role: Role) -> Self {
-		StackItem::new_int(role.byte() as i32)
+		StackItem::Integer { value: role.byte() as i64 }
 	}
 }

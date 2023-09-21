@@ -10,8 +10,8 @@ impl URLSession {
 		request: Request,
 	) -> Result<(Vec<u8>, reqwest::Response), reqwest::Error> {
 		let client = Client::new();
-		let response = client.execute(request).await?;
-		let data = response.bytes().await?;
+		let response = client.execute(request).await.unwrap();
+		let data = response.bytes().await.unwrap();
 
 		Ok((data, response))
 	}

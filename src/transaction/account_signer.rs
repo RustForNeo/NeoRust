@@ -11,7 +11,7 @@ use crate::{
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct AccountSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
@@ -51,7 +51,7 @@ impl Signer for AccountSigner {
 impl AccountSigner {
 	fn new(account: &Account, scope: WitnessScope) -> Self {
 		Self {
-			signer_hash: account.getScriptHash(),
+			signer_hash: account.get_script_hash().unwrap(),
 			scopes: vec![],
 			allowed_contracts: vec![],
 			allowed_groups: vec![],

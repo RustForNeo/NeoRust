@@ -1,15 +1,20 @@
-use crate::protocol::core::{
-	responses::{
-		contract_state::ContractState, contract_storage_entry::ContractStorageEntry,
-		express_contract_state::ExpressContractState, express_shutdown::ExpressShutdown,
-		invocation_result::InvocationResult, native_contract_state::NativeContractState,
-		neo_address::NeoAddress, neo_application_log::NeoApplicationLog, neo_block::NeoBlock,
-		neo_network_fee::NeoNetworkFee, nep17contract::Nep17Contract,
-		oracle_request::OracleRequest, populated_blocks::PopulatedBlocks, transaction::Transaction,
+use crate::{
+	protocol::core::{
+		responses::{
+			contract_state::ContractState, contract_storage_entry::ContractStorageEntry,
+			express_contract_state::ExpressContractState, express_shutdown::ExpressShutdown,
+			invocation_result::InvocationResult, native_contract_state::NativeContractState,
+			neo_address::NeoAddress, neo_application_log::NeoApplicationLog, neo_block::NeoBlock,
+			neo_network_fee::NeoNetworkFee, nep17contract::Nep17Contract,
+			oracle_request::OracleRequest, populated_blocks::PopulatedBlocks,
+			transaction::Transaction,
+		},
+		stack_item::StackItem,
 	},
-	stack_item::StackItem,
+	utils::*,
 };
 use primitive_types::H256;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -17,8 +22,10 @@ pub struct NeoBlockCount {
 	pub block_count: Option<i32>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NeoBlockHash {
+	#[serde(serialize_with = "serialize_h256")]
+	#[serde(deserialize_with = "deserialize_h256")]
 	pub block_hash: Option<H256>,
 }
 
@@ -129,8 +136,10 @@ pub struct NeoGetRawBlock {
 	pub raw_block: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NeoGetRawMemPool {
+	#[serde(serialize_with = "serialize_vec_h256")]
+	#[serde(deserialize_with = "deserialize_vec_h256")]
 	pub addresses: Option<Vec<H256>>,
 }
 

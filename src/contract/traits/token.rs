@@ -3,7 +3,7 @@ use crate::{
 		contract_error::ContractError, name_service, nns_name::NNSName,
 		traits::smartcontract::SmartContractTrait,
 	},
-	protocol::{core::record_type::RecordType, neo_rust::NeoRust},
+	protocol::{core::record_type::RecordType, http_service::HttpService, neo_rust::NeoRust},
 	types::H160Externsion,
 };
 use async_trait::async_trait;
@@ -18,22 +18,23 @@ pub trait TokenTrait: SmartContractTrait {
 
 	fn total_supply(&self) -> Option<u64>;
 
-	fn set_total_supply(&self, total_supply: u64);
+	fn set_total_supply(&mut self, total_supply: u64);
 
 	fn decimals(&self) -> Option<u8>;
 
-	fn set_decimals(&self, decimals: u8);
+	fn set_decimals(&mut self, decimals: u8);
 
 	fn symbol(&self) -> Option<String>;
 
-	fn set_symbol(&self, symbol: String);
+	fn set_symbol(&mut self, symbol: String);
 
 	async fn get_total_supply(&mut self) -> Result<u64, ContractError> {
 		if let Some(supply) = &self.total_supply() {
 			return Ok(supply.clone().into())
 		}
 
-		let supply = self.call_function_returning_int(Self::TOTAL_SUPPLY, vec![]).await? as u64;
+		let supply =
+			self.call_function_returning_int(Self::TOTAL_SUPPLY, vec![]).await.unwrap() as u64;
 
 		self.set_total_supply(supply);
 		Ok(supply)
@@ -44,7 +45,8 @@ pub trait TokenTrait: SmartContractTrait {
 			return Ok(decimals.clone().into())
 		}
 
-		let decimals = self.call_function_returning_int(Self::DECIMALS, vec![]).await? as u8;
+		let decimals =
+			self.call_function_returning_int(Self::DECIMALS.clone(), vec![]).await.unwrap() as u8;
 
 		self.set_decimals(decimals);
 		Ok(decimals)
@@ -57,7 +59,7 @@ pub trait TokenTrait: SmartContractTrait {
 			return Ok(symbol.clone())
 		}
 
-		let symbol = self.call_function_returning_string(Self::SYMBOL, vec![]).await?;
+		let symbol = self.call_function_returning_string(Self::SYMBOL, vec![]).await.unwrap();
 
 		self.set_symbol(symbol.clone());
 		Ok(symbol)
@@ -65,7 +67,7 @@ pub trait TokenTrait: SmartContractTrait {
 
 	async fn to_fractions(&mut self, amount: d128) -> Result<u64, ContractError> {
 		let a = d128!(1.1);
-		let decimals = self.get_decimals().await?;
+		let decimals = self.get_decimals().await.unwrap();
 		Self::to_fractions_decimal(amount, decimals)
 	}
 
@@ -80,7 +82,7 @@ pub trait TokenTrait: SmartContractTrait {
 
 	// Other helper methods
 	async fn to_decimals_u64(&mut self, amount: u64) -> Result<d128, ContractError> {
-		let decimals = self.get_decimals().await?;
+		let decimals = self.get_decimals().await.unwrap();
 		Ok(Self::to_decimals(amount, decimals))
 	}
 
@@ -95,19 +97,21 @@ pub trait TokenTrait: SmartContractTrait {
 	}
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-		let address = NeoRust::instance()
+		let address = NeoRust::<HttpService>::instance()
 			.as_ref()
 			.unwrap()
 			.call_contract_func(
 				name_service::NeoNameService::CONTRACT_HASH,
 				"resolve",
-				vec![name.to_param()?, RecordType::TXT.to_param()?],
+				vec![name.to_param().unwrap(), RecordType::TXT.to_param().unwrap()],
 			)
-			.await?
+			.await
+			.unwrap()
 			.pop()
 			.and_then(|item| item.as_address())
 			.map(H160::from_address)
-			.ok_or_else(|| ContractError::RuntimeError("Address{&name}".to_string()))?;
+			.ok_or_else(|| ContractError::RuntimeError("Address{&name}".to_string()))
+			.unwrap();
 
 		Ok(address)
 	}

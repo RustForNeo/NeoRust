@@ -104,7 +104,7 @@ pub trait Signer {
 
 		// Validate nesting depth
 		for rule in &rules {
-			self.validate_depth(&rule.condition, NeoConstants::MAX_NESTING_DEPTH)?;
+			self.validate_depth(&rule.condition, NeoConstants::MAX_NESTING_DEPTH).unwrap();
 		}
 
 		if !self.get_scopes().contains(&WitnessScope::WitnessRules) {
@@ -126,7 +126,7 @@ pub trait Signer {
 		match &rule {
 			WitnessCondition::And(conditions) | WitnessCondition::Or(conditions) => {
 				for inner_rule in conditions {
-					self.validate_depth(inner_rule, depth - 1)?;
+					self.validate_depth(inner_rule, depth - 1).unwrap();
 				}
 			},
 			_ => (),

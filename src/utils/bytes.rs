@@ -17,7 +17,7 @@ struct Bytes(Vec<u8>);
 impl Bytes {
 	fn b_int(&self) -> BigInt {
 		let bytes = i128::from_be_bytes(self.0.as_slice().try_into().unwrap());
-		BigInt::from_i128(bytes)?
+		BigInt::from_i128(bytes).unwrap()
 	}
 
 	fn base64_encoded(&self) -> String {

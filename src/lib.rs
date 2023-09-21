@@ -1,3 +1,5 @@
+#![feature(const_trait_impl)]
+
 extern crate core;
 pub mod constant;
 pub mod contract;
@@ -19,6 +21,11 @@ pub fn add(left: usize, right: usize) -> usize {
 
 #[macro_use]
 extern crate getset;
+
+#[macro_use]
+extern crate educe;
+
+use crate::utils::*;
 
 // #[macro_use]
 // extern crate serde_with;

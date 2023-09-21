@@ -4,8 +4,9 @@ use crate::{
 	serialization::binary_reader::BinaryReader,
 	types::{Bytes, PublicKey},
 };
-use p256::ecdsa::Signature;
+use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
+use std::vec;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VerificationScript {
@@ -18,15 +19,17 @@ impl VerificationScript {
 	}
 
 	pub fn from(script: Bytes) -> Self {
-		Self { script: script.to_vec() }
+		Self { script: script.to_vec().unwrap() }
 	}
 
 	pub fn from_public_key(public_key: &PublicKey) -> Self {
 		let mut builder = ScriptBuilder::new();
 		builder
 			.push_data(public_key.to_bytes())
-			.OpCode(OpCode::Syscall)
-			.push_data(InteropService::SystemCryptoCheckSig.hash().as_bytes());
+			.unwrap()
+			.op_code(&vec![OpCode::Syscall])
+			.push_data(InteropService::SystemCryptoCheckSig.hash().into_bytes())
+			.expect("");
 		Self::from(builder.to_bytes())
 	}
 
@@ -35,7 +38,9 @@ impl VerificationScript {
 		let mut builder = ScriptBuilder::new();
 		builder.push_int(threshold as i64).expect("Threshold must be between 1 and 16");
 		for key in public_keys {
-			builder.push_data(key.to_bytes()).expect("TODO: panic message");
+			builder
+				.push_data(key.to_encoded_point(false).to_vec().unwrap())
+				.expect("TODO: panic message");
 		}
 		builder
 			.push_int(public_keys.len() as i64)
@@ -63,7 +68,7 @@ impl VerificationScript {
 		}
 
 		let mut m = 0;
-		while reader.read_u8() == Some(OpCode::PushData1 as u8) {
+		while reader.read_u8() == OpCode::PushData1 as u8 {
 			let len = reader.read_u8().unwrap();
 			if len != 33 {
 				return false
@@ -86,7 +91,7 @@ impl VerificationScript {
 			return false
 		}
 
-		if reader.read_u8() != Some(OpCode::Syscall as u8) {
+		if reader.read_u8() != OpCode::Syscall as u8 {
 			return false
 		}
 
@@ -102,7 +107,7 @@ impl VerificationScript {
 		let mut reader = BinaryReader::new(&self.script);
 		let mut signatures = vec![];
 
-		while reader.read_u8() == Some(OpCode::PushData1 as u8) {
+		while reader.read_u8() == OpCode::PushData1 as u8 {
 			let len = reader.read_u8().unwrap();
 			let sig = Signature::from_slice(&reader.read_bytes(len as usize).unwrap());
 			signatures.push(sig);
@@ -120,7 +125,7 @@ impl VerificationScript {
 			let mut point = [0; 33];
 			point.copy_from_slice(&reader.read_bytes(33).unwrap());
 
-			let key = PublicKey::from_bytes(&point)?;
+			let key = PublicKey::from_bytes(&point).unwrap();
 			return Ok(vec![key])
 		}
 
@@ -129,11 +134,11 @@ impl VerificationScript {
 			reader.read_var_int().unwrap(); // skip threshold
 
 			let mut keys = vec![];
-			while reader.read_u8() == Some(OpCode::PushData1 as u8) {
+			while reader.read_u8() == OpCode::PushData1 as u8 {
 				reader.read_u8(); // skip length
 				let mut point = [0; 33];
 				point.copy_from_slice(&reader.read_bytes(33).unwrap());
-				keys.push(PublicKey::from_bytes(&point)?);
+				keys.push(PublicKey::from_bytes(&point).unwrap());
 			}
 
 			Ok(keys)

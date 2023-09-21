@@ -40,7 +40,7 @@ impl Witness {
 
 	pub fn create(message_to_sign: Bytes, key_pair: &KeyPair) -> Result<Self, NeoError> {
 		let invocation_script =
-			InvocationScript::from_message_and_key_pair(message_to_sign, key_pair)?;
+			InvocationScript::from_message_and_key_pair(message_to_sign, key_pair).unwrap();
 		let verification_script = VerificationScript::from(
 			key_pair.public_key.to_encoded_point(false).as_bytes().to_vec(),
 		);
@@ -52,7 +52,8 @@ impl Witness {
 		signatures: Vec<SignatureData>,
 		public_keys: Vec<PublicKey>,
 	) -> Result<Self, NeoError> {
-		let verification_script = VerificationScript::multisig(public_keys, signing_threshold)?;
+		let verification_script =
+			VerificationScript::multisig(public_keys, signing_threshold).unwrap();
 		Self::create_multisig_witness_script(signatures, verification_script)
 	}
 
@@ -60,7 +61,7 @@ impl Witness {
 		signatures: Vec<SignatureData>,
 		verification_script: VerificationScript,
 	) -> Result<Self, NeoError> {
-		let threshold = verification_script.get_signing_threshold()?;
+		let threshold = verification_script.get_signing_threshold().unwrap();
 		if signatures.len() < threshold as usize {
 			return Err(NeoError::IllegalArgument(
 				"Not enough signatures provided for the required signing threshold.".to_string(),
@@ -79,7 +80,7 @@ impl Witness {
 
 		let mut builder = ScriptBuilder::new();
 		for param in params {
-			builder.push_param(&Some(param))?;
+			builder.push_param(&Some(param)).unwrap();
 		}
 		let invocation_script = builder.into_bytes();
 
@@ -93,9 +94,11 @@ impl Serialize for Witness {
 	{
 		use serde::ser::SerializeStruct;
 
-		let mut strukt = serializer.serialize_struct("Witness", 2)?;
-		strukt.serialize_field("invocation_script", &self.invocation_script)?;
-		strukt.serialize_field("verification_script", &self.verification_script)?;
+		let mut strukt = serializer.serialize_struct("Witness", 2).unwrap();
+		strukt.serialize_field("invocation_script", &self.invocation_script).unwrap();
+		strukt
+			.serialize_field("verification_script", &self.verification_script)
+			.unwrap();
 		strukt.end()
 	}
 }
@@ -118,10 +121,16 @@ impl<'de> Deserialize<'de> for Witness {
 			where
 				A: serde::de::SeqAccess<'de>,
 			{
-				let invocation_script =
-					seq.next_element()?.ok_or(serde::de::Error::invalid_length(0, &self))?;
-				let verification_script =
-					seq.next_element()?.ok_or(serde::de::Error::invalid_length(1, &self))?;
+				let invocation_script = seq
+					.next_element()
+					.unwrap()
+					.ok_or(serde::de::Error::invalid_length(0, &self))
+					.unwrap();
+				let verification_script = seq
+					.next_element()
+					.unwrap()
+					.ok_or(serde::de::Error::invalid_length(1, &self))
+					.unwrap();
 
 				Ok(Witness { invocation_script, verification_script })
 			}

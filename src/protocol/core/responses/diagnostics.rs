@@ -1,6 +1,6 @@
+use crate::utils::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-
 #[derive(Serialize, Deserialize, Hash)]
 pub struct Diagnostics {
 	pub invoked_contracts: InvokedContract,
@@ -15,6 +15,8 @@ impl Diagnostics {
 
 #[derive(Serialize, Deserialize, Hash)]
 pub struct InvokedContract {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub hash: H160,
 	pub invoked_contracts: Option<Vec<InvokedContract>>,
 }

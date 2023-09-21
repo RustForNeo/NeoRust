@@ -33,7 +33,7 @@ pub type PrivateKey = SigningKey;
 
 pub type PublicKey = VerifyingKey;
 
-pub type Address = String;
+pub type Address = H160;
 
 pub type Byte = u8;
 pub type Bytes = Vec<u8>;
@@ -71,12 +71,12 @@ impl H160Externsion for H160 {
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex)?;
+		let bytes = hex::decode(hex).unwrap();
 		Ok(Self::from_slice(&bytes))
 	}
 
 	fn from_address(address: &str) -> Result<Self, NeoError> {
-		let bytes = bs58::decode(address).into_vec().map_err(|_| "Invalid address")?;
+		let bytes = bs58::decode(address).into_vec().map_err(|_| "Invalid address").unwrap();
 
 		Ok(Self::from_slice(&bytes))
 	}
@@ -158,12 +158,12 @@ impl PublicKeyExtension for PublicKey {
 
 		let mut arr = [0u8; 64];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_encoded_point(&arr).map_err(|_| "Invalid point")?)
+		Ok(Self::from_encoded_point(&arr).map_err(|_| "Invalid point").unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex)?;
-		Ok(Self::from_slice(&bytes)?)
+		let bytes = hex::decode(hex).unwrap();
+		Ok(Self::from_slice(&bytes).unwrap())
 	}
 
 	fn from_private_key(private_key: &PrivateKey) -> Self {
@@ -191,12 +191,12 @@ impl PrivateKeyExtension for PrivateKey {
 
 		let mut arr = [0u8; 32];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_bytes(&arr).map_err(|_| "Invalid point")?)
+		Ok(Self::from_bytes(&arr).map_err(|_| "Invalid point").unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex)?;
-		Ok(Self::from_slice(&bytes)?)
+		let bytes = hex::decode(hex).unwrap();
+		Ok(Self::from_slice(&bytes).unwrap())
 	}
 }
 

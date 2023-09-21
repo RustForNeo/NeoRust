@@ -3,7 +3,8 @@ use crate::{
 	crypto::hash::HashableForVec,
 	protocol::core::stack_item::StackItem,
 	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
-	types::Bytes,
+	types::{contract_parameter::ContractParameter, Bytes},
+	utils::*,
 };
 use p256::pkcs8::der::Encode;
 use primitive_types::H160;
@@ -21,11 +22,21 @@ const HEADER_SIZE: usize = MAGIC_SIZE + COMPILER_SIZE;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NefFile {
+	#[serde(skip_serializing_if = "Option::is_none")]
 	compiler: Option<String>,
 	source_url: String,
+	#[serde(skip_serializing_if = "Vec::is_empty")]
+	#[serde(serialize_with = "serialize_vec_methodtoken")]
+	#[serde(deserialize_with = "deserialize_vec_methodtoken")]
 	method_tokens: Vec<MethodToken>,
 	script: Bytes,
 	checksum: Bytes,
+}
+
+impl Into<ContractParameter> for NefFile {
+	fn into(self) -> ContractParameter {
+		ContractParameter::string(serde_json::to_string(&self).unwrap())
+	}
 }
 
 impl NefFile {
@@ -46,20 +57,20 @@ impl NefFile {
 	}
 
 	fn read_from_file(file: &str) -> Result<Self, ContractError> {
-		let file_bytes = std::fs::read(file)?;
+		let file_bytes = std::fs::read(file).unwrap();
 		if file_bytes.len() > 0x100000 {
 			return Err(ContractError::InvalidArgError("NEF file is too large".to_string()))
 		}
 
 		let mut reader = BinaryReader::new(&file_bytes);
-		let nef = reader.read_serializable()?;
+		let nef = reader.read_serializable().unwrap();
 		Ok(nef)
 	}
 
 	fn read_from_stack_item(item: StackItem) -> Result<Self, ContractError> {
 		if let StackItem::ByteString(bytes) = item {
 			let mut reader = BinaryReader::new(&bytes);
-			let nef = reader.read_serializable()?;
+			let nef = reader.read_serializable().unwrap();
 			Ok(nef)
 		} else {
 			Err(ContractError::UnexpectedReturnType(
@@ -87,10 +98,10 @@ impl NefFile {
 			return Err(ContractError::InvalidArgError("Invalid magic number".to_string()))
 		}
 
-		let compiler_bytes = reader.read_bytes(COMPILER_SIZE)?;
+		let compiler_bytes = reader.read_bytes(COMPILER_SIZE).unwrap();
 		let compiler = String::from_utf8(compiler_bytes.trim_right(0).to_vec()).ok();
 
-		let source_url = reader.read_var_string()?;
+		let source_url = reader.read_var_string().unwrap();
 		if source_url.len() > MAX_SOURCE_URL_SIZE {
 			return Err(ContractError::InvalidArgError(format!(
 				"Source URL too long. Max {} bytes",
@@ -98,19 +109,19 @@ impl NefFile {
 			)))
 		}
 
-		if reader.read_u8()? != 0 {
+		if reader.read_u8().unwrap() != 0 {
 			return Err(ContractError::InvalidArgError("Expected reserved byte to be 0".to_string()))
 		}
 
-		let method_tokens = reader.read_serializable_list()?;
+		let method_tokens = reader.read_serializable_list().unwrap();
 
-		if reader.read_u16()? != 0 {
+		if reader.read_u16().unwrap() != 0 {
 			return Err(ContractError::InvalidArgError(
 				"Expected reserved bytes to be 0".to_string(),
 			))
 		}
 
-		let script = reader.read_var_bytes()?;
+		let script = reader.read_var_bytes().unwrap();
 		if script.is_empty() {
 			return Err(ContractError::InvalidArgError("Script cannot be empty".to_string()))
 		}
@@ -125,7 +136,7 @@ impl NefFile {
 
 		nef.checksum = Self::compute_checksum(&nef);
 
-		let checksum = reader.read_bytes(CHECKSUM_SIZE)?;
+		let checksum = reader.read_bytes(CHECKSUM_SIZE).unwrap();
 		if nef.checksum != checksum {
 			return Err(ContractError::InvalidArgError("Invalid checksum".to_string()))
 		}
@@ -133,8 +144,10 @@ impl NefFile {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MethodToken {
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	hash: H160,
 	method: String,
 	params_count: u16,
@@ -156,57 +169,12 @@ impl MethodToken {
 	}
 
 	fn deserialize(reader: &mut BinaryReader) -> Result<Self, ContractError> {
-		let hash = reader.read_serializable()?;
-		let method = reader.read_var_string()?;
-		let params_count = reader.read_u16()?;
-		let has_return_value = reader.read_bool()?;
-		let call_flags = reader.read_u8()?;
+		let hash = reader.read_serializable().unwrap();
+		let method = reader.read_var_string().unwrap();
+		let params_count = reader.read_u16().unwrap();
+		let has_return_value = reader.read_bool().unwrap();
+		let call_flags = reader.read_u8().unwrap();
 
 		Ok(MethodToken { hash, method, params_count, has_return_value, call_flags })
-	}
-}
-
-impl Serialize for MethodToken {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		serializer.serialize_str(&self.method)?;
-		serializer.serialize_u16(self.params_count)?;
-		serializer.serialize_bool(self.has_return_value)?;
-		serializer.serialize_u8(self.call_flags)
-	}
-}
-
-impl<'de> Deserialize<'de> for MethodToken {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		struct MethodTokenVisitor;
-
-		impl<'de> de::Visitor<'de> for MethodTokenVisitor {
-			type Value = MethodToken;
-
-			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-				formatter.write_str("struct MethodToken")
-			}
-
-			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-			where
-				E: de::Error,
-			{
-				Ok(MethodToken {
-					hash: Default::default(),
-					method: v.to_string(),
-					// Add default values
-					params_count: 0,
-					has_return_value: false,
-					call_flags: 0,
-				})
-			}
-		}
-
-		deserializer.deserialize_str(MethodTokenVisitor)
 	}
 }

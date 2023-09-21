@@ -4,7 +4,7 @@ use getset::{CopyGetters, Getters};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, Getters, CopyGetters, Default)]
+#[derive(Serialize, Deserialize, Clone, Getters, CopyGetters)]
 #[getset(get = "pub", set = "pub")]
 pub struct NEP6Wallet {
 	name: String,
@@ -14,13 +14,14 @@ pub struct NEP6Wallet {
 	extra: Option<HashMap<String, String>>,
 }
 
-impl PartialEq for NEP6Wallet {
-	fn eq(&self, other: &Self) -> bool {
-		self.name == other.name
-			&& self.version == other.version
-			&& self.scrypt == other.scrypt
-			&& self.extra == other.extra
-			&& self.accounts.len() == other.accounts.len()
-			&& self.accounts.iter().all(|acc| other.accounts.contains(acc))
+impl NEP6Wallet {
+	pub fn new(
+		name: String,
+		version: String,
+		scrypt: ScryptParams,
+		accounts: Vec<NEP6Account>,
+		extra: Option<HashMap<String, String>>,
+	) -> Self {
+		Self { name, version, scrypt, accounts, extra }
 	}
 }

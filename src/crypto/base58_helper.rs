@@ -7,7 +7,7 @@ pub fn base58check_encode(bytes: &[u8]) -> String {
 }
 
 pub fn base58check_decode(input: &str) -> Option<Vec<u8>> {
-	let bytes_with_checksum = bs58::decode(input).into_vec().ok()?;
+	let bytes_with_checksum = bs58::decode(input).into_vec().ok().unwrap();
 
 	let bytes = &bytes_with_checksum[..bytes_with_checksum.len() - 4];
 	let checksum = &bytes_with_checksum[bytes_with_checksum.len() - 4..];

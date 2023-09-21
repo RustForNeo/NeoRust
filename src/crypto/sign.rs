@@ -41,7 +41,7 @@ impl SignatureData {
 		hex_message: &str,
 		key_pair: &mut KeyPair,
 	) -> Result<SignatureData, NeoError> {
-		let message = hex::decode(hex_message)?;
+		let message = hex::decode(hex_message).unwrap();
 		let sign = key_pair.private_key().sign(&message);
 		Ok(SignatureData::from_bytes(sign.as_bytes()))
 	}
@@ -55,7 +55,7 @@ impl SignatureData {
 		let mut rec_id = None;
 		for i in 0..4 {
 			if let Some(key) =
-				key_pair.public_key().recover(&i, &signature, &Sha256::digest(message))?
+				key_pair.public_key().recover(&i, &signature, &Sha256::digest(message)).unwrap()
 			{
 				if key == key_pair.public_key() {
 					rec_id = Some(i);
@@ -64,14 +64,15 @@ impl SignatureData {
 			}
 		}
 
-		let rec_id =
-			rec_id.ok_or(NeoError::Runtime("Could not construct recoverable key".to_string()))?;
+		let rec_id = rec_id
+			.ok_or(NeoError::Runtime("Could not construct recoverable key".to_string()))
+			.unwrap();
 
 		let v = 27 + rec_id;
 		Ok(SignatureData {
 			v: v as u8,
-			r: signature.r.to_bytes_padded(32)?,
-			s: signature.s.to_bytes_padded(32)?,
+			r: signature.r.to_bytes_padded(32).unwrap(),
+			s: signature.s.to_bytes_padded(32).unwrap(),
 		})
 	}
 }

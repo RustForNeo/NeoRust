@@ -36,6 +36,10 @@ pub enum NeoError {
 	WalletError(#[from] WalletError),
 	#[error("Sign error: {0}")]
 	SignError(#[from] SignError),
+	#[error("Transaction error: {0}")]
+	TransactionError(#[from] TransactionError),
+	#[error("Unexpected returned type")]
+	UnexpectedReturnType,
 }
 
 impl Into<TransactionError> for NeoError {
