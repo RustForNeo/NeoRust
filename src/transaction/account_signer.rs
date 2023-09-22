@@ -16,7 +16,7 @@ use std::{
 	ops::Deref,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct AccountSigner {
 	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
 	signer_hash: H160,
@@ -32,9 +32,21 @@ pub struct AccountSigner {
 	)]
 	allowed_groups: Vec<PublicKey>,
 	rules: Vec<WitnessRule>,
-
+	#[getset(get = "pub")]
 	pub account: Account,
 	scope: WitnessScope,
+}
+
+impl PartialEq for AccountSigner {
+	fn eq(&self, other: &Self) -> bool {
+		self.signer_hash == other.signer_hash
+			&& self.scopes == other.scopes
+			&& self.allowed_contracts == other.allowed_contracts
+			&& self.allowed_groups == other.allowed_groups
+			&& self.rules == other.rules
+			&& self.account == other.account
+			&& self.scope == other.scope
+	}
 }
 
 impl Hash for AccountSigner {
@@ -121,5 +133,9 @@ impl AccountSigner {
 	pub fn global_hash160(account_hash: H160) -> Result<Self, TransactionError> {
 		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
 		Ok(Self::new(&account, WitnessScope::Global))
+	}
+
+	pub fn is_multisig(&self) -> bool {
+		matches!(self.account.verification_script, Some(script) if script.is_multisig())
 	}
 }

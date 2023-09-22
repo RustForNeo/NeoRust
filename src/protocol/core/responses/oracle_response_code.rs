@@ -14,6 +14,7 @@ use strum_macros::{Display, EnumString};
 	Copy,
 	Clone,
 	Hash,
+	Debug,
 )]
 #[repr(u8)]
 pub enum OracleResponseCode {

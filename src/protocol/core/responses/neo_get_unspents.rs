@@ -26,6 +26,8 @@ pub struct Balance {
 	pub amount: f64,
 }
 
+impl Eq for Balance {}
+
 impl PartialEq for Balance {
 	fn eq(&self, other: &Self) -> bool {
 		self.asset_hash == other.asset_hash

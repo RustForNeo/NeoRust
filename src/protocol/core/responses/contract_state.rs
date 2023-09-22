@@ -41,7 +41,7 @@ impl ContractState {
 				let id = value[0].as_int().unwrap();
 				let mut v = &value[1].as_bytes().unwrap();
 				v.reverse();
-				let hash = H160::from_slice(v).unwrap();
+				let hash = H160::from_slice(v);
 				Ok(ContractIdentifiers { id: id as i32, hash })
 			},
 			_ => Err("Could not deserialize ContractIdentifiers from stack item"),

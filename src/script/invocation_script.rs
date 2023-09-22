@@ -35,33 +35,30 @@ impl InvocationScript {
 	// 	Self { 0 }
 	// }
 
-	pub async fn from_signature(signature: &SignatureData) -> Self {
+	pub fn from_signature(signature: &SignatureData) -> Self {
 		let mut builder = ScriptBuilder::new();
-		builder.push_data(signature.concatenated()).await.expect("TODO: panic message");
-		Self { script: builder.script.clone() }
+		builder.push_data(signature.concatenated()).expect("TODO: panic message");
+		Self { script: builder.to_bytes() }
 	}
 
-	pub async fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
+	pub fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
 		let message_hash = message.hash256();
 		let signature = key_pair.private_key().sign(&message_hash);
 		let mut builder = ScriptBuilder::new();
 		// Convert signature to bytes
 		let signature_bytes = signature.to_vec();
-		builder.push_data(signature_bytes).await.expect("Incorrect signature length");
-		Ok(Self { script: builder.script })
+		builder.push_data(signature_bytes).expect("Incorrect signature length");
+		Ok(Self { script: builder.to_bytes() })
 	}
 
-	pub async fn from_signatures(signatures: &[SignatureData]) -> Self {
+	pub fn from_signatures(signatures: &[SignatureData]) -> Self {
 		let mut builder = ScriptBuilder::new();
 		for signature in signatures {
 			let mut signature_bytes = signature.concatenated();
 			// signature.write_scalars(&mut signature_bytes).unwrap();
 
-			builder
-				.push_data(signature_bytes.to_vec())
-				.await
-				.expect("Incorrect signature length");
+			builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
 		}
-		Self { script: builder.script.clone() }
+		Self { script: builder.to_bytes() }
 	}
 }

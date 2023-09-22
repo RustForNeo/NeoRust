@@ -295,7 +295,7 @@ pub struct Candidate {
 impl Candidate {
 	fn from(items: Vec<StackItem>) -> Result<Self, ContractError> {
 		let key = items[0].as_public_key().unwrap();
-		let votes = items[1].as_int().unwrap();
+		let votes = items[1].as_int().unwrap() as i32;
 		Ok(Self { public_key: key, votes })
 	}
 }

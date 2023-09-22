@@ -1,7 +1,7 @@
 use crate::protocol::core::responses::oracle_response_code::OracleResponseCode;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, __private::de::Content::ByteBuf};
 
-#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum TransactionAttribute {
 	#[serde(rename = "HighPriority")]
@@ -11,7 +11,7 @@ pub enum TransactionAttribute {
 	OracleResponse(OracleResponse),
 }
 
-#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Debug, Clone)]
 struct OracleResponse {
 	pub id: u32,
 	pub response_code: OracleResponseCode,

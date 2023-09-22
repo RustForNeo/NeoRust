@@ -115,10 +115,10 @@ pub trait TokenTrait: SmartContractTrait {
 			.stack
 			.first()
 			.unwrap()
-			.clone()
-			.map(H160::from_address)
-			.into();
+			.clone();
+		// .map(|item| H160::from_address)
+		// ;
 
-		Ok(address)
+		Ok(H160::from_slice(&address.as_bytes().unwrap()).unwrap())
 	}
 }

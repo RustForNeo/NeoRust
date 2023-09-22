@@ -56,7 +56,6 @@ pub trait SmartContractTrait: Send + Sync {
 
 		let script = ScriptBuilder::new()
 			.contract_call(&self.script_hash(), function, params.as_slice(), CallFlags::None)
-			.await
 			.unwrap()
 			.to_bytes();
 
@@ -147,7 +146,8 @@ pub trait SmartContractTrait: Send + Sync {
 
 		let item = &output.stack[0];
 		item.as_bytes()
-			.and_then(H160::from_slice)
+			.as_deref()
+			.map(|b| H160::from_script(b))
 			.ok_or_else(|| ContractError::UnexpectedReturnType("Script hash".to_string()))
 	}
 
@@ -182,25 +182,24 @@ pub trait SmartContractTrait: Send + Sync {
 		max_items: usize,
 		mapper: impl Fn(StackItem) -> U,
 	) -> Result<Vec<U>, ContractError> {
-		let script = ScriptBuilder::new()
-			.build_contract_call_and_unwrap_iterator(
-				self.script_hash().clone(),
-				function,
-				params.iter().filter_map(|p| Some(p)).collect(),
-				CallFlags::All,
-			)
-			.unwrap()
-			.build();
+		let script = ScriptBuilder::build_contract_call_and_unwrap_iterator(
+			&self.script_hash(),
+			function,
+			params.iter().filter_map(|p| Some(p)).collect(),
+			CallFlags::All,
+		)
+		.unwrap()
+		.build();
 
 		let output = NeoRust::instance()
-			.invoke_script(script.to_bytes().to_hex(), vec![])
+			.invoke_script(script.script().to_hex(), vec![])
 			.request()
 			.await
 			.unwrap();
 
 		self.throw_if_fault_state(&output).unwrap();
 
-		let items = output.stack[0].to_array().unwrap().into_iter().map(mapper).collect();
+		let items = output.stack[0].as_array().unwrap().into_iter().map(mapper).collect();
 
 		Ok(items)
 	}
@@ -209,25 +208,21 @@ pub trait SmartContractTrait: Send + Sync {
 		Self::calc_contract_hash(H160::zero(), 0, contract_name)
 	}
 
-	async fn calc_contract_hash(
+	fn calc_contract_hash(
 		sender: H160,
 		nef_checksum: u32,
 		contract_name: &str,
 	) -> Result<H160, NeoError> {
 		let mut script = ScriptBuilder::new()
 			.op_code(&[OpCode::Abort])
-			.await
 			.push_data(sender.to_vec())
-			.await
 			.unwrap()
 			.push_integer(nef_checksum as i64)
-			.await
 			.unwrap()
 			.push_data(contract_name.as_bytes().to_vec())
-			.await
 			.unwrap();
 
-		Ok(H160::from_slice(script.to_bytes().as_slice()))
+		Ok(H160::from_slice(script.script().as_slice()))
 	}
 
 	async fn get_manifest(&self) -> ContractManifest {

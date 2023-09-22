@@ -11,7 +11,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Deserialize)]
 pub struct ContractSigner {
 	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
 	signer_hash: H160,

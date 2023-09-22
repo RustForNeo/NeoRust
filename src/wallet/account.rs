@@ -1,11 +1,10 @@
 use crate::{
 	crypto::{key_pair::KeyPair, nep2::NEP2, wif::Wif},
-	neo_error::NeoError,
-	protocol::{core::neo_trait::NeoTrait, http_service::HttpService, neo_rust::NeoRust},
+	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
 	types::{
-		contract_parameter_type::ContractParameterType, Address, H160Externsion, PrivateKey,
-		PublicKey,
+		contract_parameter_type::ContractParameterType, Address, Base64Encode, H160Externsion,
+		PrivateKey, PublicKey,
 	},
 	utils::*,
 	wallet::{
@@ -29,13 +28,25 @@ pub struct Account {
 	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
 	address: Address,
 	label: Option<String>,
-	verification_script: Option<VerificationScript>,
+	pub(crate) verification_script: Option<VerificationScript>,
 	is_locked: bool,
 	encrypted_private_key: Option<String>,
 
 	wallet: Option<Wallet>,
-	signing_threshold: Option<i32>,
-	nr_of_participants: Option<i32>,
+	signing_threshold: Option<u32>,
+	nr_of_participants: Option<u32>,
+}
+
+impl PartialEq for Account {
+	fn eq(&self, other: &Self) -> bool {
+		self.address == other.address
+			&& self.label == other.label
+			&& self.verification_script == other.verification_script
+			&& self.is_locked == other.is_locked
+			&& self.encrypted_private_key == other.encrypted_private_key
+			&& self.signing_threshold == other.signing_threshold
+			&& self.nr_of_participants == other.nr_of_participants
+	}
 }
 
 impl Hash for Account {
@@ -57,8 +68,8 @@ impl Account {
 		address: Address,
 		label: Option<String>,
 		verification_script: Option<VerificationScript>,
-		signing_threshold: Option<i32>,
-		nr_of_participants: Option<i32>,
+		signing_threshold: Option<u32>,
+		nr_of_participants: Option<u32>,
 	) -> Self {
 		Self {
 			key_pair: None,
@@ -73,19 +84,17 @@ impl Account {
 		}
 	}
 
-	pub async fn from_key_pair(
+	pub fn from_key_pair(
 		key_pair: KeyPair,
-		signing_threshold: Option<i32>,
-		nr_of_participants: Option<i32>,
+		signing_threshold: Option<u32>,
+		nr_of_participants: Option<u32>,
 	) -> Result<Self, WalletError> {
 		let address = key_pair.get_address().unwrap();
 		Ok(Self {
 			key_pair: Some(key_pair),
 			address,
 			label: Some(H160Externsion::to_string(&address)),
-			verification_script: Some(
-				VerificationScript::from_public_key(&key_pair.public_key()).await,
-			),
+			verification_script: Some(VerificationScript::from_public_key(&key_pair.public_key())),
 			is_locked: false,
 			encrypted_private_key: None,
 			wallet: None,
@@ -102,8 +111,8 @@ impl Account {
 		is_locked: bool,
 		encrypted_private_key: Option<String>,
 		wallet: Option<Wallet>,
-		signing_threshold: Option<i32>,
-		nr_of_participants: Option<i32>,
+		signing_threshold: Option<u32>,
+		nr_of_participants: Option<u32>,
 	) -> Self {
 		Self {
 			key_pair,
@@ -118,18 +127,18 @@ impl Account {
 		}
 	}
 
-	pub async fn from_wif(wif: &str) -> Result<Self, WalletError> {
+	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
 		let private_key = wif.as_bytes().from_wif();
-		let key_pair = KeyPair::from_private_key(private_key).unwrap();
-		Self::from_key_pair(key_pair, None, None).await
+		let key_pair = KeyPair::from_private_key(private_key);
+		Self::from_key_pair(key_pair, None, None)
 	}
 
 	pub fn from_nep6_account(nep6_account: &NEP6Account) -> Result<Self, WalletError> {
 		let (verification_script, signing_threshold, nr_of_participants) =
 			match nep6_account.contract {
-				Some(ref contract) if !contract.script.is_empty() => {
-					let script = contract.script.as_bytes();
-					let verification_script = VerificationScript::from_bytes(script).unwrap();
+				Some(ref contract) if contract.script.is_some() => {
+					let script = contract.script.unwrap().as_bytes();
+					let verification_script = VerificationScript::from(script.to_vec());
 					let signing_threshold = if verification_script.is_multisig() {
 						Some(verification_script.get_signing_threshold().unwrap())
 					} else {
@@ -151,8 +160,8 @@ impl Account {
 			verification_script,
 			is_locked: nep6_account.lock,
 			encrypted_private_key: nep6_account.key.clone(),
-			signing_threshold,
-			nr_of_participants,
+			signing_threshold: signing_threshold.map(|x| x as u32),
+			nr_of_participants: nr_of_participants.map(|x| x as u32),
 			..Default::default()
 		})
 	}
@@ -206,25 +215,25 @@ impl Account {
 		&self.address
 	}
 
-	pub fn get_signing_threshold(&self) -> Result<i32, WalletError> {
+	pub fn get_signing_threshold(&self) -> Result<u32, WalletError> {
 		self.signing_threshold
 			.ok_or_else(|| WalletError::AccountState("Account is not multisig".to_string()))
 	}
 
-	pub fn get_nr_of_participants(&self) -> Result<i32, WalletError> {
+	pub fn get_nr_of_participants(&self) -> Result<u32, WalletError> {
 		self.nr_of_participants
 			.ok_or_else(|| WalletError::AccountState("Account is not multisig".to_string()))
 	}
 
-	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
+	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
 		let balances = NeoRust::instance()
-			.get_nep17_balances(self.get_script_hash())
+			.get_nep17_balances(self.get_script_hash().clone())
 			.request()
 			.await
 			.unwrap();
 		let mut nep17_balances = HashMap::new();
 		for balance in balances.balances {
-			nep17_balances.insert(balance.asset_hash, i32::from_str(&balance.amount).unwrap());
+			nep17_balances.insert(balance.asset_hash, u32::from_str(&balance.amount).unwrap());
 		}
 		Ok(nep17_balances)
 	}
@@ -257,7 +266,7 @@ impl Account {
 				};
 
 				Some(NEP6Contract {
-					script: script.to_bytes().to_base64(),
+					script: Some(script.script().to_base64()),
 					nep6_parameters: parameters,
 					is_deployed: false,
 				})
@@ -279,7 +288,7 @@ impl Account {
 	// Static methods
 
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
-		let address = H160::from_script(&script.to_bytes().unwrap());
+		let address = H160::from_script(&script.script());
 
 		let (signing_threshold, nr_of_participants) = if script.is_multisig() {
 			(
@@ -294,19 +303,19 @@ impl Account {
 			address,
 			label: Some(address.to_string()),
 			verification_script: Some(script.clone()),
-			signing_threshold,
-			nr_of_participants,
+			signing_threshold: signing_threshold.map(|x| x as u32),
+			nr_of_participants: nr_of_participants.map(|x| x as u32),
 			..Default::default()
 		})
 	}
 
-	pub async fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
-		let script = VerificationScript::from_public_key(public_key).await;
-		let address = H160::from_script(&script.to_bytes().unwrap());
+	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
+		let script = VerificationScript::from_public_key(public_key);
+		let address = H160::from_script(&script.script());
 
 		Ok(Self {
 			address,
-			label: Some(address.to_string()),
+			label: Some(H160Externsion::to_string(&address)),
 			verification_script: Some(script),
 			..Default::default()
 		})
@@ -314,16 +323,15 @@ impl Account {
 
 	pub fn create_multisig(
 		public_keys: &[PublicKey],
-		signing_threshold: i32,
+		signing_threshold: u32,
 	) -> Result<Self, WalletError> {
-		let script = VerificationScript::multisig(public_keys, signing_threshold).unwrap();
+		let script = VerificationScript::from_multisig(public_keys, signing_threshold as u8);
 
 		Ok(Self {
-			script,
 			label: Some(script.to_string()),
 			verification_script: Some(script),
 			signing_threshold: Some(signing_threshold),
-			nr_of_participants: Some(public_keys.len() as i32),
+			nr_of_participants: Some(public_keys.len() as u32),
 			..Default::default()
 		})
 	}
@@ -338,8 +346,12 @@ impl Account {
 		Self::from_address(&address)
 	}
 
-	pub async fn create() -> Result<Self, WalletError> {
+	pub fn create() -> Result<Self, WalletError> {
 		let key_pair = KeyPair::create().unwrap();
-		Self::from_key_pair(key_pair, None, None).await
+		Self::from_key_pair(key_pair, None, None)
+	}
+
+	pub fn is_multi_sig(&self) -> bool {
+		self.signing_threshold.is_some() && self.nr_of_participants.is_some()
 	}
 }

@@ -4,13 +4,15 @@ use crate::{
 	serialization::binary_reader::BinaryReader,
 	types::{Bytes, PublicKey, PublicKeyExtension},
 };
+use getset::{CopyGetters, Getters, MutGetters, Setters};
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::vec;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
 pub struct VerificationScript {
+	#[getset(get = "pub", set = "pub")]
 	script: Bytes,
 }
 
@@ -23,38 +25,31 @@ impl VerificationScript {
 		Self { script: script.to_vec().unwrap() }
 	}
 
-	pub async fn from_public_key(public_key: &PublicKey) -> Self {
+	pub fn from_public_key(public_key: &PublicKey) -> Self {
 		let mut builder = ScriptBuilder::new();
 		builder
 			.push_data(public_key.to_encoded_point(false).as_bytes().to_vec())
-			.await
 			.unwrap()
 			.op_code(&vec![OpCode::Syscall])
-			.await
 			.push_data(InteropService::SystemCryptoCheckSig.hash().into_bytes())
-			.await
 			.unwrap();
 		Self::from(builder.to_bytes())
 	}
 
-	pub async fn from_multisig(public_keys: &[PublicKey], threshold: u8) -> Self {
+	pub fn from_multisig(public_keys: &[PublicKey], threshold: u8) -> Self {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
 		builder
 			.push_integer(threshold as i64)
-			.await
 			.expect("Threshold must be between 1 and 16");
 		for key in public_keys {
-			builder.push_data(key.to_vec()).await.unwrap();
+			builder.push_data(key.to_vec()).unwrap();
 		}
-		let a = builder
+		builder
 			.push_integer(public_keys.len() as i64)
-			.await
 			.unwrap()
 			.op_code(vec![OpCode::Syscall].as_slice())
-			.await
 			.push_data(InteropService::SystemCryptoCheckMultisig.hash().into_bytes())
-			.await
 			.unwrap();
 		Self::from(builder.to_bytes())
 	}
@@ -155,5 +150,22 @@ impl VerificationScript {
 		}
 
 		Err(NeoError::InvalidScript("Invalid verification script".to_string()))
+	}
+
+	pub fn get_signing_threshold(&self) -> Result<usize, NeoError> {
+		if self.is_single_sig() {
+			Ok(1)
+		} else if self.is_multisig() {
+			let reader = &mut BinaryReader::new(&self.script);
+			Ok(reader.read_var_int()? as usize)
+		} else {
+			Err(NeoError::InvalidScript("Invalid verification script".to_string()))
+		}
+	}
+	pub fn get_nr_of_accounts(&self) -> Result<usize, NeoError> {
+		match self.get_public_keys() {
+			Ok(keys) => Ok(keys.len()),
+			Err(e) => Err(e),
+		}
 	}
 }

@@ -5,7 +5,7 @@ pub struct NeoGetVersion {
 	pub version: Option<NeoVersion>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Hash)]
 pub struct NeoVersion {
 	#[serde(rename = "tcpport")]
 	pub tcp_port: Option<u16>,
@@ -17,7 +17,17 @@ pub struct NeoVersion {
 	pub protocol: Option<NeoProtocol>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+impl PartialEq for NeoVersion {
+	fn eq(&self, other: &Self) -> bool {
+		self.tcp_port == other.tcp_port
+			&& self.ws_port == other.ws_port
+			&& self.nonce == other.nonce
+			&& self.user_agent == other.user_agent
+			&& self.protocol == other.protocol
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NeoProtocol {
 	pub network: u32,
 	#[serde(rename = "validatorscount")]

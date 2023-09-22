@@ -15,16 +15,17 @@ tokio = { version = "1.0", features = ["full"] }
 # For base64 encoding
 base64 = "0.21.4"
 bs58 = "0.4.0"
-aes = "0.8.1"
+aes = "0.8.3"
+block-modes = "0.9.1"
 # For hash function
 sha3 = "0.10.8"
 async-trait = { version = "0.1.73", features = [] }
 # For hex encoding/decoding
-hex = "0.4"
+hex = { version = "0.4", features = [] }
 thiserror = { version = "1.0.28", features = [] }
 # For JSON manipulation
 json = "0.12"
-
+hex-literal = "0.4.1"
 # Neo Rust SDK
 #neo = "0.9"
 decimal = "2.1.0"
@@ -79,6 +80,7 @@ serde-big-array       = "0.5.1"
 blake2                = { version = "0.10.6", default-features=false }
 tiny-keccak           = { version = "2.0", features = ["keccak"] }
 rustc-serialize = "0.3.24"
+serde_bytes = "0.11.12"
 # Utilities
 #scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 #codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }

@@ -117,6 +117,8 @@ where
 	fn to_address(&self) -> String;
 	fn to_vec(&self) -> Vec<u8>;
 
+	fn to_address_h160(&self) -> H160;
+
 	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
 	fn from_private_key(private_key: &PrivateKey) -> Self;
@@ -144,6 +146,10 @@ impl PublicKeyExtension for PublicKey {
 
 	fn to_vec(&self) -> Vec<u8> {
 		self.to_encoded_point(false).as_bytes().to_vec()
+	}
+
+	fn to_address_h160(&self) -> H160 {
+		H160::from_public_key(self)
 	}
 
 	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
@@ -297,6 +303,7 @@ impl ValueExtension for Signer {
 		Value::String(serde_json::to_string(self).unwrap())
 	}
 }
+
 impl ValueExtension for Vec<Signer> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
@@ -364,4 +371,21 @@ pub struct H160Def {
 	#[serde(serialize_with = "serialize_address")]
 	#[serde(deserialize_with = "deserialize_address")]
 	hash: H160,
+}
+
+// Extend Vec<u8> with a to_base64 method
+pub trait Base64Encode {
+	fn to_base64(&self) -> String;
+}
+
+impl Base64Encode for Vec<u8> {
+	fn to_base64(&self) -> String {
+		base64::encode(&self)
+	}
+}
+
+impl Base64Encode for &[u8] {
+	fn to_base64(&self) -> String {
+		base64::encode(&self)
+	}
 }

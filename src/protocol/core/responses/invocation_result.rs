@@ -87,11 +87,19 @@ impl Hash for PendingSignature {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Item {
 	pub script: String,
 	pub parameters: Vec<ContractParameter>,
 	pub signatures: HashMap<String, String>,
+}
+
+impl Hash for Item {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.script.hash(state);
+		self.parameters.hash(state);
+		// self.signatures.hash(state);
+	}
 }
 
 // Other structs like Diagnostics, Notification

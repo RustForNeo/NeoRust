@@ -1,5 +1,6 @@
 use crate::{
 	constant::NeoConstants,
+	crypto::hash::HashableForVec,
 	neo_error::NeoError,
 	protocol::{
 		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
@@ -10,21 +11,40 @@ use crate::{
 	transaction::{signer::Signer, transaction_error::TransactionError, witness::Witness},
 	types::Bytes,
 };
+use bincode::Options;
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, Setters, Getters)]
 pub struct SerializableTransaction {
 	version: u8,
 	nonce: u32,
 	valid_until_block: u32,
 	pub(crate) signers: Vec<Signer>,
+	#[set = "pub"]
 	system_fee: i64,
+	#[set = "pub"]
 	network_fee: i64,
 	attributes: Vec<TransactionAttribute>,
 	script: Bytes,
 	witnesses: Vec<Witness>,
 	block_count_when_sent: Option<u32>,
+}
+
+impl Eq for SerializableTransaction {}
+impl PartialEq for SerializableTransaction {
+	fn eq(&self, other: &Self) -> bool {
+		self.version == other.version
+			&& self.nonce == other.nonce
+			&& self.valid_until_block == other.valid_until_block
+			&& self.signers == other.signers
+			&& self.system_fee == other.system_fee
+			&& self.network_fee == other.network_fee
+			&& self.attributes == other.attributes
+			&& self.script == other.script
+			&& self.witnesses == other.witnesses
+	}
 }
 
 impl SerializableTransaction {
@@ -68,12 +88,12 @@ impl SerializableTransaction {
 			return Err(TransactionError::InvalidTransaction)
 		}
 
-		if self.size() > NeoConstants::MAX_TRANSACTION_SIZE {
+		if self.size() > NeoConstants::MAX_TRANSACTION_SIZE as usize {
 			return Err(TransactionError::TxTooLarge)
 		}
 
 		// Get hex encoding
-		let hex = hex::encode(self.serialize().await);
+		let hex = hex::encode(self.serialize());
 
 		NeoRust::instance().send_raw_transaction(hex).request().await.ok();
 
@@ -85,14 +105,17 @@ impl SerializableTransaction {
 
 	// Get hash data
 	pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-		let network_magic = NeoRust::instance().get_network_magic_number().await.unwrap();
-		let data = self.serialize_without_witnesses();
+		let network_magic =
+			NeoRust::instance().get_network_magic_number().await.unwrap().to_le_bytes();
+		let mut data = self.serialize_without_witnesses().hash256();
 
-		Ok(network_magic + data.sha256())
+		data.splice(0..0, network_magic.iter().cloned());
+
+		Ok(data)
 	}
 	// Serialization
 
-	pub async fn serialize(&self) -> Bytes {
+	pub fn serialize(&self) -> Bytes {
 		let mut writer = BinaryWriter::new();
 
 		writer.write_u8(self.version);
@@ -108,7 +131,7 @@ impl SerializableTransaction {
 
 		// Write attributes
 		let attributes_len = self.attributes.len() as u32;
-		writer.write_var_u32(attributes_len);
+		writer.write_var_int(attributes_len as i64);
 		for attribute in &self.attributes {
 			attribute.serialize(&mut writer).expect("Failed to serialize attribute");
 		}
@@ -128,7 +151,7 @@ impl SerializableTransaction {
 		let valid_until_block = reader.read_u32();
 
 		// Read signers
-		let signers_len = reader.read_var_u32().unwrap();
+		let signers_len = reader.read_var_int().unwrap() as u32;
 		let mut signers = Vec::new();
 		for _ in 0..signers_len {
 			let signer = Signer::deserialize(&mut reader).unwrap();
@@ -136,7 +159,7 @@ impl SerializableTransaction {
 		}
 
 		// Read attributes
-		let attributes_len = reader.read_var_u32().unwrap();
+		let attributes_len = reader.read_var_int().unwrap();
 		let mut attributes = Vec::new();
 		for _ in 0..attributes_len {
 			let attribute = TransactionAttribute::deserialize(&mut reader).unwrap();
@@ -157,5 +180,62 @@ impl SerializableTransaction {
 			witnesses: vec![],
 			block_count_when_sent: None,
 		})
+	}
+
+	pub fn size(&self) -> usize {
+		let mut size = SerializableTransaction::HEADER_SIZE;
+
+		// Add signers
+		for signer in &self.signers {
+			size += signer.serialized_size();
+		}
+
+		// Add attributes
+		for attribute in &self.attributes {
+			size += attribute.serialized_size();
+		}
+
+		// Add script
+		size += self.script.len() + 1;
+
+		// Add witnesses
+		for witness in &self.witnesses {
+			size += witness.serialized_size();
+		}
+
+		size
+	}
+
+	fn serialize_without_witnesses(&self) -> Vec<u8> {
+		let mut result = Vec::with_capacity(self.size());
+
+		// Write version
+		result.push(self.version);
+
+		// Write nonce
+		result.extend_from_slice(&self.nonce.to_le_bytes());
+
+		// Write valid until block
+		if let Some(valid_until_block) = self.valid_until_block {
+			result.extend_from_slice(&valid_until_block.to_le_bytes())
+		}
+
+		// Write signers
+		for signer in &self.signers {
+			result.extend_from_slice(&serde_json::to_vec(&signer).unwrap());
+		}
+
+		// Write attributes
+		for attribute in &self.attributes {
+			result.extend_from_slice(&serde_json::to_vec(&attribute).unwrap());
+		}
+
+		// Write script
+		if let Some(script) = &self.script {
+			result.push(0x00); // push 0
+			result.extend_from_slice(script);
+		}
+
+		result
 	}
 }

@@ -1,4 +1,5 @@
 use crate::protocol::core::stack_item::StackItem;
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -9,7 +10,7 @@ pub struct RecordState {
 	pub data: String,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug, TryFromPrimitive)]
 #[repr(u8)]
 pub enum RecordType {
 	A = 0x01,
@@ -28,7 +29,7 @@ impl RecordState {
 			StackItem::Array { value: vec } if vec.len() == 3 => {
 				if let Some(name) = vec[0].as_string() {
 					if let Some(byte) = vec[1].as_int() {
-						if let Some(record_type) = RecordType::try_from(byte as u8) {
+						if let Some(record_type) = RecordType::try_from(byte as u8).ok() {
 							if let Some(data) = vec[2].as_string() {
 								return Ok(Self::new(name, record_type, data))
 							}

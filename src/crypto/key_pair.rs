@@ -46,8 +46,8 @@ impl KeyPair {
 		// Ok(address)
 	}
 
-	pub async fn get_script_hash(&self) -> Result<H160, NeoError> {
-		let script = ScriptBuilder::build_verification_script(&self.public_key).await;
+	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
+		let script = ScriptBuilder::build_verification_script(&self.public_key);
 		Ok(H160::from_script(&script))
 	}
 

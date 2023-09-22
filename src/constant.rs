@@ -1,7 +1,5 @@
 // use secp256k1::{Secp256k1, PrivateKey};
 
-use crate::script::op_code::OpCode::SetItem;
-
 pub struct NeoConstants {}
 impl NeoConstants {
 	// Accounts, Addresses, Keys

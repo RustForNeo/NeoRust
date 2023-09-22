@@ -1,4 +1,3 @@
-pub mod block_index;
 pub mod neo_express;
 pub mod neo_trait;
 pub mod record_type;

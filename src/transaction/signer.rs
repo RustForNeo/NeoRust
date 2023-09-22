@@ -150,10 +150,39 @@ pub trait SignerTrait {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Signer {
 	Account(AccountSigner),
 	Contract(ContractSigner),
+}
+
+impl Signer {
+	pub fn get_type(&self) -> SignerType {
+		match self {
+			Signer::Account(account_signer) => account_signer.get_type(),
+			Signer::Contract(contract_signer) => contract_signer.get_type(),
+		}
+	}
+	pub fn get_signer_hash(&self) -> &H160 {
+		match self {
+			Signer::Account(account_signer) => account_signer.get_signer_hash(),
+			Signer::Contract(contract_signer) => contract_signer.get_signer_hash(),
+		}
+	}
+
+	pub fn as_account_signer(&self) -> Option<&AccountSigner> {
+		match self {
+			Signer::Account(account_signer) => Some(account_signer),
+			Signer::Contract(_) => None,
+		}
+	}
+
+	pub fn as_contract_signer(&self) -> Option<&ContractSigner> {
+		match self {
+			Signer::Account(_) => None,
+			Signer::Contract(contract_signer) => Some(contract_signer),
+		}
+	}
 }
 
 impl Hash for Signer {
@@ -183,6 +212,26 @@ impl Into<AccountSigner> for Signer {
 			Signer::Account(account_signer) => account_signer,
 			Signer::Contract(contract_signer) =>
 				panic!("Cannot convert ContractSigner into AccountSigner"),
+		}
+	}
+}
+
+impl Into<AccountSigner> for &mut Signer {
+	fn into(self) -> AccountSigner {
+		match self {
+			Signer::Account(account_signer) => account_signer.clone(),
+			Signer::Contract(contract_signer) =>
+				panic!("Cannot convert ContractSigner into AccountSigner"),
+		}
+	}
+}
+
+impl Into<ContractSigner> for &mut Signer {
+	fn into(self) -> ContractSigner {
+		match self {
+			Signer::Account(account_signer) =>
+				panic!("Cannot convert AccountSigner into ContractSigner"),
+			Signer::Contract(contract_signer) => contract_signer.clone(),
 		}
 	}
 }
