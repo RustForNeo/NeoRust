@@ -217,7 +217,7 @@ impl Account {
 	}
 
 	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
-		let balances = NeoRust::<HttpService>::instance()
+		let balances = NeoRust::instance()
 			.get_nep17_balances(self.get_script_hash())
 			.request()
 			.await

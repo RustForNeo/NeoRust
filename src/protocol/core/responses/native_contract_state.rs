@@ -1,3 +1,6 @@
+use crate::protocol::core::responses::{
+	contract_manifest::ContractManifest, contract_nef::ContractNef,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -26,7 +29,3 @@ struct ExpressContractState {
 	hash: [u8; 20],
 	manifest: ContractManifest,
 }
-
-// Additional model structs
-struct ContractNef;
-struct ContractManifest;

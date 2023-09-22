@@ -89,7 +89,7 @@ impl NeoNameService {
 	const ADMIN_PROPERTY: &'static str = "admin";
 
 	pub fn new() -> Self {
-		Self { script_hash: NeoRust::<HttpService>::instance().nns_resolver().clone() }
+		Self { script_hash: NeoRust::instance().nns_resolver().clone() }
 	}
 
 	// Implementation
@@ -181,7 +181,7 @@ impl NeoNameService {
 	// Other methods...
 	async fn get_name_state(&self, name: &[u8]) -> Result<NameState, ContractError> {
 		let args = vec![name.into()];
-		let result = NeoRust::<HttpService>::instance()
+		let result = NeoRust::instance()
 			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, vec![])
 			.request()
 			.await

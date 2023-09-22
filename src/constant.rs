@@ -1,5 +1,7 @@
 // use secp256k1::{Secp256k1, PrivateKey};
 
+use crate::script::op_code::OpCode::SetItem;
+
 pub struct NeoConstants {}
 impl NeoConstants {
 	// Accounts, Addresses, Keys
@@ -23,6 +25,6 @@ impl NeoConstants {
 	pub const MAX_MANIFEST_SIZE: u32 = 0xFFFF;
 
 	pub fn new() -> Self {
-		NeoConstants { ..Default::default() }
+		Self {}
 	}
 }

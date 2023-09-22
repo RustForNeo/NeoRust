@@ -4,6 +4,7 @@ use p256::{elliptic_curve::sec1::FromEncodedPoint, EncodedPoint, ProjectivePoint
 use serde::Deserialize;
 use std::error::Error;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 pub struct BinaryReader<'a> {
 	data: &'a [u8],
 	position: usize,

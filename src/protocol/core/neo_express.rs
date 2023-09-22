@@ -1,28 +1,18 @@
 use crate::{
 	neo_error::NeoError,
 	protocol::core::responses::{
-		contract_state::ContractState,
-		contract_storage_entry::ContractStorageEntry,
-		neo_response_aliases::{
-			NeoExpressCreateOracleResponseTx, NeoExpressGetNep17Contracts,
-			NeoExpressGetPopulatedBlocks, NeoExpressShutdown,
-		},
-		nep17contract::Nep17Contract,
-		oracle_request::OracleRequest,
-		populated_blocks::PopulatedBlocks,
-		transaction_attribute::TransactionAttribute,
+		contract_state::ContractState, contract_storage_entry::ContractStorageEntry,
+		express_shutdown::ExpressShutdown, nep17contract::Nep17Contract,
+		oracle_request::OracleRequest, oracle_response_code::OracleResponseCode,
+		populated_blocks::PopulatedBlocks, transaction_attribute::TransactionAttribute,
 	},
 };
 use primitive_types::H160;
 
 pub trait NeoExpress {
-	fn get_populated_blocks(
-		&self,
-	) -> Result<(NeoExpressGetPopulatedBlocks, PopulatedBlocks), NeoError>;
+	fn get_populated_blocks(&self) -> Result<PopulatedBlocks, NeoError>;
 
-	fn get_nep17_contracts(
-		&self,
-	) -> Result<(NeoExpressGetNep17Contracts, Vec<Nep17Contract>), NeoError>;
+	fn get_nep17_contracts(&self) -> Result<Vec<Nep17Contract>, NeoError>;
 
 	fn get_contract_storage(&self, contract: H160) -> Result<Vec<ContractStorageEntry>, NeoError>;
 
@@ -35,7 +25,7 @@ pub trait NeoExpress {
 	fn create_oracle_response(
 		&self,
 		response: TransactionAttribute,
-	) -> Result<NeoExpressCreateOracleResponseTx, NeoError>;
+	) -> Result<OracleResponseCode, NeoError>;
 
-	fn shutdown(&self) -> Result<NeoExpressShutdown, NeoError>;
+	fn shutdown(&self) -> Result<ExpressShutdown, NeoError>;
 }

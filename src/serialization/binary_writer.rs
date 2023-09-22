@@ -1,7 +1,8 @@
 use serde::Serialize;
+use serde_derive::Deserialize;
 use std::hash::Hasher;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BinaryWriter {
 	data: Vec<u8>,
 }
@@ -99,5 +100,15 @@ impl BinaryWriter {
 
 	pub fn to_bytes(&self) -> Vec<u8> {
 		self.data.clone()
+	}
+}
+
+impl Hasher for BinaryWriter {
+	fn finish(&self) -> u64 {
+		unimplemented!()
+	}
+
+	fn write(&mut self, bytes: &[u8]) {
+		self.write_bytes(bytes);
 	}
 }

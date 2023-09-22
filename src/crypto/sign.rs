@@ -4,7 +4,10 @@ use crate::{
 	types::{Bytes, PrivateKey},
 };
 use p256::{
-	ecdsa::signature::{digest::Mac, Signature, Signer, SignerMut},
+	ecdsa::{
+		signature::{digest::Mac, Signer, SignerMut},
+		Signature,
+	},
 	PublicKey,
 };
 use serde::{Deserialize, Serialize};
@@ -75,7 +78,7 @@ impl SignatureData {
 }
 
 pub fn sign_message(msg: &[u8], kp: &mut KeyPair) -> SignatureData {
-	let sig = kp.sign(msg);
+	let sig = kp.sign(msg).unwrap();
 	let (r, s) = sig.split_scalars();
 	SignatureData::from_bytes(&[r.to_bytes(), s.to_bytes()].concat())
 }
@@ -87,7 +90,7 @@ pub fn public_key(priv_key: &PrivateKey) -> PublicKey {
 
 // Verify signature against public key
 pub fn verify(msg: &[u8], sig: &SignatureData, pub_key: &PublicKey) -> bool {
-	let sig = Signature::from_bytes(sig.concatenated().as_slice()).expect("valid sig");
+	let sig = Signature::from_der(sig.concatenated().as_slice()).expect("valid sig");
 
 	pub_key.verify(&msg, &sig).is_ok()
 }

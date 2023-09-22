@@ -102,7 +102,7 @@ pub trait TokenTrait: SmartContractTrait {
 	}
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-		let address = NeoRust::<HttpService>::instance()
+		let address = NeoRust::instance()
 			.invoke_function(
 				&NeoNameService::new().script_hash(),
 				"resolve".to_string(),

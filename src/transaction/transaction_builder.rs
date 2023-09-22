@@ -27,6 +27,8 @@ pub struct TransactionBuilder {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
+	// setter and getter
+	#[getset(get = "pub", set = "pub")]
 	signers: Vec<Signer>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
@@ -142,8 +144,7 @@ impl TransactionBuilder {
 
 		// Check sender balance if needed
 		if let Some(fee_consumer) = &self.fee_consumer {
-			let sender_balance =
-				NeoRust::<HttpService>::instance().get_sender_balance().await.unwrap();
+			let sender_balance = NeoRust::instance().get_sender_balance().await.unwrap();
 			if network_fee + system_fee > sender_balance {
 				fee_consumer(network_fee + system_fee, sender_balance);
 			}
@@ -166,7 +167,7 @@ impl TransactionBuilder {
 	async fn get_system_fee(&self) -> Result<u64, TransactionError> {
 		let script = self.script.as_ref().unwrap();
 
-		let response = NeoRust::<HttpService>::instance()
+		let response = NeoRust::instance()
 			.invoke_script(script.to_hex(), vec![self.signers[0]])
 			.await
 			.request()
@@ -178,7 +179,7 @@ impl TransactionBuilder {
 	async fn get_network_fee(&mut self) -> Result<u64, TransactionError> {
 		let unsigned_tx = self.get_unsigned_tx().await.unwrap();
 
-		let fee = NeoRust::<HttpService>::instance()
+		let fee = NeoRust::instance()
 			.calculate_network_fee(unsigned_tx.serialize())
 			.await
 			.unwrap();
@@ -191,7 +192,7 @@ impl TransactionBuilder {
 		let sender = &self.signers[0];
 
 		if Self::is_account_signer(sender) {
-			let balance = NeoRust::<HttpService>::instance()
+			let balance = NeoRust::instance()
 				.invoke_function(
 					&Self::GAS_TOKEN_HASH,
 					Self::BALANCE_OF_FUNCTION.to_string(),
@@ -263,11 +264,10 @@ impl TransactionBuilder {
 
 		if self.valid_until_block.is_none() {
 			let current_block_count =
-				NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
+				NeoRust::instance().get_block_count().request().await.unwrap();
 			self.valid_until_block = Some(
-				(current_block_count
-					+ NeoRust::<HttpService>::instance().max_valid_until_block_increment()
-					- 1) as u32,
+				(current_block_count + NeoRust::instance().max_valid_until_block_increment() - 1)
+					as u32,
 			);
 		}
 

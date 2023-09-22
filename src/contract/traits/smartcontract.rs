@@ -72,8 +72,10 @@ pub trait SmartContractTrait: Sync {
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
-		item.as_str()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("String".to_string()))
+		match item.as_string() {
+			Some(s) => Ok(s),
+			None => Err(ContractError::UnexpectedReturnType("String".to_string())),
+		}
 	}
 
 	async fn call_function_returning_int(
@@ -85,8 +87,10 @@ pub trait SmartContractTrait: Sync {
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
-		item.as_i32()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Int".to_string()))
+		match item.as_int() {
+			Some(i) => Ok(i as i32),
+			None => Err(ContractError::UnexpectedReturnType("Int".to_string())),
+		}
 	}
 
 	async fn call_function_returning_bool(
@@ -98,8 +102,11 @@ pub trait SmartContractTrait: Sync {
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = output.stack[0].clone();
-		item.as_bool()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Bool".to_string()))
+		match item.as_bool() {
+			Some(b) => Ok(b),
+			None => Err(ContractError::UnexpectedReturnType("Bool".to_string())),
+		}
+		// .ok_or_else(|| ContractError::UnexpectedReturnType("Bool".to_string()))
 	}
 
 	// Other methods
@@ -115,11 +122,9 @@ pub trait SmartContractTrait: Sync {
 				"Function cannot be empty".to_string(),
 			)))
 		}
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
 			.request()
-			.await
-			.unwrap()
 			.await
 	}
 
@@ -187,11 +192,11 @@ pub trait SmartContractTrait: Sync {
 			.unwrap()
 			.build();
 
-		let output = NeoRust::<HttpService>::instance()
+		let output = NeoRust::instance()
 			.invoke_script(script.to_bytes().to_hex(), vec![])
+			.request()
 			.await
-			.unwrap()
-			.get_result();
+			.unwrap();
 
 		self.throw_if_fault_state(&output).unwrap();
 
@@ -204,24 +209,29 @@ pub trait SmartContractTrait: Sync {
 		Self::calc_contract_hash(H160::zero(), 0, contract_name)
 	}
 
-	fn calc_contract_hash(
+	async fn calc_contract_hash(
 		sender: H160,
 		nef_checksum: u32,
 		contract_name: &str,
 	) -> Result<H160, NeoError> {
 		let mut script = ScriptBuilder::new()
 			.op_code(&[OpCode::Abort])
+			.await
 			.push_data(sender.to_vec())
+			.await
 			.unwrap()
 			.push_integer(nef_checksum as i64)
+			.await
 			.unwrap()
-			.push_data(contract_name.as_bytes().to_vec());
+			.push_data(contract_name.as_bytes().to_vec())
+			.await
+			.unwrap();
 
 		Ok(H160::from_slice(script.to_bytes().as_slice()))
 	}
 
 	async fn get_manifest(&self) -> ContractManifest {
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.get_contract_state(self.script_hash())
 			.request()
 			.await

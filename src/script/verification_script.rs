@@ -4,7 +4,14 @@ use crate::{
 	serialization::binary_reader::BinaryReader,
 	types::{Bytes, PublicKey, PublicKeyExtension},
 };
-use p256::{ecdsa::Signature, pkcs8::der::Encode};
+use p256::{
+	ecdsa::{
+		signature::{SignerMut, Verifier},
+		Signature, VerifyingKey,
+	},
+	elliptic_curve::rand_core::OsRng,
+	pkcs8::der::Encode,
+};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::vec;
@@ -119,7 +126,7 @@ impl VerificationScript {
 
 		while reader.read_u8() == OpCode::PushData1 as u8 {
 			let len = reader.read_u8();
-			let sig = Signature::from_slice(&reader.read_bytes(len as usize).unwrap());
+			let sig = Signature::from_der(&reader.read_bytes(len as usize).unwrap()).unwrap();
 			signatures.push(sig);
 		}
 
@@ -135,7 +142,7 @@ impl VerificationScript {
 			let mut point = [0; 33];
 			point.copy_from_slice(&reader.read_bytes(33).unwrap());
 
-			let key = PublicKey::from_bytes(&point).unwrap();
+			let key = PublicKey::try_from(&point).unwrap();
 			return Ok(vec![key])
 		}
 
@@ -148,7 +155,7 @@ impl VerificationScript {
 				reader.read_u8(); // skip length
 				let mut point = [0; 33];
 				point.copy_from_slice(&reader.read_bytes(33).unwrap());
-				keys.push(PublicKey::from_bytes(&point).unwrap());
+				keys.push(PublicKey::try_from(&point).unwrap());
 			}
 
 			Ok(keys)

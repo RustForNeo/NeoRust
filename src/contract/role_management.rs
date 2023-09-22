@@ -61,8 +61,7 @@ impl RoleManagement {
 			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
 		}
 
-		let current_block_count =
-			NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
+		let current_block_count = NeoRust::instance().get_block_count().request().await.unwrap();
 
 		if block_index > current_block_count as i32 {
 			return Err(ContractError::InvalidNeoName(format!(

@@ -15,7 +15,7 @@ pub struct NeoApplicationLog {
 	pub executions: Vec<Execution>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Execution {
 	pub trigger: String,
 	#[serde(rename = "vmstate")]

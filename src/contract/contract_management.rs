@@ -35,7 +35,7 @@ impl ContractManagement {
 	}
 
 	pub async fn get_minimum_deployment_fee(&self) -> Result<u64, NeoError> {
-		Ok(NeoRust::<HttpService>::instance()
+		Ok(NeoRust::instance()
 			.invoke_function(
 				&self.script_hash,
 				"getMinimumDeploymentFee".to_string(),
@@ -51,7 +51,7 @@ impl ContractManagement {
 	}
 
 	pub async fn set_minimum_deployment_fee(&self, fee: u64) -> Result<u64, NeoError> {
-		Ok(NeoRust::<HttpService>::instance()
+		Ok(NeoRust::instance()
 			.invoke_function(
 				&self.script_hash,
 				"setMinimumDeploymentFee".to_string(),
@@ -67,7 +67,7 @@ impl ContractManagement {
 	}
 
 	pub async fn get_contract(&self, hash: H160) -> Result<ContractState, ContractError> {
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.get_contract_state(hash)
 			.request()
 			.await
@@ -80,7 +80,7 @@ impl ContractManagement {
 	}
 
 	pub async fn get_contract_hash_by_id(&self, id: u32) -> Result<H160, ContractError> {
-		let result = NeoRust::<HttpService>::instance()
+		let result = NeoRust::instance()
 			.invoke_function(
 				&self.script_hash,
 				"getContractById".to_string(),
@@ -97,7 +97,7 @@ impl ContractManagement {
 	}
 
 	pub async fn get_contract_hashes(&self) -> Result<ContractIdentifiers, NeoError> {
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.invoke_function(&self.script_hash, "getContractHashes".to_string(), vec![], vec![])
 			.request()
 			.await
@@ -110,7 +110,7 @@ impl ContractManagement {
 		method: &str,
 		params: usize,
 	) -> Result<bool, ContractError> {
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.invoke_function(
 				&self.script_hash,
 				"hasMethod".to_string(),

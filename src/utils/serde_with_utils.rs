@@ -88,6 +88,29 @@ where
 	}
 }
 
+pub fn serialize_wildcard<S>(value: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	if value == &vec!["*".to_string()] {
+		serializer.serialize_str("*")
+	} else {
+		value.serialize(serializer)
+	}
+}
+
+pub fn deserialize_wildcard<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: &str = Deserialize::deserialize(&deserializer).unwrap();
+	if s == "*" {
+		Ok(vec!["*".to_string()])
+	} else {
+		Vec::<String>::deserialize(deserializer)
+	}
+}
+
 pub fn serialize_u256<S>(item: &U256, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
@@ -274,6 +297,39 @@ where
 		seq.serialize_element(&encode_string_h256(&H256::from_slice(&i.to_vec())))?;
 	}
 	seq.end()
+}
+
+// impl serialize_public_key_option
+pub fn serialize_public_key_option<S>(
+	item: &Option<PublicKey>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match item {
+		Some(key) => {
+			let key_str = encode_string_h256(&H256::from_slice(&key.to_vec()));
+			serializer.serialize_str(&key_str)
+		},
+		None => serializer.serialize_none(),
+	}
+}
+
+// impl deserialize_public_key_option
+pub fn deserialize_public_key_option<'de, D>(deserializer: D) -> Result<Option<PublicKey>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: Option<String> = Deserialize::deserialize(deserializer)?;
+	match s {
+		Some(s) => {
+			let pubkey_bytes = parse_string_h256(&s).as_bytes();
+			let key = PublicKey::from_slice(pubkey_bytes).unwrap();
+			Ok(Some(key))
+		},
+		None => Ok(None),
+	}
 }
 
 pub fn serialize_vec_methodtoken<S>(

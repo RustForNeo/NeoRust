@@ -9,7 +9,7 @@ use crate::{
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Hash, Debug)]
 pub struct Transaction {
 	#[serde(rename = "hash")]
 	#[serde(serialize_with = "serialize_h256")]
@@ -64,4 +64,10 @@ pub struct Transaction {
 
 	#[serde(rename = "vmstate")]
 	pub vm_state: Option<VMState>,
+}
+
+impl PartialEq for Transaction {
+	fn eq(&self, other: &Self) -> bool {
+		self.hash == other.hash
+	}
 }

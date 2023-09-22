@@ -1,6 +1,6 @@
 use crate::{
-	crypto::wif::Wif,
-	neo_error::NeoError,
+	crypto::{hash::HashableForVec, wif::Wif},
+	neo_error::{NeoError, NeoError::InvalidPublicKey},
 	protocol::core::responses::{
 		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
@@ -46,10 +46,10 @@ where
 {
 	fn to_string(&self) -> String;
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str>;
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
 
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
-	fn from_address(address: &str) -> Result<Self, &'static str>;
+	fn from_address(address: &str) -> Result<Self, NeoError>;
 
 	fn from_public_key(public_key: &PublicKey) -> Self;
 	fn to_address(&self) -> String;
@@ -62,9 +62,9 @@ impl H160Externsion for H160 {
 		bs58::encode(self.0).into_string()
 	}
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
 		if slice.len() != 20 {
-			return Err("Invalid length")
+			return Err(NeoError::InvalidAddress)
 		}
 
 		let mut arr = [0u8; 20];
@@ -84,16 +84,10 @@ impl H160Externsion for H160 {
 	}
 
 	fn from_public_key(public_key: &PublicKey) -> Self {
-		let mut sha = Sha256::new();
-		sha.update(public_key.as_bytes());
-		let hash = sha.finalize();
-
-		let mut ripemd = Ripemd160::new();
-		ripemd.update(&hash);
-		let result = ripemd.finalize();
+		let hash = public_key.to_encoded_point(false).as_bytes().sha256_ripemd160();
 
 		let mut arr = [0u8; 20];
-		arr.copy_from_slice(&result.into_bytes());
+		arr.copy_from_slice(&hash);
 		Self(arr)
 	}
 
@@ -126,7 +120,7 @@ where
 	fn to_address(&self) -> String;
 	fn to_vec(&self) -> Vec<u8>;
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str>;
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
 	fn from_private_key(private_key: &PrivateKey) -> Self;
 }
@@ -140,7 +134,7 @@ where
 
 	fn to_wif(&self) -> String;
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str>;
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
 }
 
@@ -153,14 +147,14 @@ impl PublicKeyExtension for PublicKey {
 		self.as_bytes().to_vec()
 	}
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
 		if slice.len() != 64 {
-			return Err("Invalid length")
+			return Err(InvalidPublicKey)
 		}
 
 		let mut arr = [0u8; 64];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_encoded_point(&arr).map_err(|_| "Invalid point").unwrap())
+		Ok(Self::from_encoded_point(&arr).map_err(|_| InvalidPublicKey).unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
@@ -186,14 +180,14 @@ impl PrivateKeyExtension for PrivateKey {
 		self.to_vec().as_slice().to_wif()
 	}
 
-	fn from_slice(slice: &[u8]) -> Result<Self, &'static str> {
+	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
 		if slice.len() != 32 {
-			return Err("Invalid length")
+			return Err(InvalidPublicKey)
 		}
 
 		let mut arr = [0u8; 32];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_bytes(&arr).map_err(|_| "Invalid point").unwrap())
+		Ok(Self::from_bytes(&arr).map_err(|_| InvalidPublicKey).unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {

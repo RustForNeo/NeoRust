@@ -58,23 +58,17 @@ use std::{
 };
 
 lazy_static! {
-	pub static ref NEO_HTTP_INSTANCE: Arc<Mutex<NeoRust<HttpService>>> =
+	pub static ref NEO_HTTP_INSTANCE: Arc<Mutex<NeoRust>> =
 		Arc::new(Mutex::new(NeoRust::new_http_service()));
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct NeoRust<T>
-where
-	T: NeoService,
-{
+pub struct NeoRust {
 	config: Arc<Mutex<NeoConfig>>,
-	neo_service: Arc<Mutex<T>>,
+	neo_service: Arc<Mutex<HttpService>>,
 }
 
-impl<T: NeoService> NeoRust<T>
-where
-	T: NeoService,
-{
+impl NeoRust {
 	pub fn new_http_service() -> Self {
 		Self {
 			config: Arc::new(Mutex::new(NeoConfig::default())),
@@ -82,7 +76,7 @@ where
 		}
 	}
 
-	pub fn instance() -> MutexGuard<'static, NeoRust<T>> {
+	pub fn instance() -> MutexGuard<'static, NeoRust> {
 		NEO_HTTP_INSTANCE.clone().lock().unwrap()
 	}
 
@@ -109,11 +103,11 @@ where
 		self.config().max_valid_until_block_increment
 	}
 
-	pub(crate) fn get_neo_service(&self) -> &T {
+	pub(crate) fn get_neo_service(&self) -> &HttpService {
 		&self.neo_service.lock().unwrap()
 	}
 
-	pub fn get_neo_service_mut(&mut self) -> &mut T {
+	pub fn get_neo_service_mut(&mut self) -> &mut HttpService {
 		&mut self.neo_service.lock().as_mut().unwrap()
 	}
 
@@ -134,11 +128,7 @@ where
 				))
 				.unwrap()
 				.network;
-			self.config
-				.get_mut()
-				.unwrap()
-				.set_network_magic(magic)
-				.expect("Unable to set Network Magic Number");
+			self.config.lock().unwrap().network_magic = Some(magic);
 		}
 		Ok(self.config().network_magic.unwrap())
 	}
@@ -150,7 +140,7 @@ where
 }
 
 #[async_trait]
-impl<T: NeoService> NeoTrait for NeoRust<T> {
+impl NeoTrait for NeoRust {
 	// Blockchain methods
 	fn get_best_block_hash(&self) -> NeoRequest<H256Def> {
 		NeoRequest::new("getbestblockhash", vec![])

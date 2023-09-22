@@ -1,8 +1,14 @@
-use crate::types::{
-	contract_parameter::ContractParameter, contract_parameter_type::ContractParameterType,
+use crate::{
+	types::{
+		contract_parameter::ContractParameter, contract_parameter_type::ContractParameterType,
+	},
+	utils::*,
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::HashMap;
+use std::{
+	collections::HashMap,
+	hash::{Hash, Hasher},
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ContractManifest {
@@ -27,21 +33,47 @@ pub struct ContractManifest {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub extra: Option<HashMap<String, serde_json::Value>>,
 }
+// impl Eq for ContractManifest
+impl PartialEq for ContractManifest {
+	fn eq(&self, other: &Self) -> bool {
+		self.name == other.name
+			&& self.groups == other.groups
+			&& self.features == other.features
+			&& self.supported_standards == other.supported_standards
+			&& self.abi == other.abi
+			&& self.permissions == other.permissions
+			&& self.trusts == other.trusts
+			&& self.extra == other.extra
+	}
+}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl Hash for ContractManifest {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.name.hash(state);
+		self.groups.hash(state);
+		// self.features.hash(state);
+		self.supported_standards.hash(state);
+		self.abi.hash(state);
+		self.permissions.hash(state);
+		self.trusts.hash(state);
+		// self.extra.hash(state);
+	}
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Debug, Clone)]
 pub struct ContractGroup {
 	pub pub_key: String,
 	pub signature: String,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct ContractABI {
 	pub methods: Vec<ContractMethod>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub events: Option<Vec<ContractEvent>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct ContractMethod {
 	pub name: String,
 	pub parameters: Vec<ContractParameter>,
@@ -50,39 +82,16 @@ pub struct ContractMethod {
 	pub safe: bool,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Hash, Debug, Clone)]
 pub struct ContractEvent {
 	pub name: String,
 	pub parameters: Vec<ContractParameter>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct ContractPermission {
 	pub contract: String,
-	// #[serde(serialize_with = "serialize_wildcard")]
-	// #[serde(deserialize_with = "deserialize_wildcard")]
+	#[serde(serialize_with = "serialize_wildcard")]
+	#[serde(deserialize_with = "deserialize_wildcard")]
 	pub methods: Vec<String>,
-}
-
-fn serialize_wildcard<S>(value: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
-where
-	S: Serializer,
-{
-	if value == &vec!["*".to_string()] {
-		serializer.serialize_str("*")
-	} else {
-		value.serialize(serializer)
-	}
-}
-
-fn deserialize_wildcard<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
-where
-	D: Deserializer<'de>,
-{
-	let s: &str = Deserialize::deserialize(&deserializer).unwrap();
-	if s == "*" {
-		Ok(vec!["*".to_string()])
-	} else {
-		Vec::<String>::deserialize(deserializer)
-	}
 }

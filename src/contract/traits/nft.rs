@@ -54,10 +54,10 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_inner(to, token_id, data)
-			.await
-			.unwrap()
-			.signers(vec![AccountSigner::called_by_entry(from)])
+		let mut builder = self.transfer_inner(to, token_id, data).await.unwrap();
+		&builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+
+		Ok(builder)
 	}
 
 	async fn transfer_inner(

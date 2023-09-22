@@ -35,8 +35,7 @@ impl BlockIndexPolling {
 
 		interval
 			.map(async move |_| {
-				let latest_index =
-					NeoRust::<HttpService>::instance().get_block_count().request().await.unwrap();
+				let latest_index = NeoRust::instance().get_block_count().request().await.unwrap();
 				// .execute(executor)
 				// .map(|res| res.get_result() - 1);
 

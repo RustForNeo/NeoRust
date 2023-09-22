@@ -32,7 +32,6 @@ pub mod neo_get_version;
 pub mod neo_get_wallet_balance;
 pub mod neo_list_plugins;
 pub mod neo_network_fee;
-pub mod neo_response_aliases;
 pub mod neo_send_raw_transaction;
 pub mod neo_validate_address;
 pub mod neo_witness;

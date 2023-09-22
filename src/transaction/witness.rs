@@ -10,7 +10,7 @@ use crate::{
 use p256::elliptic_curve::sec1::ToEncodedPoint;
 use serde::{Deserialize, Serialize};
 
-#[derive(Hash, Serialize, Deserialize)]
+#[derive(Hash, Serialize, Deserialize, Clone)]
 pub struct Witness {
 	pub invocation_script: InvocationScript,
 	pub verification_script: VerificationScript,

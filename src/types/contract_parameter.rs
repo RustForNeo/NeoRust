@@ -128,7 +128,7 @@ impl From<&String> for ContractParameter {
 	}
 }
 
-#[derive(Display, EnumString, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Clone)]
+#[derive(Display, EnumString, Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum ParameterValue {
 	Boolean(bool),
@@ -142,6 +142,28 @@ pub enum ParameterValue {
 	Array(Vec<ContractParameter>),
 	Map(Vec<serde_json::Value>),
 	Any,
+}
+
+impl Hash for ParameterValue {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		match self {
+			ParameterValue::Boolean(b) => b.hash(state),
+			ParameterValue::Integer(i) => i.hash(state),
+			ParameterValue::ByteArray(b) => b.hash(state),
+			ParameterValue::String(s) => s.hash(state),
+			ParameterValue::Hash160(h) => h.hash(state),
+			ParameterValue::Hash256(h) => h.hash(state),
+			ParameterValue::PublicKey(p) => p.hash(state),
+			ParameterValue::Signature(s) => s.hash(state),
+			ParameterValue::Array(a) => a.hash(state),
+			ParameterValue::Map(m) =>
+				for v in m {
+					let bytes: Vec<u8> = serde_json::to_vec(v).unwrap();
+					bytes.hash(state);
+				},
+			ParameterValue::Any => "Any".hash(state),
+		}
+	}
 }
 
 impl ContractParameter {

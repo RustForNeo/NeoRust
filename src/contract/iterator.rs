@@ -30,7 +30,7 @@ impl<T> NeoIterator<T> {
 	}
 
 	pub async fn traverse(&self, count: i32) -> Result<Vec<T>, NeoError> {
-		let result = NeoRust::<HttpService>::instance()
+		let result = NeoRust::instance()
 			.traverse_iterator(self.session_id.clone(), self.iterator_id.clone(), count as u32)
 			.request()
 			.await?;
@@ -39,7 +39,7 @@ impl<T> NeoIterator<T> {
 	}
 
 	pub async fn terminate_session(&self) -> Result<(), NeoError> {
-		NeoRust::<HttpService>::instance()
+		NeoRust::instance()
 			.terminate_session(&self.session_id)
 			.request()
 			.await

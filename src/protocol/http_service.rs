@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct HttpService {
 	url: Url,
 	client: Client,

@@ -75,10 +75,7 @@ impl SerializableTransaction {
 		let hex = hex::encode(self.serialize().await);
 
 		// Send using NeoRust
-		let neo_rust = NeoRust::<HttpService>::instance()
-			.as_ref()
-			.ok_or(NeoError::NeoRustNotInitialized)
-			.unwrap();
+		let neo_rust = NeoRust::instance().as_ref().ok_or(NeoError::NeoRustNotInitialized).unwrap();
 
 		neo_rust.send_raw_transaction(hex).await.unwrap();
 
@@ -88,13 +85,8 @@ impl SerializableTransaction {
 	}
 
 	// Get hash data
-	pub fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-		let neo_rust = NeoRust::<HttpService>::instance()
-			.as_ref()
-			.ok_or(NeoError::NeoRustNotInitialized)
-			.unwrap();
-
-		let network_magic = neo_rust.get_network_magic().unwrap();
+	pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
+		let network_magic = NeoRust::instance().get_network_magic_number().await.unwrap();
 		let data = self.serialize_without_witnesses();
 
 		Ok(network_magic + data.sha256())

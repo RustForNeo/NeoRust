@@ -1,6 +1,6 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
-	transaction::witness_scope::WitnessScope,
+	transaction::witness_scope::WitnessScope, utils::*,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,8 @@ use std::hash::{Hash, Hasher};
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct TransactionSigner {
 	#[serde(rename = "account")]
+	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address")]
 	pub account: H160,
 
 	#[serde(rename = "scopes")]

@@ -2,8 +2,7 @@ use crate::{
 	neo_error::NeoError,
 	protocol::{
 		core::{
-			block_index::BlockIndexPolling, neo_trait::NeoTrait,
-			responses::neo_response_aliases::NeoGetBlock,
+			block_index::BlockIndexPolling, neo_trait::NeoTrait, responses::neo_block::NeoBlock,
 		},
 		http_service::HttpService,
 		neo_rust::NeoRust,
@@ -13,7 +12,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use std::time::Duration;
 use tokio::{runtime::Handle, time::interval};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub struct JsonRpc2 {
 	executor_service: Handle,
 }
@@ -34,9 +33,9 @@ impl JsonRpc2 {
 		&self,
 		full_transaction_objects: bool,
 		polling_interval: i32,
-	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
+	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
 		self.block_index_publisher(polling_interval).and_then(|index| {
-			NeoRust::<HttpService>::instance()
+			NeoRust::instance()
 				.get_block(index, full_transaction_objects)
 				.execute(&mut self.executor_service)
 		})
@@ -48,14 +47,14 @@ impl JsonRpc2 {
 		end_block: i32,
 		full_transaction_objects: bool,
 		ascending: bool,
-	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
+	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
 		let mut blocks = (start_block..=end_block).collect::<Vec<_>>();
 		if !ascending {
 			blocks.reverse();
 		}
 
 		futures::stream::iter(blocks).and_then(|block| {
-			NeoRust::<HttpService>::instance()
+			NeoRust::instance()
 				.get_block(block, full_transaction_objects)
 				.execute(&mut self.executor_service)
 		})
@@ -65,8 +64,8 @@ impl JsonRpc2 {
 		&self,
 		start_block: i32,
 		full_transaction_objects: bool,
-		on_caught_up_publisher: impl Stream<Item = Result<NeoGetBlock, NeoError>>,
-	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
+		on_caught_up_publisher: impl Stream<Item = Result<NeoBlock, NeoError>>,
+	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
 		let latest_block = self.latest_block_index_publisher().await.unwrap();
 
 		if start_block >= latest_block {
@@ -89,20 +88,21 @@ impl JsonRpc2 {
 		start_block: i32,
 		full_transaction_objects: bool,
 		polling_interval: i32,
-	) -> impl Stream<Item = Result<NeoGetBlock, NeoError>> {
+	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
 		self.catch_up_to_latest_block_publisher(
 			start_block,
 			full_transaction_objects,
 			self.block_publisher(full_transaction_objects, polling_interval),
 		)
+		.await
 	}
 
-	pub async fn latest_block_index_publisher(&self) -> Result<i32, NeoError> {
-		NeoRust::<HttpService>::instance()
+	pub async fn latest_block_index_publisher(&mut self) -> Result<i32, NeoError> {
+		Ok((NeoRust::instance()
 			.get_block_count()
-			.execute(&mut self.executor_service)
-			.unwrap()
-			.get_result()
-			- 1
+			.request()
+			.await
+			// .execute(&mut self.executor_service)
+			.unwrap() - 1) as i32)
 	}
 }
