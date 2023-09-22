@@ -2,13 +2,26 @@ use crate::{neo_error::NeoError, transaction::signer::Signer};
 use num_bigint::{BigInt, Sign};
 use p256::{elliptic_curve::sec1::FromEncodedPoint, EncodedPoint, ProjectivePoint};
 use serde::Deserialize;
+use serde_derive::Serialize;
 use std::error::Error;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct BinaryReader<'a> {
 	data: &'a [u8],
 	position: usize,
 	marker: usize,
+}
+impl<'a> Iterator for BinaryReader<'a> {
+	type Item = u8;
+	fn next(&mut self) -> Option<Self::Item> {
+		if self.position < self.data.len() {
+			let val = self.data[self.position];
+			self.position += 1;
+			Some(val)
+		} else {
+			None
+		}
+	}
 }
 
 impl<'a> BinaryReader<'a> {
@@ -166,7 +179,9 @@ impl<'a> BinaryReader<'a> {
 					0x52 => 2,
 					0x53 => 4,
 					0x54 => 8,
-					_ => {},
+					_ => {
+						panic!("Invalid opcode")
+					},
 				};
 				let bytes = self.read_bytes(n).unwrap();
 				Ok(i64::from_be_bytes(bytes.try_into().unwrap()))
@@ -215,7 +230,7 @@ impl<'a> BinaryReader<'a> {
 			_ => return Err("Invalid EC point tag"),
 		};
 
-		let point = EncodedPoint::from_bytes(bytes);
+		let point = EncodedPoint::from_bytes(bytes).unwrap();
 		match ProjectivePoint::from_encoded_point(&point) {
 			Some(point) => Ok(point),
 			None => Err("Invalid EC point"),

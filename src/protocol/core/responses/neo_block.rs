@@ -5,7 +5,7 @@ use crate::{
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, Hash, Debug)]
 pub struct NeoBlock {
 	#[serde(serialize_with = "serialize_h256")]
 	#[serde(deserialize_with = "deserialize_h256")]
@@ -33,4 +33,23 @@ pub struct NeoBlock {
 	#[serde(serialize_with = "serialize_h256_option")]
 	#[serde(deserialize_with = "deserialize_h256_option")]
 	pub next_block_hash: Option<H256>,
+}
+
+impl PartialEq for NeoBlock {
+	fn eq(&self, other: &Self) -> bool {
+		// loop every tranactions and compare the hash of transactions
+		if let Some(transactions) = &self.transactions {
+			if let Some(other_transactions) = &other.transactions {
+				if transactions.len() != other_transactions.len() {
+					return false
+				}
+				for i in 0..transactions.len() {
+					if transactions[i].hash != other_transactions[i].hash {
+						return false
+					}
+				}
+			}
+		}
+		self.hash == other.hash
+	}
 }

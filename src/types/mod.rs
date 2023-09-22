@@ -2,12 +2,14 @@ use crate::{
 	crypto::{hash::HashableForVec, wif::Wif},
 	neo_error::{NeoError, NeoError::InvalidPublicKey},
 	protocol::core::responses::{
-		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
+		neo_validate_address::ValidateAddress, transaction_attribute::TransactionAttribute,
+		transaction_send_token::TransactionSendToken, transaction_signer::TransactionSigner,
 	},
+	transaction::signer::Signer,
+	types::contract_parameter::ContractParameter,
 	utils::*,
 };
 use base64::{engine::general_purpose, Engine};
-use crypto::{ripemd160::Ripemd160, scrypt::ScryptParams, sha2::Sha256};
 use futures::TryFutureExt;
 use hex::FromHexError;
 use p256::{
@@ -27,6 +29,7 @@ pub mod call_flags;
 pub mod contract_parameter;
 pub mod contract_parameter_type;
 pub mod plugin_type;
+pub mod secp256r1_keys;
 pub mod vm_state;
 
 // Bring EC types into scope
@@ -78,7 +81,7 @@ impl H160Externsion for H160 {
 	}
 
 	fn from_address(address: &str) -> Result<Self, NeoError> {
-		let bytes = bs58::decode(address).into_vec().map_err(|_| NeoError::InvalidScript).unwrap();
+		let bytes = bs58::decode(address).into_vec().unwrap();
 
 		Ok(Self::from_slice(&bytes))
 	}
@@ -100,15 +103,9 @@ impl H160Externsion for H160 {
 	}
 
 	fn from_script(script: &[u8]) -> Self {
-		let mut hasher = Sha256::new();
-		hasher.update(script);
-		let hash = hasher.finalize();
-
-		let mut ripemd = Ripemd160::new();
-		ripemd.update(&hash);
-		let result = ripemd.finalize();
+		let result = script.sha256_ripemd160();
 		let mut arr = [0u8; 20];
-		arr.copy_from_slice(&result.into_bytes());
+		arr.copy_from_slice(&result);
 		Self(arr)
 	}
 }
@@ -136,6 +133,8 @@ where
 
 	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
 	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
+
+	fn from_wif(wif: &str) -> Result<Self, NeoError>;
 }
 
 impl PublicKeyExtension for PublicKey {
@@ -144,7 +143,7 @@ impl PublicKeyExtension for PublicKey {
 	}
 
 	fn to_vec(&self) -> Vec<u8> {
-		self.as_bytes().to_vec()
+		self.to_encoded_point(false).as_bytes().to_vec()
 	}
 
 	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
@@ -154,7 +153,7 @@ impl PublicKeyExtension for PublicKey {
 
 		let mut arr = [0u8; 64];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_encoded_point(&arr).map_err(|_| InvalidPublicKey).unwrap())
+		Ok(Self::from_encoded_point(&arr.into()).map_err(|_| InvalidPublicKey).unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
@@ -163,13 +162,13 @@ impl PublicKeyExtension for PublicKey {
 	}
 
 	fn from_private_key(private_key: &PrivateKey) -> Self {
-		private_key.public_key()
+		PublicKey::from(private_key)
 	}
 }
 
 impl PrivateKeyExtension for PrivateKey {
 	fn to_address(&self) -> String {
-		self.public_key().to_address()
+		PublicKey::from(self).to_address()
 	}
 
 	fn to_vec(&self) -> Vec<u8> {
@@ -194,6 +193,11 @@ impl PrivateKeyExtension for PrivateKey {
 		let bytes = hex::decode(hex).unwrap();
 		Ok(Self::from_slice(&bytes).unwrap())
 	}
+
+	fn from_wif(wif: &str) -> Result<Self, NeoError> {
+		let bytes = wif.from_wif().unwrap();
+		Ok(Self::from_slice(&bytes).unwrap())
+	}
 }
 
 pub trait ValueExtension {
@@ -202,7 +206,7 @@ pub trait ValueExtension {
 
 impl ValueExtension for Bytes {
 	fn to_value(&self) -> Value {
-		Value::String(self.to_hex())
+		Value::String(hex::encode(self))
 	}
 }
 
@@ -226,13 +230,13 @@ impl ValueExtension for H160 {
 
 impl ValueExtension for PublicKey {
 	fn to_value(&self) -> Value {
-		Value::String(self.to_encoded_point(false).as_bytes().to_hex())
+		Value::String(hex::encode(self.to_encoded_point(false).as_bytes()))
 	}
 }
 
 impl ValueExtension for H256 {
 	fn to_value(&self) -> Value {
-		Value::String(self.to_hex())
+		Value::String(hex::encode(self))
 	}
 }
 
@@ -274,11 +278,50 @@ impl ValueExtension for TransactionAttribute {
 
 impl ValueExtension for TransactionSendToken {
 	fn to_value(&self) -> Value {
-		Value::String(self.to_json())
+		Value::String(serde_json::to_string(self).unwrap())
 	}
 }
 
 impl ValueExtension for Vec<TransactionSendToken> {
+	fn to_value(&self) -> Value {
+		self.iter().map(|x| x.to_value()).collect()
+	}
+}
+impl ValueExtension for Vec<TransactionAttribute> {
+	fn to_value(&self) -> Value {
+		self.iter().map(|x| x.to_value()).collect()
+	}
+}
+impl ValueExtension for Signer {
+	fn to_value(&self) -> Value {
+		Value::String(serde_json::to_string(self).unwrap())
+	}
+}
+impl ValueExtension for Vec<Signer> {
+	fn to_value(&self) -> Value {
+		self.iter().map(|x| x.to_value()).collect()
+	}
+}
+
+impl ValueExtension for TransactionSigner {
+	fn to_value(&self) -> Value {
+		Value::String(serde_json::to_string(self).unwrap())
+	}
+}
+
+impl ValueExtension for Vec<TransactionSigner> {
+	fn to_value(&self) -> Value {
+		self.iter().map(|x| x.to_value()).collect()
+	}
+}
+
+impl ValueExtension for ContractParameter {
+	fn to_value(&self) -> Value {
+		Value::String(serde_json::to_string(self).unwrap())
+	}
+}
+
+impl ValueExtension for Vec<ContractParameter> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}
@@ -296,11 +339,10 @@ impl ExternBase64 for String {
 
 // ScryptParams
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(remote = "ScryptParams")]
 pub struct ScryptParamsDef {
-	log_n: u8,
-	r: u32,
-	p: u32,
+	pub log_n: u8,
+	pub r: u32,
+	pub p: u32,
 }
 
 impl Default for ScryptParamsDef {

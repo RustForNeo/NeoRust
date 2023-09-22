@@ -14,6 +14,8 @@ pub struct Wallet {
 	version: String,
 	scrypt_params: ScryptParamsDef,
 
+	#[serde(deserialize_with = "deserialize_hash_map_h160_account")]
+	#[serde(serialize_with = "serialize_hash_map_h160_account")]
 	pub(crate) accounts: HashMap<H160, Account>,
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]
@@ -40,7 +42,7 @@ impl Wallet {
 	}
 
 	pub fn add_account(&mut self, account: Account) {
-		self.accounts.insert(H160::from(account.get_script_hash()), account);
+		self.accounts.insert(account.get_script_hash().clone(), account);
 	}
 
 	pub fn set_default_account(&mut self, script_hash: H160) {

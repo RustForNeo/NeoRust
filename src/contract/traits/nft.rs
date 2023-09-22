@@ -69,7 +69,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.invoke_function(
-			NonFungibleTokenTrait::TRANSFER,
+			<NftContract as NonFungibleTokenTrait>::TRANSFER,
 			vec![to.into(), token_id.into(), data.unwrap()],
 		)
 		.await
@@ -86,8 +86,13 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 			.await
 			.unwrap();
 
-		self.transfer_inner(H160::from_address(to).unwrap(), token_id, data)
-			.signers(vec![AccountSigner::called_by_entry(from)])
+		let mut build = self
+			.transfer_inner(H160::from_address(to).unwrap(), token_id, data)
+			.await
+			.unwrap();
+		build.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+
+		Ok(build)
 	}
 
 	async fn transfer_to_name(
@@ -166,8 +171,12 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_divisible_from_hashes(from.get_script_hash(), to, amount, token_id, data)
-			.signers(vec![AccountSigner::called_by_entry(from)])
+		let mut builder = self
+			.transfer_divisible_from_hashes(from.get_script_hash(), to, amount, token_id, data)
+			.await
+			.unwrap();
+		builder.set_script(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+		Ok(builder)
 	}
 
 	async fn transfer_divisible_from_hashes(
@@ -195,15 +204,18 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_divisible_from_hashes(
-			from.get_script_hash(),
-			&self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
-			amount,
-			token_id,
-			data,
-		)
-		.await
-		.signers(vec![AccountSigner::called_by_entry(from)])
+		let mut builder = self
+			.transfer_divisible_from_hashes(
+				from.get_script_hash(),
+				&self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
+				amount,
+				token_id,
+				data,
+			)
+			.await
+			.unwrap();
+		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+		Ok(builder)
 	}
 
 	async fn transfer_divisible_to_name(
@@ -282,7 +294,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.call_function_returning_iterator(
 			<NftContract as NonFungibleTokenTrait>::TOKENS,
 			vec![],
-			|item| item.try_into(),
+			|item| Ok(item.as_bytes().unwrap()),
 		)
 		.await
 	}

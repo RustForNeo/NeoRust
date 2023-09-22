@@ -176,3 +176,23 @@ impl From<ContractSigner> for Signer {
 		Signer::Contract(contract_signer)
 	}
 }
+
+impl Into<AccountSigner> for Signer {
+	fn into(self) -> AccountSigner {
+		match self {
+			Signer::Account(account_signer) => account_signer,
+			Signer::Contract(contract_signer) =>
+				panic!("Cannot convert ContractSigner into AccountSigner"),
+		}
+	}
+}
+
+impl Into<ContractSigner> for Signer {
+	fn into(self) -> ContractSigner {
+		match self {
+			Signer::Account(account_signer) =>
+				panic!("Cannot convert AccountSigner into ContractSigner"),
+			Signer::Contract(contract_signer) => contract_signer,
+		}
+	}
+}

@@ -12,6 +12,8 @@ use crate::{
 use std::hash::Hash;
 use tokio::io::AsyncReadExt;
 
+use rustc_serialize::hex::ToHex;
+
 pub struct ScriptReader;
 
 impl ScriptReader {

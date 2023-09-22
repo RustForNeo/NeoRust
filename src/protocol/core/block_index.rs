@@ -1,10 +1,10 @@
 use crate::{
 	neo_error::NeoError,
-	protocol::{core::neo_trait::NeoTrait, http_service::HttpService, neo_rust::NeoRust},
+	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
-use std::{error::Error, time::Duration};
-use tokio::{runtime::Handle, sync::RwLock};
+use std::time::Duration;
+use tokio::{runtime::Handle, sync::RwLock, time::Interval};
 
 struct BlockIndexActor {
 	block_index: RwLock<Option<i32>>,
@@ -28,33 +28,26 @@ pub struct BlockIndexPolling {
 impl BlockIndexPolling {
 	pub async fn block_index_publisher(
 		&self,
-		executor: &Handle,
 		polling_interval: i32,
 	) -> impl Stream<Item = Result<i32, NeoError>> {
-		let interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(Duration::from_secs(polling_interval as u64));
 
-		interval
-			.map(async move |_| {
+			loop {
+				interval.tick().await;
 				let latest_index = NeoRust::instance().get_block_count().request().await.unwrap();
-				// .execute(executor)
-				// .map(|res| res.get_result() - 1);
+				let curr_index = self.current_block_index.get_index().await;
 
-				async move {
-					let curr_index = self.current_block_index.get_index().await;
-
-					if curr_index.map(|i| latest_index > i as u32).unwrap_or(true) {
-						self.current_block_index.set_index(latest_index as i32).await;
-						Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
-					} else {
-						Ok(vec![])
-					}
-					.expect("Error getting latest block");
-
-					Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
+				if curr_index.map(|i| latest_index > i as u32).unwrap_or(true) {
+					self.current_block_index.set_index(latest_index as i32).await;
+					Ok((curr_index.unwrap_or(0) as u32 + 1..=latest_index).collect::<Vec<_>>())
+				} else {
+					Ok(vec![])
 				}
-			})
-			.try_flatten()
-			.filter_map(|x| async move { x })
-			.flat_map(|blocks| futures::stream::iter(blocks).map(Ok))
+				.expect("Error getting latest block");
+
+				Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
+			}
+		})
 	}
 }

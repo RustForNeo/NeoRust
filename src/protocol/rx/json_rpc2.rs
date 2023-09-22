@@ -26,7 +26,7 @@ impl JsonRpc2 {
 		&self,
 		polling_interval: i32,
 	) -> impl Stream<Item = Result<i32, NeoError>> {
-		BlockIndexPolling::block_index_publisher(&self.executor_service, polling_interval, 0)
+		self.block_publisher(polling_interval, 0)
 	}
 
 	pub async fn block_publisher(
@@ -34,10 +34,9 @@ impl JsonRpc2 {
 		full_transaction_objects: bool,
 		polling_interval: i32,
 	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
-		self.block_index_publisher(polling_interval).and_then(|index| {
-			NeoRust::instance()
-				.get_block(index, full_transaction_objects)
-				.execute(&mut self.executor_service)
+		self.block_index_publisher(polling_interval).and_then(async move |index| {
+			NeoRust::instance().get_block(index, full_transaction_objects).request().await
+			// .execute(&mut self.executor_service)
 		})
 	}
 
@@ -53,15 +52,17 @@ impl JsonRpc2 {
 			blocks.reverse();
 		}
 
-		futures::stream::iter(blocks).and_then(|block| {
+		futures::stream::iter(blocks).and_then(async move |block| {
 			NeoRust::instance()
 				.get_block(block, full_transaction_objects)
+				.request()
+				.await
 				.execute(&mut self.executor_service)
 		})
 	}
 
 	pub async fn catch_up_to_latest_block_publisher(
-		&self,
+		&mut self,
 		start_block: i32,
 		full_transaction_objects: bool,
 		on_caught_up_publisher: impl Stream<Item = Result<NeoBlock, NeoError>>,
@@ -84,7 +85,7 @@ impl JsonRpc2 {
 		}
 	}
 	pub async fn catch_up_to_latest_and_subscribe_to_new_blocks_publisher(
-		&self,
+		&mut self,
 		start_block: i32,
 		full_transaction_objects: bool,
 		polling_interval: i32,

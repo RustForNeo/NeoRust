@@ -1,5 +1,5 @@
 use crate::{
-	crypto::{key_pair::KeyPair, nep2::NEP2},
+	crypto::{key_pair::KeyPair, nep2::NEP2, wif::Wif},
 	neo_error::NeoError,
 	protocol::{core::neo_trait::NeoTrait, http_service::HttpService, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
@@ -73,7 +73,7 @@ impl Account {
 		}
 	}
 
-	pub fn from_key_pair(
+	pub async fn from_key_pair(
 		key_pair: KeyPair,
 		signing_threshold: Option<i32>,
 		nr_of_participants: Option<i32>,
@@ -82,9 +82,9 @@ impl Account {
 		Ok(Self {
 			key_pair: Some(key_pair),
 			address,
-			label: Some(address.to_string()),
+			label: Some(H160Externsion::to_string(&address)),
 			verification_script: Some(
-				VerificationScript::from_public_key(&key_pair.public_key()).unwrap(),
+				VerificationScript::from_public_key(&key_pair.public_key()).await,
 			),
 			is_locked: false,
 			encrypted_private_key: None,
@@ -118,10 +118,10 @@ impl Account {
 		}
 	}
 
-	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
-		let private_key = PrivateKey::from_private_key_wif(wif).unwrap();
+	pub async fn from_wif(wif: &str) -> Result<Self, WalletError> {
+		let private_key = wif.as_bytes().from_wif();
 		let key_pair = KeyPair::from_private_key(private_key).unwrap();
-		Self::from_key_pair(key_pair, None, None)
+		Self::from_key_pair(key_pair, None, None).await
 	}
 
 	pub fn from_nep6_account(nep6_account: &NEP6Account) -> Result<Self, WalletError> {
@@ -279,7 +279,7 @@ impl Account {
 	// Static methods
 
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
-		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
+		let address = H160::from_script(&script.to_bytes().unwrap());
 
 		let (signing_threshold, nr_of_participants) = if script.is_multisig() {
 			(
@@ -300,9 +300,9 @@ impl Account {
 		})
 	}
 
-	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
-		let script = VerificationScript::from_public_key(public_key).unwrap();
-		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
+	pub async fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
+		let script = VerificationScript::from_public_key(public_key).await;
+		let address = H160::from_script(&script.to_bytes().unwrap());
 
 		Ok(Self {
 			address,
@@ -338,8 +338,8 @@ impl Account {
 		Self::from_address(&address)
 	}
 
-	pub fn create() -> Result<Self, WalletError> {
+	pub async fn create() -> Result<Self, WalletError> {
 		let key_pair = KeyPair::create().unwrap();
-		Self::from_key_pair(key_pair, None, None)
+		Self::from_key_pair(key_pair, None, None).await
 	}
 }

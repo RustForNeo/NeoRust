@@ -74,7 +74,7 @@ impl NefFile {
 			Ok(nef)
 		} else {
 			Err(ContractError::UnexpectedReturnType(
-				item.json_value() + StackItem::BYTE_STRING_VALUE.into_string(),
+				item.to_json().unwrap() + StackItem::BYTE_STRING_VALUE,
 			))
 		}
 	}

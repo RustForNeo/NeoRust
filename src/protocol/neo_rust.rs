@@ -62,7 +62,7 @@ lazy_static! {
 		Arc::new(Mutex::new(NeoRust::new_http_service()));
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct NeoRust {
 	config: Arc<Mutex<NeoConfig>>,
 	neo_service: Arc<Mutex<HttpService>>,
@@ -152,7 +152,7 @@ impl NeoTrait for NeoRust {
 
 	fn get_block(&self, block_hash: H256, full_tx: bool) -> NeoRequest<NeoBlock> {
 		if full_tx {
-			NeoRequest::new("getblock", [block_hash.to_value(), 1].to_vec())
+			NeoRequest::new("getblock", [block_hash.to_value(), 1.to_value()].to_vec())
 		} else {
 			self.get_block_header_hash(block_hash)
 		}
@@ -161,7 +161,7 @@ impl NeoTrait for NeoRust {
 	// More methods...
 
 	fn get_raw_block(&self, block_hash: H256) -> NeoRequest<String> {
-		NeoRequest::new("getblock", vec![block_hash.to_value(), 0])
+		NeoRequest::new("getblock", vec![block_hash.to_value(), 0.to_value()])
 	}
 
 	// Node methods
@@ -175,7 +175,7 @@ impl NeoTrait for NeoRust {
 	}
 
 	fn get_block_header(&self, block_hash: H256) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 1])
+		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 1.to_value()])
 	}
 
 	fn get_block_header_by_index(&self, index: u32) -> NeoRequest<NeoBlock> {
@@ -219,7 +219,7 @@ impl NeoTrait for NeoRust {
 	// Application logs
 
 	fn get_transaction(&self, hash: H256) -> NeoRequest<Transaction> {
-		NeoRequest::new("getrawtransaction", vec![hash.to_value(), 1])
+		NeoRequest::new("getrawtransaction", vec![hash.to_value(), 1.to_value()])
 	}
 
 	// State service
@@ -279,15 +279,22 @@ impl NeoTrait for NeoRust {
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
-		let signers = signers.into_iter().map(TransactionSigner::from).collect();
-		NeoRequest::new("invokefunction", vec![contract_hash.to_value(), method, params, signers])
+		let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
+		NeoRequest::new(
+			"invokefunction",
+			vec![
+				contract_hash.to_value(),
+				method.to_value(),
+				params.to_value(),
+				signers.to_value(),
+			],
+		)
 	}
 
 	fn invoke_script(&self, hex: String, signers: Vec<Signer>) -> NeoRequest<InvocationResult> {
 		let signers: Vec<TransactionSigner> =
-			signers.into_iter().map(|signer| TransactionSigner::from(*signer)).collect();
-
-		NeoRequest::new("invokescript", vec![hex.to_value(), signers])
+			signers.into_iter().map(|signer| signer.into()).collect::<Vec<_>>();
+		NeoRequest::new("invokescript", vec![hex.to_value(), signers.to_value()])
 	}
 
 	// More smart contract methods
@@ -297,7 +304,7 @@ impl NeoTrait for NeoRust {
 	}
 
 	fn list_plugins(&self) -> NeoRequest<Vec<Plugin>> {
-		NeoRequest::new("listplugins", vec![]);
+		NeoRequest::new("listplugins", vec![])
 	}
 
 	// More utility methods
@@ -499,7 +506,7 @@ impl NeoTrait for NeoRust {
 	}
 
 	fn get_raw_block_by_index(&self, index: u32) -> NeoRequest<String> {
-		NeoRequest::new("getblock", vec![index.to_value(), 0])
+		NeoRequest::new("getblock", vec![index.to_value(), 0.to_value()])
 	}
 
 	fn invoke_function_diagnostics(
@@ -551,9 +558,12 @@ impl NeoTrait for NeoRust {
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer>,
 	) -> NeoRequest<InvocationResult> {
-		let signers = signers.into_iter().map(TransactionSigner::from).collect();
+		// let signers = signers.iter().map(|s|s.into()).collect::<Vec<_>>();
 
-		NeoRequest::new("invokecontractverify", vec![hash.to_value(), params, signers])
+		NeoRequest::new(
+			"invokecontractverify",
+			vec![hash.to_value(), params.to_value(), signers.to_value()],
+		)
 	}
 
 	fn get_raw_mempool(&self) -> NeoRequest<MemPoolDetails> {
@@ -565,7 +575,7 @@ impl NeoTrait for NeoRust {
 	}
 
 	fn get_block_header_hash(&self, hash: H256) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![hash.to_value(), 1])
+		NeoRequest::new("getblockheader", vec![hash.to_value(), 1.to_value()])
 	}
 
 	fn send_to_address_send_token(
@@ -581,7 +591,7 @@ impl NeoTrait for NeoRust {
 		send_token: &TransactionSendToken,
 		from: Address,
 	) -> NeoRequest<Transaction> {
-		let params = [from.to_value(), vec![send_token]].to_vec();
+		let params = [from.to_value(), vec![send_token.to_value()].into()].to_vec();
 		NeoRequest::new("sendmany", params)
 	}
 }

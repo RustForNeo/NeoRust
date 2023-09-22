@@ -51,7 +51,7 @@ impl ScriptBuilder {
 		if params.is_empty() {
 			self.op_code(&[OpCode::NewArray]).await;
 		} else {
-			self.push_params(params);
+			self.push_params(params).await;
 		}
 
 		Ok(self
@@ -64,21 +64,28 @@ impl ScriptBuilder {
 			.push_data(hash160.to_vec())
 			.await
 			.unwrap()
-			.sys_call(InteropService::SystemContractCall))
+			.sys_call(InteropService::SystemContractCall)
+			.await)
 	}
 
-	pub fn sys_call(&mut self, operation: InteropService) -> &mut Self {
+	pub async fn sys_call(&mut self, operation: InteropService) -> &mut Self {
 		self.op_code(&[OpCode::Syscall])
-			.push_data(operation.to_hash().as_bytes())
+			.await
+			.push_data(operation.hash().into_bytes())
+			.await
 			.unwrap()
 	}
 
-	pub fn push_params(&mut self, params: &[ContractParameter]) -> &mut Self {
+	pub async fn push_params(&mut self, params: &[ContractParameter]) -> &mut Self {
 		for param in params {
-			self.push_param(param).unwrap();
+			self.push_param(param).await.unwrap();
 		}
 
-		self.push_integer(params.len() as i64).unwrap().op_code(&[OpCode::Pack])
+		self.push_integer(params.len() as i64)
+			.await
+			.unwrap()
+			.op_code(&[OpCode::Pack])
+			.await
 	}
 
 	pub async fn push_param(&mut self, param: &ContractParameter) -> Result<&mut Self, NeoError> {
@@ -86,7 +93,7 @@ impl ScriptBuilder {
 			self.op_code(&[OpCode::PushNull]).await;
 		}
 		match &param.value.unwrap() {
-			ParameterValue::Boolean(b) => self.push_bool(*b),
+			ParameterValue::Boolean(b) => self.push_bool(*b).await,
 			ParameterValue::Integer(i) => self.push_integer(i.clone()).await.unwrap(),
 			ParameterValue::ByteArray(b)
 			| ParameterValue::Signature(b)
@@ -97,19 +104,21 @@ impl ScriptBuilder {
 			ParameterValue::Array(arr) => self.push_array(arr).await.unwrap(),
 			ParameterValue::Map(map) => {
 				// Create an empty HashMap to hold your ContractParameter key-value pairs
-				let mut map: HashMap<ContractParameter, ContractParameter> = HashMap::new();
+				let mut map_value: HashMap<ContractParameter, ContractParameter> = HashMap::new();
 
 				// Iterate over pairs of elements in the vector
 				// (assuming the vector has an even number of elements)
 				for i in (0..map.len()).step_by(2) {
-					let key = ContractParameter::from_json_value(map[i].clone());
-					let value = ContractParameter::from_json_value(map[i + 1].clone());
+					let key: ContractParameter =
+						serde_json::from_str(map[i].as_str().unwrap()).unwrap();
+					let value: ContractParameter =
+						serde_json::from_str(map[i + 1].as_str().unwrap()).unwrap();
 
 					// Insert the key-value pair into the HashMap
-					map.insert(key, value);
+					map_value.insert(key, value);
 				}
 
-				self.push_map(&map).unwrap()
+				self.push_map(&map_value).await.unwrap()
 			},
 			_ => return Err(NeoError::IllegalArgument("Unsupported parameter type".to_string())),
 		}
@@ -135,8 +144,7 @@ impl ScriptBuilder {
 				16 => self.op_code_with_arg(OpCode::PushInt128, bytes.to_vec().unwrap()).await,
 				32 => self.op_code_with_arg(OpCode::PushInt256, bytes.to_vec().unwrap()).await,
 				_ => return Err(NeoError::NumericOverflow),
-			}
-			.await;
+			};
 		}
 		Ok(self)
 	}
@@ -191,7 +199,7 @@ impl ScriptBuilder {
 
 	pub async fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, NeoError> {
 		if arr.is_empty() {
-			self.op_code(&[OpCode::NewArray])
+			self.op_code(&[OpCode::NewArray]).await;
 		} else {
 			let arrr = arr
 				.iter()
@@ -200,9 +208,8 @@ impl ScriptBuilder {
 					vv
 				})
 				.collect();
-			self.push_params(&Some(arrr)).await;
-		}
-		.await;
+			self.push_params(&arrr).await;
+		};
 		Ok(self)
 	}
 
@@ -213,8 +220,8 @@ impl ScriptBuilder {
 		for (k, v) in map {
 			let kk: ContractParameter = k.clone().into();
 			let vv: ContractParameter = v.clone().into();
-			self.push_param(&vv).unwrap();
-			self.push_param(&kk).unwrap();
+			self.push_param(&vv).await.unwrap();
+			self.push_param(&kk).await.unwrap();
 		}
 
 		Ok(self
@@ -228,7 +235,7 @@ impl ScriptBuilder {
 	// Additional helper methods
 
 	pub async fn pack(&mut self) -> &mut Self {
-		self.op_code(&[OpCode::Pack].await)
+		self.op_code(&[OpCode::Pack]).await
 	}
 
 	pub fn to_bytes(&self) -> Bytes {
@@ -240,21 +247,20 @@ impl ScriptBuilder {
 		sb.push_data(pub_key.to_encoded_point(false).as_bytes().to_vec())
 			.await
 			.unwrap()
-			.sys_call(InteropService::SystemCryptoCheckSig);
+			.sys_call(InteropService::SystemCryptoCheckSig)
+			.await;
 		sb.to_bytes()
 	}
 
 	pub async fn build_multisig_script(
-		pubkeys: &[KeyPair],
+		pubkeys: &mut [PublicKey],
 		threshold: u8,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = ScriptBuilder::new();
 		sb.push_integer(threshold as i64).await.unwrap();
-		for pk in pubkeys
-			.iter()
-			.sorted_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)))
-		{
-			sb.push_data(pk.to_encoded_point(true)).await.unwrap();
+		pubkeys.sort_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)));
+		for pk in pubkeys.iter() {
+			sb.push_data(pk.to_encoded_point(true).as_bytes().to_vec()).await.unwrap();
 		}
 		sb.push_integer(pubkeys.len() as i64).await.unwrap();
 		sb.sys_call(InteropService::SystemCryptoCheckMultisig).await;
@@ -269,7 +275,7 @@ impl ScriptBuilder {
 		let mut sb = ScriptBuilder::new();
 		sb.op_code(&[OpCode::Abort])
 			.await
-			.push_data(sender.to_array().unwrap().as_slice())
+			.push_data(sender.to_vec())
 			.await
 			.unwrap()
 			.push_integer(nef_checksum as i64)
@@ -296,13 +302,15 @@ impl ScriptBuilder {
 
 		let cycle_start = sb.script.len();
 		sb.op_code(&[OpCode::Over]).await;
-		sb.sys_call(InteropService::SystemIteratorNext);
+		sb.sys_call(InteropService::SystemIteratorNext).await;
 
 		let jmp_if_not = sb.script.len();
 		sb.op_code_with_arg(OpCode::JmpIf, vec![0]).await;
 
 		sb.op_code(&[OpCode::Dup, OpCode::Push2, OpCode::Pick])
+			.await
 			.sys_call(InteropService::SystemIteratorValue)
+			.await
 			.op_code(&[
 				OpCode::Append,
 				OpCode::Dup,

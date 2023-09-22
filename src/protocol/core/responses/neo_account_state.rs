@@ -1,13 +1,25 @@
-use crate::{types::PublicKey, utils::*};
+use crate::{
+	types::{PublicKey, PublicKeyExtension},
+	utils::*,
+};
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct AccountState {
 	pub balance: i64,
 	pub balance_height: Option<i64>,
 	#[serde(deserialize_with = "deserialize_public_key_option")]
 	#[serde(serialize_with = "serialize_public_key_option")]
 	pub public_key: Option<PublicKey>,
+}
+
+impl Hash for AccountState {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.balance.hash(state);
+		self.balance_height.hash(state);
+		self.public_key.unwrap().to_vec().hash(state);
+	}
 }
 
 impl AccountState {

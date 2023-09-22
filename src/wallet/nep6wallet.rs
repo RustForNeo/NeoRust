@@ -20,7 +20,7 @@ impl NEP6Wallet {
 	pub fn new(
 		name: String,
 		version: String,
-		scrypt: ScryptParams,
+		scrypt: ScryptParamsDef,
 		accounts: Vec<NEP6Account>,
 		extra: Option<HashMap<String, String>>,
 	) -> Self {

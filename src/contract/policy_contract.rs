@@ -43,40 +43,43 @@ impl PolicyContract {
 
 	// State modifying methods
 
-	pub fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("setFeePerByte", vec![fee.into()])
+	pub async fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("setFeePerByte", vec![fee.into()]).await
 	}
 
-	pub fn set_exec_fee_factor(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("setExecFeeFactor", vec![fee.into()])
+	pub async fn set_exec_fee_factor(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("setExecFeeFactor", vec![fee.into()]).await
 	}
 
-	pub fn set_storage_price(&self, price: i32) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("setStoragePrice", vec![price.into()])
+	pub async fn set_storage_price(&self, price: i32) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("setStoragePrice", vec![price.into()]).await
 	}
 
-	pub fn block_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("blockAccount", vec![account.into()])
+	pub async fn block_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("blockAccount", vec![account.into()]).await
 	}
 
-	pub fn block_account_address(
+	pub async fn block_account_address(
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
 		let account = H160::from_address(address).unwrap();
-		self.block_account(&account)
+		self.block_account(&account).await
 	}
 
-	pub fn unblock_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
-		self.invoke_function("unblockAccount", vec![account.into()])
+	pub async fn unblock_account(
+		&self,
+		account: &H160,
+	) -> Result<TransactionBuilder, ContractError> {
+		self.invoke_function("unblockAccount", vec![account.into()]).await
 	}
 
-	pub fn unblock_account_address(
+	pub async fn unblock_account_address(
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
 		let account = H160::from_address(address).unwrap();
-		self.unblock_account(&account)
+		self.unblock_account(&account).await
 	}
 }
 

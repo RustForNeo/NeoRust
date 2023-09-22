@@ -1,5 +1,4 @@
 pub mod bytes;
-pub mod decode;
 pub mod numeric;
 pub mod serde_with_utils;
 pub mod string;

@@ -9,7 +9,7 @@ use serde_substrate as serde;
 use crate::utils::*;
 use crypto::scrypt::ScryptParams;
 use hex;
-use primitive_types::{H256, U256};
+use primitive_types::{H160, H256, U256};
 use reqwest::Url;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
@@ -24,6 +24,7 @@ use serde::ser::{SerializeMap, SerializeSeq};
 use crate::{
 	types::{Address, PrivateKey, PrivateKeyExtension, PublicKey, PublicKeyExtension},
 	utils::util::*,
+	wallet::account::Account,
 };
 
 pub fn serialize_bytes<S>(item: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
@@ -103,11 +104,12 @@ pub fn deserialize_wildcard<'de, D>(deserializer: D) -> Result<Vec<String>, D::E
 where
 	D: Deserializer<'de>,
 {
-	let s: &str = Deserialize::deserialize(&deserializer).unwrap();
+	let s: String = Deserialize::deserialize(deserializer)?;
 	if s == "*" {
 		Ok(vec!["*".to_string()])
 	} else {
-		Vec::<String>::deserialize(deserializer)
+		// TODO: check if it is a valid url
+		Ok(vec![s])
 	}
 }
 
@@ -231,6 +233,37 @@ where
 		},
 		None => Ok(None),
 	}
+}
+
+// HashMap<H160, Account>
+pub fn serialize_hash_map_h160_account<S>(
+	item: &HashMap<H160, Account>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let mut map = serializer.serialize_map(Some(item.len()))?;
+	for (k, v) in item {
+		map.serialize_entry(&encode_string_h160(k), &v)?;
+	}
+	map.end()
+}
+
+pub fn deserialize_hash_map_h160_account<'de, D>(
+	deserializer: D,
+) -> Result<HashMap<H160, Account>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let map = <HashMap<String, Account>>::deserialize(deserializer)?;
+	let mut hashmap: HashMap<H160, Account> = HashMap::new();
+
+	for (k, v) in map {
+		let k_h160 = parse_string_h160(&k);
+		hashmap.insert(k_h160, v);
+	}
+	Ok(hashmap)
 }
 
 // PrivateKey

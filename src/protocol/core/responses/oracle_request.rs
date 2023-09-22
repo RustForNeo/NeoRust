@@ -1,13 +1,15 @@
+use crate::utils::*;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct OracleRequest {
 	#[serde(rename = "requestid")]
 	pub request_id: i32,
 
 	#[serde(rename = "originaltxid")]
+	#[serde(deserialize_with = "deserialize_h256")]
+	#[serde(serialize_with = "serialize_h256")]
 	pub original_transaction_hash: H256,
 
 	#[serde(rename = "gasforresponse")]
@@ -18,6 +20,8 @@ pub struct OracleRequest {
 	pub filter: String,
 
 	#[serde(rename = "callbackcontract")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub callback_contract: H160,
 
 	#[serde(rename = "callbackmethod")]

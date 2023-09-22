@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use primitive_types::H160;
 
 #[async_trait]
-pub trait SmartContractTrait: Sync {
+pub trait SmartContractTrait: Send + Sync {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
 	async fn name(&self) -> String {

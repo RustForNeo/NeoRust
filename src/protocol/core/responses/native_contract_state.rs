@@ -24,7 +24,7 @@ impl NativeContractState {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct ExpressContractState {
 	hash: [u8; 20],
 	manifest: ContractManifest,

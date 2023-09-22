@@ -1,5 +1,8 @@
 use crate::{
-	contract::{contract_error::ContractError, nns_name::NNSName, traits::token::TokenTrait},
+	contract::{
+		contract_error::ContractError, fungible_token_contract::FungibleTokenContract,
+		nns_name::NNSName, traits::token::TokenTrait,
+	},
 	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
 	types::{contract_parameter::ContractParameter, Address, Bytes},
 	wallet::{account::Account, wallet::Wallet},
@@ -29,18 +32,23 @@ pub trait FungibleTokenTrait: TokenTrait {
 		Ok(sum)
 	}
 
-	fn transfer_from_account(
+	async fn transfer_from_account(
 		&self,
 		from: &Account,
 		to: &Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160(from.get_script_hash(), to, amount, data)
-			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
+		let mut builder = self
+			.transfer_from_hash160(from.get_script_hash(), to, amount, data)
+			.await
+			.unwrap();
+		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+
+		Ok(builder)
 	}
 
-	fn transfer_from_hash160(
+	async fn transfer_from_hash160(
 		&self,
 		from: &Address,
 		to: &Address,
@@ -53,8 +61,10 @@ pub trait FungibleTokenTrait: TokenTrait {
 			))
 		}
 
-		let transfer_script = self.build_transfer_script(from, to, amount, data).unwrap();
-		Ok(TransactionBuilder::new().script(transfer_script))
+		let transfer_script = self.build_transfer_script(from, to, amount, data).await.unwrap();
+		let mut builder = TransactionBuilder::new();
+		builder.set_script(transfer_script);
+		Ok(builder)
 	}
 
 	async fn build_transfer_script(
@@ -65,7 +75,7 @@ pub trait FungibleTokenTrait: TokenTrait {
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
 		self.build_invoke_function_script(
-			FungibleTokenTrait::TRANSFER,
+			<FungibleTokenContract as FungibleTokenTrait>::TRANSFER,
 			vec![from.into(), to.into(), amount.into(), data.unwrap()],
 		)
 		.await
@@ -80,9 +90,13 @@ pub trait FungibleTokenTrait: TokenTrait {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160_to_nns(from.get_script_hash(), to, amount, data)
+		let mut builder = self
+			.transfer_from_hash160_to_nns(from.get_script_hash(), to, amount, data)
 			.await
-			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
+			.unwrap();
+		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+
+		Ok(builder)
 	}
 
 	async fn transfer_from_hash160_to_nns(
@@ -93,6 +107,6 @@ pub trait FungibleTokenTrait: TokenTrait {
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
 		let script_hash = self.resolve_nns_text_record(to).await.unwrap();
-		self.transfer_from_hash160(from, &script_hash, amount, data)
+		self.transfer_from_hash160(from, &script_hash, amount, data).await
 	}
 }

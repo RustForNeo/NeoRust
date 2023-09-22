@@ -1,5 +1,5 @@
 use crate::{
-	crypto::base58_helper::base58check_decode,
+	crypto::{base58_helper::base58check_decode, hash::HashableForVec},
 	types::{PrivateKey, PrivateKeyExtension, PublicKey},
 };
 use aes::{cipher::KeyInit, Aes128};
@@ -91,9 +91,9 @@ impl NEP2 {
 	}
 
 	fn derive_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
-		let params = ScryptParams::new(14, 8, 1).unwrap();
+		let params = ScryptParams::new(14, 8, 1);
 		let mut hash = [0u8; DKLEN];
-		let _ = scrypt(password.as_bytes(), salt, &params, &mut hash).map_err(|_| "Scrypt error");
+		let _ = scrypt(password.as_bytes(), salt, &params, &mut hash);
 		Ok(hash.to_vec())
 	}
 
@@ -114,6 +114,7 @@ impl NEP2 {
 	fn address_hash_from_pubkey(pubkey: &[u8]) -> Result<Vec<u8>, &'static str> {
 		let mut hasher = Sha256::new();
 		hasher.input(pubkey);
-		Ok(hasher.result(&mut [])[..4].to_vec())
+		let res = pubkey.hash256()[..4].to_vec();
+		Ok(res)
 	}
 }

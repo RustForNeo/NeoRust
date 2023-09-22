@@ -206,7 +206,8 @@ impl NeoToken {
 					})
 				} else {
 					let pubkey =
-						PublicKey::try_from(public_key.as_bytes().unwrap().as_slice()).unwrap();
+						PublicKey::from_sec1_bytes(public_key.as_bytes().unwrap().as_slice())
+							.unwrap();
 					Ok(AccountState {
 						balance,
 						balance_height: update_height,
@@ -230,7 +231,7 @@ impl NeoToken {
 				.iter()
 				.map(|item| {
 					if let StackItem::ByteString { value: bytes } = item {
-						PublicKey::try_from(bytes.as_bytes())
+						PublicKey::from_sec1_bytes(bytes.as_bytes())
 							.map_err(|_| NeoError::UnexpectedReturnType)
 					} else {
 						Err(NeoError::UnexpectedReturnType)
@@ -294,7 +295,7 @@ pub struct Candidate {
 impl Candidate {
 	fn from(items: Vec<StackItem>) -> Result<Self, ContractError> {
 		let key = items[0].as_public_key().unwrap();
-		let votes = items[1].as_i32().unwrap();
+		let votes = items[1].as_int().unwrap();
 		Ok(Self { public_key: key, votes })
 	}
 }

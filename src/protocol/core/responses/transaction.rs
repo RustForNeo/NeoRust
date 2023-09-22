@@ -9,7 +9,7 @@ use crate::{
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-#[derive(Serialize, Deserialize, Hash, Debug)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 pub struct Transaction {
 	#[serde(rename = "hash")]
 	#[serde(serialize_with = "serialize_h256")]

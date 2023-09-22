@@ -1,4 +1,4 @@
-use crate::types::Address;
+use crate::types::{Address, PublicKey, PublicKeyExtension};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -123,19 +123,24 @@ impl StackItem {
 				let values = array.iter().map(StackItem::to_string).collect::<Vec<_>>().join(", ");
 				format!("Array{{value=[{}]}}", values)
 			},
-			StackItem::Struct(value) => {
-				let values = value.iter().map(StackItem::to_string).collect::<Vec<_>>().join(", ");
+			StackItem::Struct { value: _struct } => {
+				let values =
+					_struct.iter().map(StackItem::to_string).collect::<Vec<_>>().join(", ");
 				format!("Struct{{value=[{}]}}", values)
 			},
-			StackItem::Map(value) => {
-				let entries = value
+			StackItem::Map { value: map_value } => {
+				// Iterate over pairs of elements in the vector
+				// (assuming the vector has an even number of elements)
+				let entries = map_value
 					.iter()
-					.map(|(k, v)| format!("{} -> {}", k.to_string(), v.to_string()))
+					.map(|(entry)| {
+						format!("{} -> {}", entry.key.to_string(), entry.value.to_string())
+					})
 					.collect::<Vec<_>>()
 					.join(", ");
 				format!("Map{{{{{}}}}}", entries)
 			},
-			StackItem::InteropInterface(id, interface) => {
+			StackItem::InteropInterface { id, interface } => {
 				format!("InteropInterface{{id={}, interface={}}}", id, interface)
 			},
 		}
@@ -183,15 +188,18 @@ impl StackItem {
 	}
 
 	pub fn as_address(&self) -> Option<Address> {
-		self.as_bytes().and_then(|bytes| Address::from_slice(&bytes).ok())
+		self.as_bytes().and_then(|bytes| Some(Address::from_slice(&bytes)))
+	}
+	pub fn as_public_key(&self) -> Option<PublicKey> {
+		self.as_bytes().and_then(|bytes| PublicKey::from_slice(&bytes).ok())
 	}
 
 	pub fn as_hash160(&self) -> Option<H160> {
-		self.as_bytes().and_then(|bytes| H160::from_slice(&bytes).ok())
+		self.as_bytes().and_then(|bytes| Some(H160::from_slice(&bytes)))
 	}
 
 	pub fn as_hash256(&self) -> Option<H256> {
-		self.as_bytes().and_then(|bytes| H256::from_slice(&bytes).ok())
+		self.as_bytes().and_then(|bytes| Some(H256::from_slice(&bytes)))
 	}
 	pub fn len(&self) -> Option<usize> {
 		match self {

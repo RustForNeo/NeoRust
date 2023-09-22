@@ -812,9 +812,11 @@ impl OpCode {
 	// }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Getters)]
 pub struct OperandSize {
+	#[get = "pub"]
 	prefix_size: u8,
+	#[get = "pub"]
 	size: u8,
 }
 

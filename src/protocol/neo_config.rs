@@ -120,9 +120,21 @@ impl NeoConfig {
 	// other methods
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub struct Counter {
 	count: Arc<Mutex<u32>>,
+}
+
+impl Hash for Counter {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.count.lock().unwrap().hash(state);
+	}
+}
+
+impl PartialEq for Counter {
+	fn eq(&self, other: &Self) -> bool {
+		*self.count.lock().unwrap() == *other.count.lock().unwrap()
+	}
 }
 
 impl Counter {

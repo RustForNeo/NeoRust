@@ -1,7 +1,10 @@
 use crate::{protocol::core::stack_item::StackItem, types::contract_parameter::ContractParameter};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+	collections::HashMap,
+	hash::{Hash, Hasher},
+};
 
 use crate::utils::*;
 
@@ -67,12 +70,21 @@ impl InvocationResult {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct PendingSignature {
 	pub typ: String,
 	pub data: String,
 	pub items: HashMap<String, Item>,
 	pub network: u32,
+}
+
+impl Hash for PendingSignature {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.typ.hash(state);
+		self.data.hash(state);
+		// self.items.hash(state);
+		self.network.hash(state);
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
@@ -107,7 +119,7 @@ pub struct StorageChange {
 }
 
 // Notification
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Notification {
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]

@@ -5,7 +5,7 @@ use crate::{
 use base64::encode;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use sha3::Digest;
 use std::hash::{Hash, Hasher};
 use strum_macros::{Display, EnumString};
@@ -125,6 +125,32 @@ impl From<String> for ContractParameter {
 impl From<&String> for ContractParameter {
 	fn from(value: &String) -> Self {
 		Self::string(value.to_string())
+	}
+}
+
+// From<Vec<serde_json::Value>>` is not implemented for `ContractParameter`
+
+impl From<Value> for ContractParameter {
+	fn from(value: Value) -> Self {
+		match value {
+			Value::Null => Self::new(ContractParameterType::Any),
+			Value::Bool(b) => Self::bool(b),
+			Value::Number(n) => Self::integer(n.as_i64().unwrap()),
+			Value::String(s) => Self::string(s),
+			Value::Array(a) =>
+				Self::array(a.into_iter().map(|v| ContractParameter::from(v)).collect()),
+			Value::Object(o) => Self::map(
+				o.into_iter()
+					.map(|(k, v)| (ContractParameter::from(k), ContractParameter::from(v)))
+					.collect(),
+			),
+		}
+	}
+}
+
+impl From<Vec<Value>> for ContractParameter {
+	fn from(value: Vec<Value>) -> Self {
+		Self::array(value.into_iter().map(|v| ContractParameter::from(v)).collect())
 	}
 }
 

@@ -100,7 +100,7 @@ impl NeoURI {
 		self.token.as_ref().map(|token| match token {
 			token if *token == NeoToken::SCRIPT_HASH => Self::NEO_TOKEN_STRING.to_owned(),
 			token if *token == GasToken::SCRIPT_HASH => Self::GAS_TOKEN_STRING.to_owned(),
-			_ => token.to_string(),
+			_ => H160Externsion::to_string(token),
 		})
 	}
 
@@ -150,6 +150,7 @@ impl NeoURI {
 		let amt = token.to_fractions(amount).await.unwrap() as i32;
 		token
 			.transfer_from_account(sender, &recipient, amt, None)
+			.await
 			.map_err(|e| NeoError::from(e))
 	}
 
@@ -200,7 +201,7 @@ impl NeoURI {
 					Self::NEO_TOKEN_STRING.to_owned(),
 				token if *token == GasToken::new().script_hash() =>
 					Self::GAS_TOKEN_STRING.to_owned(),
-				_ => token.to_string(),
+				_ => H160Externsion::to_string(token),
 			};
 
 			parts.push(format!("asset={}", token_str));

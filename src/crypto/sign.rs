@@ -1,5 +1,5 @@
 use crate::{
-	crypto::key_pair::KeyPair,
+	crypto::{hash::HashableForVec, key_pair::KeyPair},
 	neo_error::NeoError,
 	types::{Bytes, PrivateKey},
 };
@@ -11,7 +11,8 @@ use p256::{
 	PublicKey,
 };
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::Digest;
+use std::hash::Hash;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureData {
@@ -50,12 +51,12 @@ impl SignatureData {
 		message: &Bytes,
 		key_pair: &mut KeyPair,
 	) -> Result<SignatureData, NeoError> {
-		let signature = key_pair.private_key().sign(&Sha256::digest(message));
+		let signature = key_pair.private_key().sign(&message.hash256());
 
 		let mut rec_id = None;
 		for i in 0..4 {
 			if let Some(key) =
-				key_pair.public_key().recover(&i, &signature, &Sha256::digest(message)).unwrap()
+				key_pair.public_key().recover(&i, &signature, &message.hash256()).unwrap()
 			{
 				if key == key_pair.public_key() {
 					rec_id = Some(i);

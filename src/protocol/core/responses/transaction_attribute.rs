@@ -11,7 +11,7 @@ pub enum TransactionAttribute {
 	OracleResponse(OracleResponse),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 struct OracleResponse {
 	pub id: u32,
 	pub response_code: OracleResponseCode,

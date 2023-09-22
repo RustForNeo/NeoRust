@@ -1,7 +1,12 @@
-use crate::{types::PublicKey, utils::*};
+use crate::{
+	types::{PublicKey, PublicKeyExtension},
+	utils::*,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
-#[derive(Hash, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+use std::hash::{Hash, Hasher};
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WitnessCondition {
 	Boolean(bool),
 	Not(Box<WitnessCondition>),
@@ -20,6 +25,22 @@ pub enum WitnessCondition {
 	#[serde(deserialize_with = "deserialize_public_key")]
 	#[serde(serialize_with = "serialize_public_key")]
 	CalledByGroup(PublicKey),
+}
+
+impl Hash for WitnessCondition {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		match self {
+			WitnessCondition::Boolean(b) => b.hash(state),
+			WitnessCondition::Not(exp) => exp.hash(state),
+			WitnessCondition::And(exp) => exp.hash(state),
+			WitnessCondition::Or(exp) => exp.hash(state),
+			WitnessCondition::ScriptHash(hash) => hash.hash(state),
+			WitnessCondition::Group(group) => group.to_vec().hash(state),
+			WitnessCondition::CalledByEntry => WitnessCondition::CalledByEntry.hash(state),
+			WitnessCondition::CalledByContract(hash) => hash.hash(state),
+			WitnessCondition::CalledByGroup(group) => group.to_vec().hash(state),
+		}
+	}
 }
 
 impl WitnessCondition {

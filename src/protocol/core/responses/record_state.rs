@@ -2,14 +2,14 @@ use crate::protocol::core::stack_item::StackItem;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RecordState {
 	pub name: String,
 	pub record_type: RecordType,
 	pub data: String,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 #[repr(u8)]
 pub enum RecordType {
 	A = 0x01,
@@ -25,11 +25,11 @@ impl RecordState {
 
 	pub fn from_stack_item(item: &StackItem) -> Result<Self, &'static str> {
 		match item {
-			StackItem::Array(vec) if vec.len() == 3 => {
-				if let Some(name) = vec[0].as_str() {
-					if let Some(byte) = vec[1].as_i8() {
-						if let Some(record_type) = RecordType::from_u8(byte) {
-							if let Some(data) = vec[2].as_str() {
+			StackItem::Array { value: vec } if vec.len() == 3 => {
+				if let Some(name) = vec[0].as_string() {
+					if let Some(byte) = vec[1].as_int() {
+						if let Some(record_type) = RecordType::try_from(byte as u8) {
+							if let Some(data) = vec[2].as_string() {
 								return Ok(Self::new(name, record_type, data))
 							}
 						}

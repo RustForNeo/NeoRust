@@ -37,11 +37,12 @@ impl ContractState {
 		stack_item: &StackItem,
 	) -> Result<ContractIdentifiers, &'static str> {
 		match stack_item {
-			StackItem::Struct(values) if values.len() >= 2 => {
-				let id = values[0].to_i32().unwrap();
-				let hash =
-					H160::from_slice(&values[1].to_array().unwrap().as_slice().reverse()).unwrap();
-				Ok(ContractIdentifiers { id, hash })
+			StackItem::Struct { value } if value.len() >= 2 => {
+				let id = value[0].as_int().unwrap();
+				let mut v = &value[1].as_bytes().unwrap();
+				v.reverse();
+				let hash = H160::from_slice(v).unwrap();
+				Ok(ContractIdentifiers { id: id as i32, hash })
 			},
 			_ => Err("Could not deserialize ContractIdentifiers from stack item"),
 		}

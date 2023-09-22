@@ -4,14 +4,7 @@ use crate::{
 	serialization::binary_reader::BinaryReader,
 	types::{Bytes, PublicKey, PublicKeyExtension},
 };
-use p256::{
-	ecdsa::{
-		signature::{SignerMut, Verifier},
-		Signature, VerifyingKey,
-	},
-	elliptic_curve::rand_core::OsRng,
-	pkcs8::der::Encode,
-};
+use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::vec;
@@ -142,7 +135,7 @@ impl VerificationScript {
 			let mut point = [0; 33];
 			point.copy_from_slice(&reader.read_bytes(33).unwrap());
 
-			let key = PublicKey::try_from(&point).unwrap();
+			let key = PublicKey::from_sec1_bytes(&point).unwrap();
 			return Ok(vec![key])
 		}
 
@@ -155,10 +148,10 @@ impl VerificationScript {
 				reader.read_u8(); // skip length
 				let mut point = [0; 33];
 				point.copy_from_slice(&reader.read_bytes(33).unwrap());
-				keys.push(PublicKey::try_from(&point).unwrap());
+				keys.push(PublicKey::from_sec1_bytes(&point).unwrap());
 			}
 
-			Ok(keys)
+			return Ok(keys)
 		}
 
 		Err(NeoError::InvalidScript("Invalid verification script".to_string()))

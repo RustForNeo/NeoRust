@@ -6,7 +6,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TransactionSigner {
 	#[serde(rename = "account")]
 	#[serde(serialize_with = "serialize_address")]

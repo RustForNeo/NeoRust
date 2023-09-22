@@ -2,7 +2,8 @@ use crate::{
 	constant::NeoConstants,
 	neo_error::NeoError,
 	protocol::{
-		core::responses::transaction_attribute::TransactionAttribute, http_service::HttpService,
+		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
+		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
 	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
@@ -74,12 +75,10 @@ impl SerializableTransaction {
 		// Get hex encoding
 		let hex = hex::encode(self.serialize().await);
 
-		// Send using NeoRust
-		let neo_rust = NeoRust::instance().as_ref().ok_or(NeoError::NeoRustNotInitialized).unwrap();
+		NeoRust::instance().send_raw_transaction(hex).request().await.ok();
 
-		neo_rust.send_raw_transaction(hex).await.unwrap();
-
-		self.block_count_when_sent = Some(neo_rust.get_block_count().await.unwrap());
+		self.block_count_when_sent =
+			Some(NeoRust::instance().get_block_count().request().await.unwrap());
 
 		Ok(())
 	}

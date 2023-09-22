@@ -50,7 +50,7 @@ impl RoleManagement {
 			.as_array()
 			.unwrap()
 			.into_iter()
-			.map(|item| PublicKey::try_from(item.as_bytes().unwrap().as_slice()).unwrap())
+			.map(|item| PublicKey::from_sec1_bytes(item.as_bytes().unwrap().as_slice()).unwrap())
 			.collect();
 
 		Ok(designated)
@@ -73,7 +73,7 @@ impl RoleManagement {
 		Ok(())
 	}
 
-	pub fn designate_as_role(
+	pub async fn designate_as_role(
 		&self,
 		role: Role,
 		pub_keys: Vec<PublicKey>,
@@ -86,7 +86,7 @@ impl RoleManagement {
 
 		let params: Vec<_> = pub_keys.into_iter().map(|key| key.to_value()).collect();
 
-		self.invoke_function("designateAsRole", vec![role.into(), params.into()])
+		self.invoke_function("designateAsRole", vec![role.into(), params.into()]).await
 	}
 }
 
