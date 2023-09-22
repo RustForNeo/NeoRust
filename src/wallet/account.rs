@@ -17,7 +17,11 @@ use crate::{
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+	collections::HashMap,
+	hash::{Hash, Hasher},
+	str::FromStr,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Account {
@@ -32,6 +36,18 @@ pub struct Account {
 	wallet: Option<Wallet>,
 	signing_threshold: Option<i32>,
 	nr_of_participants: Option<i32>,
+}
+
+impl Hash for Account {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.address.hash(state);
+		self.label.hash(state);
+		self.verification_script.hash(state);
+		self.is_locked.hash(state);
+		self.encrypted_private_key.hash(state);
+		self.signing_threshold.hash(state);
+		self.nr_of_participants.hash(state);
+	}
 }
 
 impl Account {
@@ -186,8 +202,8 @@ impl Account {
 		Ok(())
 	}
 
-	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
-		H160::from_address(&self.address)
+	pub fn get_script_hash(&self) -> &Address {
+		&self.address
 	}
 
 	pub fn get_signing_threshold(&self) -> Result<i32, WalletError> {
@@ -202,11 +218,13 @@ impl Account {
 
 	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, i32>, WalletError> {
 		let balances = NeoRust::<HttpService>::instance()
-			.get_nep17_balances(self.get_script_hash().unwrap())
-			.await;
+			.get_nep17_balances(self.get_script_hash())
+			.request()
+			.await
+			.unwrap();
 		let mut nep17_balances = HashMap::new();
-		for balance in balances {
-			nep17_balances.insert(balance.asset_hash, balance.amount.to_i32().unwrap());
+		for balance in balances.balances {
+			nep17_balances.insert(balance.asset_hash, i32::from_str(&balance.amount).unwrap());
 		}
 		Ok(nep17_balances)
 	}
@@ -299,11 +317,10 @@ impl Account {
 		signing_threshold: i32,
 	) -> Result<Self, WalletError> {
 		let script = VerificationScript::multisig(public_keys, signing_threshold).unwrap();
-		let address = H160::from_script(&script.to_bytes().unwrap()).to_address();
 
 		Ok(Self {
-			address,
-			label: Some(address.to_string()),
+			script,
+			label: Some(script.to_string()),
 			verification_script: Some(script),
 			signing_threshold: Some(signing_threshold),
 			nr_of_participants: Some(public_keys.len() as i32),

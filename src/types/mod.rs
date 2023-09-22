@@ -78,7 +78,7 @@ impl H160Externsion for H160 {
 	}
 
 	fn from_address(address: &str) -> Result<Self, NeoError> {
-		let bytes = bs58::decode(address).into_vec().map_err(|_| "Invalid address").unwrap();
+		let bytes = bs58::decode(address).into_vec().map_err(|_| NeoError::InvalidScript).unwrap();
 
 		Ok(Self::from_slice(&bytes))
 	}

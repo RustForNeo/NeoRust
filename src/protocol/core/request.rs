@@ -43,9 +43,10 @@ where
 	}
 
 	pub async fn request(&self) -> Result<T, NeoError> {
-		let neo_rust_instance = NeoRust::<HttpService>::instance();
-		let service = neo_rust_instance.get_neo_service();
-		let response = ready(service.send(self)).await.unwrap();
+		let neo_rust_instance_guard = NeoRust::<HttpService>::instance();
+		let service = neo_rust_instance_guard.get_neo_service();
+		let cloned_self = self.clone();
+		let response = service.send(&cloned_self).unwrap(); // No async call here since send isn't marked as async
 
 		response.get_result()
 	}

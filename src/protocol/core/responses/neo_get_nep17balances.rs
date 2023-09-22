@@ -14,14 +14,14 @@ pub struct Nep17Balances {
 	pub balances: Vec<Nep17Balance>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Getters, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct Nep17Balance {
 	pub name: Option<String>,
 	pub symbol: Option<String>,
 	pub decimals: Option<String>,
 	pub amount: String,
 	#[serde(rename = "lastupdatedblock")]
-	pub last_updated_block: f64,
+	pub last_updated_block: u32,
 	#[serde(rename = "assethash")]
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]

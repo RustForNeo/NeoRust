@@ -26,6 +26,8 @@ pub struct Transaction {
 	pub nonce: i32,
 
 	#[serde(rename = "sender")]
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	pub sender: H160,
 
 	#[serde(rename = "sysfee")]
@@ -50,8 +52,8 @@ pub struct Transaction {
 	pub witnesses: Vec<NeoWitness>,
 
 	#[serde(rename = "blockhash")]
-	#[serde(serialize_with = "serialize_h256")]
-	#[serde(deserialize_with = "deserialize_h256")]
+	#[serde(serialize_with = "serialize_h256_option")]
+	#[serde(deserialize_with = "deserialize_h256_option")]
 	pub block_hash: Option<H256>,
 
 	#[serde(rename = "confirmations")]

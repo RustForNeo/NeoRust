@@ -1,5 +1,8 @@
 use primitive_types::H160;
-use std::sync::{Arc, Mutex};
+use std::{
+	hash::{Hash, Hasher},
+	sync::{Arc, Mutex},
+};
 use tokio::runtime::Handle;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -31,7 +34,7 @@ pub const DEFAULT_BLOCK_TIME: u64 = 15_000;
 pub const DEFAULT_ADDRESS_VERSION: u8 = 0x35;
 pub const MAX_VALID_UNTIL_BLOCK_INCREMENT_BASE: u64 = 86_400_000;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct NeoConfig {
 	pub network_magic: Option<u32>,
 	pub block_interval: u32,
@@ -40,6 +43,17 @@ pub struct NeoConfig {
 	pub executor: Arc<Mutex<Handle>>,
 	pub allows_transmission_on_fault: bool,
 	pub nns_resolver: H160,
+}
+
+impl Hash for NeoConfig {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.network_magic.hash(state);
+		self.block_interval.hash(state);
+		self.max_valid_until_block_increment.hash(state);
+		self.polling_interval.hash(state);
+		self.allows_transmission_on_fault.hash(state);
+		self.nns_resolver.hash(state);
+	}
 }
 
 impl Default for NeoConfig {
@@ -95,7 +109,7 @@ impl NeoConfig {
 	}
 
 	pub fn set_network_magic(&mut self, magic: u32) -> Result<(), &'static str> {
-		if &magic > &(0xFFFFFFFFu32) {
+		if &magic > &0xFFFFFFFFu32 {
 			return Err("Network magic must fit in 32 bits")
 		}
 

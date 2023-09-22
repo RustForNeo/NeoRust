@@ -11,7 +11,7 @@ use crate::{
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignerType {
@@ -150,10 +150,19 @@ pub trait SignerTrait {
 	}
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Signer {
 	Account(AccountSigner),
 	Contract(ContractSigner),
+}
+
+impl Hash for Signer {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		match self {
+			Signer::Account(account_signer) => account_signer.hash(state),
+			Signer::Contract(contract_signer) => contract_signer.hash(state),
+		}
+	}
 }
 
 impl From<AccountSigner> for Signer {

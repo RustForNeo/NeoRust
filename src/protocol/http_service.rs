@@ -44,7 +44,10 @@ impl HttpService {
 
 #[async_trait]
 impl NeoService for HttpService {
-	async fn send<'a, T>(&'a self, request: &'a NeoRequest<T>) -> Result<NeoResponse<T>, NeoError> {
+	async fn send<'a, T: Deserialize<'a> + Serialize>(
+		&self,
+		request: &NeoRequest<T>,
+	) -> Result<NeoResponse<T>, NeoError> {
 		let mut client = self.client.post(self.url.clone());
 
 		client = client.header("Content-Type", Self::JSON_MEDIA_TYPE).json(&request);

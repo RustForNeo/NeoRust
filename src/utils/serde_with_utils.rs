@@ -61,6 +61,33 @@ where
 	Ok(url)
 }
 
+pub fn serialize_url_option<S>(item: &Option<Url>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match item {
+		Some(url) => {
+			let url_str = format!("{}", url);
+			serializer.serialize_str(&url_str)
+		},
+		None => serializer.serialize_none(),
+	}
+}
+
+pub fn deserialize_url_option<'de, D>(deserializer: D) -> Result<Option<Url>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: Option<String> = Deserialize::deserialize(deserializer)?;
+	match s {
+		Some(s) => {
+			let url = Url::parse(&s).unwrap();
+			Ok(Some(url))
+		},
+		None => Ok(None),
+	}
+}
+
 pub fn serialize_u256<S>(item: &U256, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
@@ -154,6 +181,33 @@ where
 		seq.serialize_element(&encode_string_h160(i))?;
 	}
 	seq.end()
+}
+
+pub fn serialize_address_option<S>(item: &Option<Address>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match item {
+		Some(addr) => {
+			let addr_str = encode_string_h160(&addr);
+			serializer.serialize_str(&addr_str)
+		},
+		None => serializer.serialize_none(),
+	}
+}
+
+pub fn deserialize_address_option<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: Option<String> = Deserialize::deserialize(deserializer)?;
+	match s {
+		Some(s) => {
+			let addr = parse_string_h160(&s);
+			Ok(Some(addr))
+		},
+		None => Ok(None),
+	}
 }
 
 // PrivateKey
@@ -334,6 +388,33 @@ where
 		vec.push(v);
 	}
 	Ok(vec)
+}
+
+pub fn serialize_h256_option<S>(item: &Option<H256>, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match item {
+		Some(h256) => {
+			let h256_str = encode_string_h256(&h256);
+			serializer.serialize_str(&h256_str)
+		},
+		None => serializer.serialize_none(),
+	}
+}
+
+pub fn deserialize_h256_option<'de, D>(deserializer: D) -> Result<Option<H256>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: Option<String> = Deserialize::deserialize(deserializer)?;
+	match s {
+		Some(s) => {
+			let h256 = parse_string_h256(&s);
+			Ok(Some(h256))
+		},
+		None => Ok(None),
+	}
 }
 
 pub fn serialize_hashmap_u256_hashset_u256<S>(

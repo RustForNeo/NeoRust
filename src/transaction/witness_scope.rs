@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde_derive::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 #[derive(
-	Display, EnumString, TryFromPrimitive, Debug, PartialEq, Eq, Clone, Serialize, Deserialize,
+	Display, EnumString, TryFromPrimitive, Debug, Hash, PartialEq, Eq, Clone, Serialize, Deserialize,
 )]
 #[repr(u8)]
 pub enum WitnessScope {

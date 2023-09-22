@@ -24,16 +24,16 @@ use std::{error::Error, str::FromStr};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeoURI {
 	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(deserialize_with = "deserialize_url")]
-	#[serde(serialize_with = "serialize_url")]
+	#[serde(deserialize_with = "deserialize_url_option")]
+	#[serde(serialize_with = "serialize_url_option")]
 	uri: Option<Url>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(deserialize_with = "deserialize_address")]
-	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address_option")]
+	#[serde(serialize_with = "serialize_address_option")]
 	recipient: Option<H160>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(deserialize_with = "deserialize_address")]
-	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address_option")]
+	#[serde(serialize_with = "serialize_address_option")]
 	token: Option<H160>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	amount: Option<d128>,
@@ -149,7 +149,7 @@ impl NeoURI {
 
 		let amt = token.to_fractions(amount).await.unwrap() as i32;
 		token
-			.transfer_from_account(sender, recipient, amt, None)
+			.transfer_from_account(sender, &recipient, amt, None)
 			.map_err(|e| NeoError::from(e))
 	}
 

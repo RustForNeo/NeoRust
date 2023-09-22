@@ -30,7 +30,7 @@ pub struct NeoBlock {
 	pub transactions: Option<Vec<Transaction>>,
 	pub confirmations: u32,
 	#[serde(rename = "nextblockhash")]
-	#[serde(serialize_with = "serialize_h256")]
-	#[serde(deserialize_with = "deserialize_h256")]
+	#[serde(serialize_with = "serialize_h256_option")]
+	#[serde(deserialize_with = "deserialize_h256_option")]
 	pub next_block_hash: Option<H256>,
 }

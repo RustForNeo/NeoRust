@@ -2,7 +2,7 @@ use crate::protocol::core::responses::contract_method_token::ContractMethodToken
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[serde_as]
 pub struct ContractNef {
 	pub magic: i32,

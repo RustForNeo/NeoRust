@@ -4,7 +4,7 @@ use crate::protocol::core::witness_rule::{
 use futures::TryStreamExt;
 use serde::{ser::SerializeTuple, Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct WitnessRule {
 	pub action: WitnessAction,
 	pub condition: WitnessCondition,

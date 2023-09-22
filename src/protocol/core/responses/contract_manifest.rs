@@ -4,7 +4,7 @@ use crate::types::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ContractManifest {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub name: Option<String>,
@@ -28,20 +28,20 @@ pub struct ContractManifest {
 	pub extra: Option<HashMap<String, serde_json::Value>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContractGroup {
 	pub pub_key: String,
 	pub signature: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ContractABI {
 	pub methods: Vec<ContractMethod>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub events: Option<Vec<ContractEvent>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ContractMethod {
 	pub name: String,
 	pub parameters: Vec<ContractParameter>,
@@ -56,11 +56,11 @@ pub struct ContractEvent {
 	pub parameters: Vec<ContractParameter>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContractPermission {
 	pub contract: String,
-	#[serde(serialize_with = "serialize_wildcard")]
-	#[serde(deserialize_with = "deserialize_wildcard")]
+	// #[serde(serialize_with = "serialize_wildcard")]
+	// #[serde(deserialize_with = "deserialize_wildcard")]
 	pub methods: Vec<String>,
 }
 

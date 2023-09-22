@@ -56,8 +56,8 @@ pub struct NameState {
 	pub name: String,
 	pub expiration: u32,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	#[serde(deserialize_with = "deserialize_address")]
-	#[serde(serialize_with = "serialize_address")]
+	#[serde(deserialize_with = "deserialize_address_option")]
+	#[serde(serialize_with = "serialize_address_option")]
 	pub admin: Option<H160>,
 }
 

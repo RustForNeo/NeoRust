@@ -2,7 +2,7 @@ use crate::{
 	crypto::{hash::HashableForVec, wif::Wif},
 	neo_error::NeoError,
 	script::script_builder::ScriptBuilder,
-	types::{H160Externsion, PrivateKey, PublicKey},
+	types::{Address, H160Externsion, PrivateKey, PublicKey},
 	utils::*,
 };
 use getset::{CopyGetters, Getters};
@@ -10,6 +10,7 @@ use p256::ecdsa::{signature::SignerMut, Signature, VerifyingKey};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::hash::Hash;
+
 #[derive(Debug, Clone, Getters, CopyGetters, Serialize, Deserialize)]
 pub struct KeyPair {
 	#[getset(get = "pub", set = "pub")]
@@ -39,10 +40,10 @@ impl KeyPair {
 		Self::from_private_key(private_key)
 	}
 
-	pub fn get_address(&self) -> Result<String, NeoError> {
-		let script_hash = self.get_script_hash().unwrap();
-		let address = script_hash.to_address();
-		Ok(address)
+	pub fn get_address(&self) -> Result<Address, NeoError> {
+		self.get_script_hash()
+		// let address = script_hash.to_address();
+		// Ok(address)
 	}
 
 	pub fn get_script_hash(&self) -> Result<H160, NeoError> {

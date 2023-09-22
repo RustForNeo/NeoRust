@@ -1,17 +1,22 @@
 use crate::types::ScryptParamsDef;
-use crypto::scrypt::ScryptParams;
 use primitive_types::H160;
+use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
-use crate::wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError};
+use crate::{
+	utils::*,
+	wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError},
+};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Wallet {
 	name: String,
 	version: String,
 	scrypt_params: ScryptParamsDef,
 
 	pub(crate) accounts: HashMap<H160, Account>,
+	#[serde(deserialize_with = "deserialize_address")]
+	#[serde(serialize_with = "serialize_address")]
 	default_account: H160,
 }
 
@@ -35,7 +40,7 @@ impl Wallet {
 	}
 
 	pub fn add_account(&mut self, account: Account) {
-		self.accounts.insert(account.get_script_hash().unwrap(), account);
+		self.accounts.insert(H160::from(account.get_script_hash()), account);
 	}
 
 	pub fn set_default_account(&mut self, script_hash: H160) {

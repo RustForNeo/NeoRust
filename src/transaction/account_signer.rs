@@ -11,6 +11,10 @@ use crate::{
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use std::{
+	hash::{Hash, Hasher},
+	ops::Deref,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountSigner {
@@ -31,6 +35,18 @@ pub struct AccountSigner {
 
 	pub account: Account,
 	scope: WitnessScope,
+}
+
+impl Hash for AccountSigner {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		self.signer_hash.hash(state);
+		self.scopes.hash(state);
+		self.allowed_contracts.hash(state);
+		// self.allowed_groups.hash(state);
+		self.rules.hash(state);
+		self.account.hash(state);
+		self.scope.hash(state);
+	}
 }
 
 impl SignerTrait for AccountSigner {
@@ -70,7 +86,7 @@ impl SignerTrait for AccountSigner {
 impl AccountSigner {
 	fn new(account: &Account, scope: WitnessScope) -> Self {
 		Self {
-			signer_hash: account.get_script_hash().unwrap(),
+			signer_hash: account.get_script_hash().clone(),
 			scopes: vec![],
 			allowed_contracts: vec![],
 			allowed_groups: vec![],

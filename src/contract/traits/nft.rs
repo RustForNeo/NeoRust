@@ -40,7 +40,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.call_function_returning_iterator(
 			<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
 			vec![owner.into()],
-			|item| item.try_into(),
+			|item| Ok(item.as_bytes().unwrap()),
 		)
 		.await
 	}
@@ -82,7 +82,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.throw_if_sender_is_not_owner(from.get_script_hash().unwrap(), &token_id)
+		self.throw_if_sender_is_not_owner(from.get_script_hash(), &token_id)
 			.await
 			.unwrap();
 
@@ -143,10 +143,10 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 	async fn throw_if_sender_is_not_owner(
 		&mut self,
-		from: Address,
+		from: &Address,
 		token_id: &Bytes,
 	) -> Result<(), ContractError> {
-		let token_owner = self.owner_of(token_id.clone()).await.unwrap();
+		let token_owner = &self.owner_of(token_id.clone()).await.unwrap();
 		if token_owner != from {
 			return Err(ContractError::InvalidArgError(
 				"The provided from account is not the owner of this token.".to_string(),
@@ -161,25 +161,19 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	async fn transfer_divisible(
 		&mut self,
 		from: &Account,
-		to: Address,
+		to: &Address,
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_divisible_from_hashes(
-			from.get_script_hash().unwrap(),
-			to,
-			amount,
-			token_id,
-			data,
-		)
-		.signers(vec![AccountSigner::called_by_entry(from)])
+		self.transfer_divisible_from_hashes(from.get_script_hash(), to, amount, token_id, data)
+			.signers(vec![AccountSigner::called_by_entry(from)])
 	}
 
 	async fn transfer_divisible_from_hashes(
 		&mut self,
-		from: Address,
-		to: Address,
+		from: &Address,
+		to: &Address,
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
@@ -202,8 +196,8 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
 		self.transfer_divisible_from_hashes(
-			from.get_script_hash().unwrap(),
-			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
+			from.get_script_hash(),
+			&self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
 			amount,
 			token_id,
 			data,
@@ -214,7 +208,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 	async fn transfer_divisible_to_name(
 		&mut self,
-		from: Address,
+		from: &Address,
 		to: &str,
 		amount: i32,
 		token_id: Bytes,
@@ -224,7 +218,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 		self.transfer_divisible_from_hashes(
 			from,
-			self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
+			&self.resolve_nns_text_record(&NNSName::new(to).unwrap()).await.unwrap(),
 			amount,
 			token_id,
 			data,

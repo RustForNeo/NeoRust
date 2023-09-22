@@ -13,10 +13,10 @@ pub trait FungibleTokenTrait: TokenTrait {
 	const TRANSFER: &'static str = "transfer";
 
 	async fn get_balance_of(&self, account: &Account) -> Result<i32, ContractError> {
-		self.get_balance_of_hash160(account.get_script_hash().unwrap()).await
+		self.get_balance_of_hash160(account.get_script_hash()).await
 	}
 
-	async fn get_balance_of_hash160(&self, script_hash: H160) -> Result<i32, ContractError> {
+	async fn get_balance_of_hash160(&self, script_hash: &H160) -> Result<i32, ContractError> {
 		self.call_function_returning_int(Self::BALANCE_OF, vec![script_hash.into()])
 			.await
 	}
@@ -32,18 +32,18 @@ pub trait FungibleTokenTrait: TokenTrait {
 	fn transfer_from_account(
 		&self,
 		from: &Account,
-		to: Address,
+		to: &Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160(from.get_script_hash().unwrap(), to, amount, data)
+		self.transfer_from_hash160(from.get_script_hash(), to, amount, data)
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
 
 	fn transfer_from_hash160(
 		&self,
-		from: Address,
-		to: Address,
+		from: &Address,
+		to: &Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
@@ -59,8 +59,8 @@ pub trait FungibleTokenTrait: TokenTrait {
 
 	async fn build_transfer_script(
 		&self,
-		from: Address,
-		to: Address,
+		from: &Address,
+		to: &Address,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
@@ -80,19 +80,19 @@ pub trait FungibleTokenTrait: TokenTrait {
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
-		self.transfer_from_hash160_to_nns(from.get_script_hash().unwrap(), to, amount, data)
+		self.transfer_from_hash160_to_nns(from.get_script_hash(), to, amount, data)
 			.await
 			.map(|b| b.signers(vec![AccountSigner::called_by_entry(from)]))
 	}
 
 	async fn transfer_from_hash160_to_nns(
 		&self,
-		from: Address,
+		from: &Address,
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder, ContractError> {
 		let script_hash = self.resolve_nns_text_record(to).await.unwrap();
-		self.transfer_from_hash160(from, script_hash, amount, data)
+		self.transfer_from_hash160(from, &script_hash, amount, data)
 	}
 }

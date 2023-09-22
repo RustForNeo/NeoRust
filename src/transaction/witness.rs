@@ -56,7 +56,7 @@ impl Witness {
 	) -> Result<Self, NeoError> {
 		let verification_script =
 			VerificationScript::from_multisig(&public_keys, signing_threshold).await;
-		Self::create_multisig_witness_script(signatures, verification_script)
+		Self::create_multisig_witness_script(signatures, verification_script).await
 	}
 
 	pub async fn create_multisig_witness_script(
@@ -71,7 +71,7 @@ impl Witness {
 		}
 
 		let invocation_script =
-			InvocationScript::from_signatures(&signatures[..threshold as usize]);
+			InvocationScript::from_signatures(&signatures[..threshold as usize]).await;
 		Ok(Self { invocation_script, verification_script })
 	}
 

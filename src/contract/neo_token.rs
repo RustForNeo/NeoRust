@@ -55,8 +55,7 @@ impl NeoToken {
 		account: &Account,
 		block_height: i32,
 	) -> Result<i64, ContractError> {
-		self.unclaimed_gas_contract(&account.get_script_hash().unwrap(), block_height)
-			.await
+		self.unclaimed_gas_contract(&account.get_script_hash(), block_height).await
 	}
 
 	async fn unclaimed_gas_contract(
@@ -193,13 +192,13 @@ impl NeoToken {
 			.clone();
 
 		match result {
-			StackItem::Any { value: any } => Ok(AccountState::with_no_balance()),
+			StackItem::Any => Ok(AccountState::with_no_balance()),
 			StackItem::Array { value: items } if items.len() >= 3 => {
 				let balance = items[0].as_int().unwrap();
 				let update_height = items[1].as_int();
 				let public_key = items[2].clone();
 
-				if let StackItem::Any { value: any } = public_key {
+				if let StackItem::Any = public_key {
 					return Ok(AccountState {
 						balance,
 						balance_height: update_height,

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[serde(tag = "type")]
 pub enum StackItem {
 	#[serde(rename = "Any")]
-	Any { value: Option<serde_json::Value> },
+	Any,
 
 	#[serde(rename = "Pointer")]
 	Pointer { value: i64 },
@@ -113,7 +113,7 @@ impl StackItem {
 
 	pub fn to_string(&self) -> String {
 		match self {
-			StackItem::Any { value: any } => format!("Any{{value={:?}}}", any),
+			StackItem::Any => format!("Any"),
 			StackItem::Pointer { value: pointer } => format!("Pointer{{value={}}}", pointer),
 			StackItem::Boolean { value: boolean } => format!("Boolean{{value={}}}", boolean),
 			StackItem::Integer { value: integer } => format!("Integer{{value={}}}", integer),

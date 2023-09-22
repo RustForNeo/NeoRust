@@ -1,5 +1,10 @@
-use crypto::{hmac::Hmac, ripemd160::Ripemd160, sha2::Sha512};
-use sha2::{Digest, Sha256};
+use crypto::{
+	digest::Digest,
+	hmac::Hmac,
+	mac::Mac,
+	ripemd160::Ripemd160,
+	sha2::{Sha256, Sha512},
+};
 
 pub trait HashableForVec {
 	fn hash256(&self) -> Vec<u8>;
@@ -11,30 +16,39 @@ pub trait HashableForVec {
 impl HashableForVec for [u8] {
 	fn hash256(&self) -> Vec<u8> {
 		let mut hasher = Sha256::new();
-		hasher.update(self);
-		hasher.finalize().into_bytes().to_vec()
+		hasher.input(self);
+		let mut res = vec![0u8; 32];
+		hasher.result(&mut res);
+		res
 	}
 
 	fn ripemd160(&self) -> Vec<u8> {
 		let mut hasher = Ripemd160::new();
-		hasher.update(self);
-		hasher.finalize().into_bytes().to_vec()
+		hasher.input(self);
+		let mut res = vec![0u8; 20];
+		hasher.result(&mut res);
+
+		res
 	}
 
 	fn sha256_ripemd160(&self) -> Vec<u8> {
 		let mut sha256 = Sha256::new();
-		sha256.update(self);
-		let hash = sha256.finalize();
-
-		let mut ripemd160 = Ripemd160::new();
-		ripemd160.update(&hash);
-		ripemd160.finalize().into_bytes().to_vec()
+		sha256.input(self);
+		let mut res = vec![0u8; 32];
+		sha256.result(&mut res);
+		let mut hasher = Ripemd160::new();
+		hasher.input(&res);
+		let mut res = vec![0u8; 20];
+		hasher.result(&mut res);
+		res
 	}
 
 	fn hmac_sha512(&self, key: &[u8]) -> Vec<u8> {
-		let mut mac = Hmac::<Sha512>::new_varkey(key).expect("HMAC accepts keys of any size");
-		mac.update(self);
-		mac.finalize().into_bytes().to_vec()
+		let mut hmac = Hmac::new(Sha512::new(), key);
+
+		hmac.input(self);
+		let res = hmac.result();
+		res.code().to_vec()
 	}
 }
 

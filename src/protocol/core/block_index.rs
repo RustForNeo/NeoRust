@@ -46,7 +46,10 @@ impl BlockIndexPolling {
 					if curr_index.map(|i| latest_index > i as u32).unwrap_or(true) {
 						self.current_block_index.set_index(latest_index as i32).await;
 						Ok((curr_index.unwrap_or(0) + 1..=latest_index).collect::<Vec<_>>())
+					} else {
+						Ok(vec![])
 					}
+					.expect("Error getting latest block");
 
 					Err(NeoError::IllegalArgument("Error getting latest block".to_string()))
 				}

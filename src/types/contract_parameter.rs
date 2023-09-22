@@ -186,7 +186,7 @@ impl ContractParameter {
 	pub fn public_key(value: &PublicKey) -> Self {
 		Self::with_value(
 			ContractParameterType::PublicKey,
-			ParameterValue::PublicKey(value.to_string()),
+			ParameterValue::PublicKey(value.to_encoded_point(false).to_string()),
 		)
 	}
 

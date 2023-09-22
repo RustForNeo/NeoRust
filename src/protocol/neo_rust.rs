@@ -83,7 +83,7 @@ where
 	}
 
 	pub fn instance() -> MutexGuard<'static, NeoRust<T>> {
-		NEO_HTTP_INSTANCE.lock().unwrap()
+		NEO_HTTP_INSTANCE.clone().lock().unwrap()
 	}
 
 	pub fn config(&self) -> &NeoConfig {
@@ -136,6 +136,7 @@ where
 				.network;
 			self.config
 				.get_mut()
+				.unwrap()
 				.set_network_magic(magic)
 				.expect("Unable to set Network Magic Number");
 		}

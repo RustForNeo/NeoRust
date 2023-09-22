@@ -6,7 +6,7 @@ use crate::{
 		call_flags::CallFlags,
 		contract_parameter::{ContractParameter, ParameterValue},
 		contract_parameter_type::ContractParameterType,
-		Bytes, PublicKey,
+		Bytes, H160Externsion, PublicKey,
 	},
 };
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
@@ -54,11 +54,17 @@ impl ScriptBuilder {
 			self.push_params(params);
 		}
 
-		self.push_integer(call_flags.bits())
+		Ok(self
+			.push_integer(call_flags.bits())
+			.await
 			.unwrap()
 			.push_data(method.as_bytes().to_vec())
-			.push_data(hash160.to_bytes())
-			.sys_call(InteropService::SystemContractCall)
+			.await
+			.unwrap()
+			.push_data(hash160.to_vec())
+			.await
+			.unwrap()
+			.sys_call(InteropService::SystemContractCall))
 	}
 
 	pub fn sys_call(&mut self, operation: InteropService) -> &mut Self {
@@ -81,14 +87,14 @@ impl ScriptBuilder {
 		}
 		match &param.value.unwrap() {
 			ParameterValue::Boolean(b) => self.push_bool(*b),
-			ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
+			ParameterValue::Integer(i) => self.push_integer(i.clone()).await.unwrap(),
 			ParameterValue::ByteArray(b)
 			| ParameterValue::Signature(b)
-			| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()),
-			ParameterValue::Hash160(h) => self.push_data(h.as_bytes().to_vec()),
-			ParameterValue::Hash256(h) => self.push_data(h.as_bytes().to_vec()),
-			ParameterValue::String(s) => self.push_data(s.as_bytes().to_vec()),
-			ParameterValue::Array(arr) => self.push_array(arr).unwrap(),
+			| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()).await.unwrap(),
+			ParameterValue::Hash160(h) => self.push_data(h.as_bytes().to_vec()).await.unwrap(),
+			ParameterValue::Hash256(h) => self.push_data(h.as_bytes().to_vec()).await.unwrap(),
+			ParameterValue::String(s) => self.push_data(s.as_bytes().to_vec()).await.unwrap(),
+			ParameterValue::Array(arr) => self.push_array(arr).await.unwrap(),
 			ParameterValue::Map(map) => {
 				// Create an empty HashMap to hold your ContractParameter key-value pairs
 				let mut map: HashMap<ContractParameter, ContractParameter> = HashMap::new();
@@ -105,7 +111,7 @@ impl ScriptBuilder {
 
 				self.push_map(&map).unwrap()
 			},
-			_ => return Err(Error::IllegalArgument("Unsupported parameter type".to_string())),
+			_ => return Err(NeoError::IllegalArgument("Unsupported parameter type".to_string())),
 		}
 		.await;
 
@@ -122,13 +128,13 @@ impl ScriptBuilder {
 		} else {
 			let mut bytes = n.to_be_bytes();
 			match self.script.len() {
-				1 => self.op_code_with_arg(OpCode::PushInt8, bytes.to_vec().unwrap()),
-				2 => self.op_code_with_arg(OpCode::PushInt16, bytes.to_vec().unwrap()),
-				4 => self.op_code_with_arg(OpCode::PushInt32, bytes.to_vec().unwrap()),
-				8 => self.op_code_with_arg(OpCode::PushInt64, bytes.to_vec().unwrap()),
-				16 => self.op_code_with_arg(OpCode::PushInt128, bytes.to_vec().unwrap()),
-				32 => self.op_code_with_arg(OpCode::PushInt256, bytes.to_vec().unwrap()),
-				_ => return Err(Error::NumericOverflow),
+				1 => self.op_code_with_arg(OpCode::PushInt8, bytes.to_vec().unwrap()).await,
+				2 => self.op_code_with_arg(OpCode::PushInt16, bytes.to_vec().unwrap()).await,
+				4 => self.op_code_with_arg(OpCode::PushInt32, bytes.to_vec().unwrap()).await,
+				8 => self.op_code_with_arg(OpCode::PushInt64, bytes.to_vec().unwrap()).await,
+				16 => self.op_code_with_arg(OpCode::PushInt128, bytes.to_vec().unwrap()).await,
+				32 => self.op_code_with_arg(OpCode::PushInt256, bytes.to_vec().unwrap()).await,
+				_ => return Err(NeoError::NumericOverflow),
 			}
 			.await;
 		}

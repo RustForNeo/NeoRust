@@ -14,7 +14,10 @@ where
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NeoResponse<T> {
+pub struct NeoResponse<T>
+where
+	T: Serialize,
+{
 	jsonrpc: &'static str,
 	id: u64,
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -55,7 +58,7 @@ where
 	}
 }
 
-impl<T: std::marker::Unpin> Future for NeoResponse<T> {
+impl<T: std::marker::Unpin + Clone + Serialize> Future for NeoResponse<T> {
 	type Output = T;
 
 	fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
