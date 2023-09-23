@@ -816,7 +816,7 @@ impl OpCode {
 pub struct OperandSize {
 	#[get = "pub"]
 	prefix_size: u8,
-	#[get = "pub"]
+	#[get="pub"]
 	size: u8,
 }
 

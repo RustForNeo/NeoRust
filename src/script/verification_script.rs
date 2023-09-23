@@ -1,9 +1,11 @@
+use std::fmt::Display;
 use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode, script_builder::ScriptBuilder},
 	serialization::binary_reader::BinaryReader,
 	types::{Bytes, PublicKey, PublicKeyExtension},
 };
+use derive_more::Display;
 use getset::{CopyGetters, Getters, MutGetters, Setters};
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;

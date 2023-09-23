@@ -14,16 +14,19 @@ use primitive_types::H160;
 use std::collections::HashMap;
 use tokio::io::AsyncWriteExt;
 
-#[derive(Debug, PartialEq, Eq, Hash, CopyGetters, Setters)]
-#[getset(get_copy, set)]
-#[derive(educe::Educe)]
-// note `new` below: generate `new()` that calls Default
-#[educe(Default(new))]
+#[derive(Debug, PartialEq, Eq, Hash, Getters, Setters)]
 pub struct ScriptBuilder {
+	#[getset(get = "pub")]
 	pub script: BinaryWriter,
 }
 
 impl ScriptBuilder {
+
+	pub fn new()-> Self{
+		Self {
+			script: BinaryWriter::new(),
+		}
+	}
 	pub fn op_code(&mut self, op_codes: &[OpCode]) -> &mut Self {
 		for opcode in op_codes {
 			self.script.write_u8(opcode.opcode());
@@ -189,14 +192,14 @@ impl ScriptBuilder {
 		if arr.is_empty() {
 			self.op_code(&[OpCode::NewArray]);
 		} else {
-			let arrr = arr
-				.iter()
-				.map(|v| {
-					let vv: ContractParameter = v.clone().into();
-					vv
-				})
-				.collect();
-			self.push_params(&arrr);
+			// let arrr = arr
+			// 	.iter()
+			// 	.map(|v| {
+			// 		let vv: ContractParameter = v.clone().into();
+			// 		vv
+			// 	})
+			// 	.collect();
+			self.push_params(arr);
 		};
 		Ok(self)
 	}
@@ -222,7 +225,7 @@ impl ScriptBuilder {
 	}
 
 	pub fn to_bytes(&self) -> Bytes {
-		self.script.script()
+		self.script.to_bytes()
 	}
 
 	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {

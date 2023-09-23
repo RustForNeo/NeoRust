@@ -30,58 +30,48 @@ use crate::{
 				neo_validate_address::ValidateAddress,
 				transaction::Transaction,
 				transaction_send_token::TransactionSendToken,
-				transaction_signer::TransactionSigner,
 			},
 			stack_item::StackItem,
 		},
 		http_service::HttpService,
 		neo_config::NeoConfig,
-		neo_service::NeoService,
 		rx::json_rpc2::JsonRpc2,
 	},
-	transaction::signer::Signer,
+	transaction::signers::signer::Signer,
 	types::{
 		contract_parameter::ContractParameter, Address, Bytes, ExternBase64, H160Externsion,
 		H256Def, ValueExtension,
 	},
 };
 use async_trait::async_trait;
-use bitvec::ptr::Mut;
 use lazy_static::lazy_static;
 use primitive_types::{H160, H256};
 use reqwest::Url;
 use serde_json::Value;
-use std::{
-	collections::HashMap,
-	str::FromStr,
-	sync::{Arc, Mutex, MutexGuard},
-};
+use std::{collections::HashMap, str::FromStr, sync::RwLock};
+use crate::transaction::signers::transaction_signer::TransactionSigner;
+use crate::types::*;
 
 lazy_static! {
-	pub static ref NEO_HTTP_INSTANCE: Arc<Mutex<NeoRust>> =
-		Arc::new(Mutex::new(NeoRust::new_http_service()));
+	pub static ref NEO_INSTANCE: RwLock<NeoRust> = RwLock::new(NeoRust::new_http_service());
 }
 
 #[derive(Debug, Clone)]
 pub struct NeoRust {
-	config: Arc<Mutex<NeoConfig>>,
-	neo_service: Arc<Mutex<HttpService>>,
+	config: NeoConfig,
+	neo_service: HttpService,
 }
 
 impl NeoRust {
 	pub fn new_http_service() -> Self {
 		Self {
-			config: Arc::new(Mutex::new(NeoConfig::default())),
-			neo_service: Arc::new(Mutex::new(HttpService::new(Url::from_str("").unwrap(), false))),
+			config: NeoConfig::default(),
+			neo_service: HttpService::new(Url::from_str("").unwrap(), false),
 		}
 	}
 
-	pub fn instance() -> MutexGuard<'static, NeoRust> {
-		NEO_HTTP_INSTANCE.clone().lock().unwrap()
-	}
-
 	pub fn config(&self) -> &NeoConfig {
-		&self.config.lock().unwrap()
+		&self.config
 	}
 
 	pub fn nns_resolver(&self) -> H160 {
@@ -92,9 +82,10 @@ impl NeoRust {
 		self.config().block_interval
 	}
 
-	pub fn neo_rx(&self) -> &JsonRpc2 {
-		&self.config().scheduledExecutorService
-	}
+	// pub fn neo_rx(&self) -> &JsonRpc2 {
+	// 	&self.config().scheduledExecutorService
+	// }
+
 	pub fn polling_interval(&self) -> u32 {
 		self.config().polling_interval
 	}
@@ -104,11 +95,11 @@ impl NeoRust {
 	}
 
 	pub(crate) fn get_neo_service(&self) -> &HttpService {
-		&self.neo_service.lock().unwrap()
+		&self.neo_service
 	}
 
 	pub fn get_neo_service_mut(&mut self) -> &mut HttpService {
-		&mut self.neo_service.lock().as_mut().unwrap()
+		&mut self.neo_service
 	}
 
 	pub fn dump_private_key(&self, script_hash: H160) -> NeoRequest<String> {
@@ -128,7 +119,7 @@ impl NeoRust {
 				))
 				.unwrap()
 				.network;
-			self.config.lock().unwrap().network_magic = Some(magic);
+			self.config.network_magic = Some(magic);
 		}
 		Ok(self.config().network_magic.unwrap())
 	}

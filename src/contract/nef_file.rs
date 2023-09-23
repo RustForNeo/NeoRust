@@ -18,7 +18,7 @@ const COMPILER_SIZE: usize = 64;
 const MAX_SOURCE_URL_SIZE: usize = 256;
 const MAX_SCRIPT_LENGTH: usize = 512 * 1024;
 const CHECKSUM_SIZE: usize = 4;
-const HEADER_SIZE: usize = MAGIC_SIZE + COMPILER_SIZE;
+pub const HEADER_SIZE: usize = MAGIC_SIZE + COMPILER_SIZE;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NefFile {

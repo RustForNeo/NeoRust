@@ -84,7 +84,8 @@ impl BinaryWriter {
 	// Serialization helpers
 
 	pub fn write_serializable<S: Serialize>(&mut self, value: &S) {
-		value.serialize(self.clone()).expect("Failed to serialize value");
+		  let a = bincode::serialize(value).expect("Failed to serialize value");
+		  self.write_var_bytes(&a);
 	}
 
 	pub fn write_serializable_list<S: Serialize>(&mut self, values: &[S]) {

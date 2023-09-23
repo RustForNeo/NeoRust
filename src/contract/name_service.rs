@@ -14,10 +14,12 @@ use crate::{
 	},
 	transaction::transaction_builder::TransactionBuilder,
 	utils::*,
+	NEO_INSTANCE,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::string::ToString;
+use futures::FutureExt;
 
 #[repr(u8)]
 enum RecordType {
@@ -89,7 +91,7 @@ impl NeoNameService {
 	const ADMIN_PROPERTY: &'static str = "admin";
 
 	pub fn new() -> Self {
-		Self { script_hash: NeoRust::instance().nns_resolver().clone() }
+		Self { script_hash: NEO_INSTANCE.read().unwrap().nns_resolver().clone() }
 	}
 
 	// Implementation
@@ -102,9 +104,8 @@ impl NeoNameService {
 	async fn get_roots(&self) -> Result<NeoIterator<String>, ContractError> {
 		let args = vec![];
 		let roots = self
-			.call_function_returning_iterator(Self::ROOTS, args, |item| Ok(item.to_string()))
-			.await
-			.unwrap();
+			.call_function_returning_iterator(Self::ROOTS, args, |item| item.to_string())
+			.await;
 
 		Ok(roots)
 	}
@@ -181,7 +182,9 @@ impl NeoNameService {
 	// Other methods...
 	async fn get_name_state(&self, name: &[u8]) -> Result<NameState, ContractError> {
 		let args = vec![name.into()];
-		let result = NeoRust::instance()
+		let result = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, vec![])
 			.request()
 			.await

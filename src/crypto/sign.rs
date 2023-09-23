@@ -70,11 +70,11 @@ impl SignatureData {
 			.unwrap();
 
 		let v = 27 + rec_id;
-		Ok(SignatureData {
-			v: v as u8,
-			r: signature.r.to_bytes_padded(32).unwrap(),
-			s: signature.s.to_bytes_padded(32).unwrap(),
-		})
+		Ok(SignatureData::new(
+			v as u8,
+			signature.r.to_bytes_padded(32).unwrap(),
+			signature.s.to_bytes_padded(32).unwrap(),
+		))
 	}
 }
 

@@ -44,4 +44,3 @@ pub mod record_state;
 pub mod transaction;
 pub mod transaction_attribute;
 pub mod transaction_send_token;
-pub mod transaction_signer;

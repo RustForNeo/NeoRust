@@ -3,19 +3,16 @@ use crate::{
 	neo_error::NeoError,
 	protocol::{
 		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
-		neo_rust::NeoRust,
 	},
 	transaction::{
-		account_signer::AccountSigner,
-		contract_signer::ContractSigner,
 		serializable_transaction::SerializableTransaction,
-		signer::{Signer, SignerType},
 		transaction_error::TransactionError,
 		witness::Witness,
 	},
 	types::{
 		contract_parameter::ContractParameter, Bytes, H160Externsion, PublicKey, PublicKeyExtension,
 	},
+	NEO_INSTANCE,
 };
 use bincode::Options;
 use hex_literal::hex;
@@ -28,6 +25,7 @@ use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
+use crate::transaction::signers::signer::{Signer, SignerType};
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {
@@ -229,7 +227,9 @@ impl TransactionBuilder {
 	async fn get_system_fee(&self) -> Result<u64, TransactionError> {
 		let script = self.script.as_ref().unwrap();
 
-		let response = NeoRust::instance()
+		let response = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.invoke_script(script.to_hex(), vec![self.signers[0].clone()])
 			.request()
 			.await
@@ -241,7 +241,9 @@ impl TransactionBuilder {
 		&mut self,
 		tx: &SerializableTransaction,
 	) -> Result<u64, TransactionError> {
-		let fee = NeoRust::instance()
+		let fee = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.calculate_network_fee(tx.serialize().to_hex())
 			.request()
 			.await
@@ -256,7 +258,9 @@ impl TransactionBuilder {
 		let sender = &self.signers[0];
 
 		if Self::is_account_signer(sender) {
-			let balance = NeoRust::instance()
+			let balance = NEO_INSTANCE
+				.read()
+				.unwrap()
 				.invoke_function(
 					&H160::from(Self::GAS_TOKEN_HASH),
 					Self::BALANCE_OF_FUNCTION.to_string(),
@@ -284,34 +288,35 @@ impl TransactionBuilder {
 	// Sign transaction
 	pub async fn sign(&mut self) -> Result<SerializableTransaction, NeoError> {
 		let mut transaction = self.get_unsigned_transaction().await.unwrap();
+		let tx_bytes = transaction.get_hash_data().await.unwrap();
+
+		let mut witnesses_to_add = Vec::new();
 
 		for signer in &mut transaction.signers {
 			if Self::is_account_signer(signer) {
-				let account_signer: AccountSigner = signer.into();
+				let account_signer = signer.as_account_signer().unwrap();
 				let acc = &account_signer.account;
 				if acc.is_multi_sig() {
 					return Err(NeoError::IllegalState(
-						"Transactions with multi-sig signers cannot be signed automatically."
-							.to_string(),
-					))
+						"Transactions with multi-sig signers cannot be signed automatically.".to_string(),
+					));
 				}
 
 				let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
-                  NeoError::InvalidConfiguration(
-                      "Cannot create transaction signature because account does not hold a private key."
-                          .to_string(),
-                  )
-              }).unwrap();
+					NeoError::InvalidConfiguration(
+						"Cannot create transaction signature because account does not hold a private key.".to_string(),
+					)
+				})?;
 
-				let tx_bytes = transaction.get_hash_data().await.unwrap();
-				transaction.add_witness(Witness::create(tx_bytes, key_pair).await.unwrap());
+				witnesses_to_add.push(Witness::create(tx_bytes.clone(), key_pair).unwrap());
 			} else {
-				let contract_signer: &mut ContractSigner = signer.into();
-				transaction.add_witness(
-					Witness::create_contract_witness(contract_signer.verify_params.clone())
-						.unwrap(),
-				);
+				let contract_signer = signer.as_contract_signer().unwrap();
+				witnesses_to_add.push(Witness::create_contract_witness(contract_signer.verify_params.clone()).unwrap());
 			}
+		}
+
+		for witness in witnesses_to_add {
+			transaction.add_witness(witness);
 		}
 
 		Ok(transaction)
@@ -330,10 +335,11 @@ impl TransactionBuilder {
 
 		if self.valid_until_block.is_none() {
 			let current_block_count =
-				NeoRust::instance().get_block_count().request().await.unwrap();
+				NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
 			self.valid_until_block = Some(
-				(current_block_count + NeoRust::instance().max_valid_until_block_increment() - 1)
-					as u32,
+				(current_block_count
+					+ NEO_INSTANCE.read().unwrap().max_valid_until_block_increment()
+					- 1) as u32,
 			);
 		}
 
@@ -383,7 +389,9 @@ impl TransactionBuilder {
 	}
 
 	async fn is_allowed_for_high_priority(&self) -> Result<bool, NeoError> {
-		let committee = NeoRust::instance()
+		let committee = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.get_committee()
 			.request()
 			.await?
@@ -429,12 +437,12 @@ impl TransactionBuilder {
 
 		// Add signers
 		for signer in &self.signers {
-			size += signer.serialized_size();
+			size += bincode::serialize(signer).unwrap().len();
 		}
 
 		// Add attributes
 		for attr in &self.attributes {
-			size += attr.serialized_size();
+			size += bincode::serialize(attr).unwrap().len();
 		}
 
 		// Add script
@@ -458,7 +466,9 @@ impl TransactionBuilder {
 
 	async fn get_sender_gas_balance(&self) -> Result<u64, NeoError> {
 		let sender_hash = self.signers[0].get_signer_hash();
-		let result = NeoRust::instance()
+		let result = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.invoke_function(
 				&H160::from(Self::GAS_TOKEN_HASH),
 				Self::BALANCE_OF_FUNCTION.to_string(),

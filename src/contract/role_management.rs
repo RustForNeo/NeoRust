@@ -8,6 +8,7 @@ use crate::{
 	transaction::transaction_builder::TransactionBuilder,
 	types::{PublicKey, ValueExtension},
 	utils::*,
+	NEO_INSTANCE,
 };
 use async_trait::async_trait;
 use num_enum::TryFromPrimitive;
@@ -61,7 +62,8 @@ impl RoleManagement {
 			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
 		}
 
-		let current_block_count = NeoRust::instance().get_block_count().request().await.unwrap();
+		let current_block_count =
+			NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
 
 		if block_index > current_block_count as i32 {
 			return Err(ContractError::InvalidNeoName(format!(

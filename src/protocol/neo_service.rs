@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[async_trait]
 pub trait NeoService: Send + Sync {
-	fn send<'a, T: Deserialize<'a> + Serialize>(
+	async fn send<'a, T: Deserialize<'a> + Serialize>(
 		&self,
 		request: &NeoRequest<T>,
 	) -> Result<NeoResponse<T>, NeoError>;

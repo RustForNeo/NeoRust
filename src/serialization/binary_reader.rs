@@ -1,4 +1,4 @@
-use crate::{neo_error::NeoError, transaction::signer::Signer};
+use crate::{neo_error::NeoError, transaction::signers::signer::Signer};
 use num_bigint::{BigInt, Sign};
 use p256::{elliptic_curve::sec1::FromEncodedPoint, EncodedPoint, ProjectivePoint};
 use serde::Deserialize;
@@ -6,17 +6,19 @@ use serde_derive::Serialize;
 use std::error::Error;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Getters, Setters)]
 pub struct BinaryReader<'a> {
 	data: &'a [u8],
-	position: usize,
+	#[getset(get = "pub")]
+	pointer: usize,
 	marker: usize,
 }
 impl<'a> Iterator for BinaryReader<'a> {
 	type Item = u8;
 	fn next(&mut self) -> Option<Self::Item> {
-		if self.position < self.data.len() {
-			let val = self.data[self.position];
-			self.position += 1;
+		if self.pointer < self.data.len() {
+			let val = self.data[self.pointer];
+			self.pointer += 1;
 			Some(val)
 		} else {
 			None
@@ -26,18 +28,18 @@ impl<'a> Iterator for BinaryReader<'a> {
 
 impl<'a> BinaryReader<'a> {
 	pub fn new(data: &'a [u8]) -> Self {
-		Self { data, position: 0, marker: 0 }
+		Self { data, pointer: 0, marker: 0 }
 	}
 
 	pub fn read_bool(&mut self) -> bool {
-		let val = self.data[self.position] == 1;
-		self.position += 1;
+		let val = self.data[self.pointer] == 1;
+		self.pointer += 1;
 		val
 	}
 
 	pub fn read_u8(&mut self) -> u8 {
-		let val = self.data[self.position];
-		self.position += 1;
+		let val = self.data[self.pointer];
+		self.pointer += 1;
 		val
 	}
 
@@ -117,10 +119,10 @@ impl<'a> BinaryReader<'a> {
 	// Other primitive reader methods
 
 	pub fn read_bytes(&mut self, count: usize) -> Result<&'a [u8], NeoError> {
-		let start = self.position;
-		self.position += count;
+		let start = self.pointer;
+		self.pointer += count;
 		self.data
-			.get(start..self.position)
+			.get(start..self.pointer)
 			.ok_or_else(|| NeoError::IndexOutOfBounds("Out of bounds".to_string()))
 	}
 
@@ -199,7 +201,8 @@ impl<'a> BinaryReader<'a> {
 	// Serialization helper methods
 
 	pub fn read_serializable<T: Deserialize<'a>>(&mut self) -> Result<T, NeoError> {
-		T::deserialize(self)
+		 let value:T = bincode::deserialize(&self.data[self.pointer..]).map_err(|e| NeoError::InvalidFormat).unwrap();
+		Ok(value)
 	}
 
 	pub fn read_serializable_list<T: Deserialize<'a>>(&mut self) -> Result<Vec<Signer>, NeoError> {
@@ -214,26 +217,26 @@ impl<'a> BinaryReader<'a> {
 	// Other methods like `mark`, `reset`, etc.
 
 	pub fn mark(&mut self) {
-		self.marker = self.position;
+		self.marker = self.pointer;
 	}
 
 	pub fn reset(&mut self) {
-		self.position = self.marker;
+		self.pointer = self.marker;
 	}
 
-	pub fn read_ec_point(&mut self) -> Result<ProjectivePoint, &'static str> {
-		let tag = self.read_byte();
-		let bytes = match tag {
-			0x00 => return Ok(ProjectivePoint::IDENTITY),
-			0x02 | 0x03 => self.read_bytes(32),
-			0x04 => self.read_bytes(64),
-			_ => return Err("Invalid EC point tag"),
-		};
-
-		let point = EncodedPoint::from_bytes(bytes).unwrap();
-		match ProjectivePoint::from_encoded_point(&point) {
-			Some(point) => Ok(point),
-			None => Err("Invalid EC point"),
-		}
-	}
+	// pub fn read_ec_point(&mut self) -> Result<ProjectivePoint, &'static str> {
+	// 	let tag = self.read_u8();
+	// 	let bytes = match tag {
+	// 		0x00 => return Ok(ProjectivePoint::IDENTITY),
+	// 		0x02 | 0x03 => self.read_bytes(32),
+	// 		0x04 => self.read_bytes(64),
+	// 		_ => return Err("Invalid EC point tag"),
+	// 	};
+	//
+	// 	let point = EncodedPoint::from_bytes(bytes).unwrap();
+	// 	match ProjectivePoint::from_encoded_point(&point) {
+	// 		Some(point) => Ok(point),
+	// 		None => Err("Invalid EC point"),
+	// 	}
+	// }
 }

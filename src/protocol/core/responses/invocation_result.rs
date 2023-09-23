@@ -8,7 +8,7 @@ use std::{
 
 use crate::utils::*;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct InvocationResult {
 	pub script: String,
 	pub state: NeoVMStateType,
@@ -70,7 +70,7 @@ impl InvocationResult {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq,Clone)]
 pub struct PendingSignature {
 	pub typ: String,
 	pub data: String,
@@ -87,7 +87,7 @@ impl Hash for PendingSignature {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq,Clone)]
 pub struct Item {
 	pub script: String,
 	pub parameters: Vec<ContractParameter>,
@@ -105,13 +105,13 @@ impl Hash for Item {
 // Other structs like Diagnostics, Notification
 
 // Diagnostics
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Diagnostics {
 	pub invoked_contracts: InvokedContract,
 	pub storage_changes: Vec<StorageChange>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash,Clone)]
 pub struct InvokedContract {
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]
@@ -119,7 +119,7 @@ pub struct InvokedContract {
 	pub invoked_contracts: Option<Vec<InvokedContract>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct StorageChange {
 	pub state: String,
 	pub key: String,

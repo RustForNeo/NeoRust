@@ -24,16 +24,16 @@ impl ScriptReader {
 	pub fn convert_to_op_code_string(script: &Bytes) -> String {
 		let mut reader = BinaryReader::new(script);
 		let mut result = String::new();
-		while reader.position() < script.len() {
-			if let Some(op_code) = OpCode::try_from(reader.read_u8()) {
+		while reader.pointer().clone() < script.len() {
+			if let Ok(op_code) = OpCode::try_from(reader.read_u8()) {
 				result.push_str(&format!("{}", op_code).to_uppercase());
 				if let Some(size) = op_code.operand_size() {
-					if size.size() > 0 {
+					if size.size().clone() > 0 {
 						result.push_str(&format!(
 							" {}",
-							reader.read_bytes(size.size()).unwrap().to_hex()
+							reader.read_bytes(size.size().clone() as usize).unwrap().to_hex()
 						));
-					} else if size.prefix_size() > 0 {
+					} else if size.prefix_size().clone() > 0 {
 						let prefix_size = Self::get_prefix_size(&mut reader, size).unwrap();
 						result.push_str(&format!(
 							" {} {}",

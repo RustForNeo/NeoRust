@@ -1,10 +1,14 @@
 use crate::{
-	crypto::{key_pair::KeyPair, nep2::NEP2, wif::Wif},
+	crypto::{
+		key_pair::KeyPair,
+		nep2::NEP2,
+		wif::{str_to_wif, Wif},
+	},
 	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
 	script::verification_script::VerificationScript,
 	types::{
 		contract_parameter_type::ContractParameterType, Address, Base64Encode, H160Externsion,
-		PrivateKey, PublicKey,
+		PrivateKey, PrivateKeyExtension, PublicKey,
 	},
 	utils::*,
 	wallet::{
@@ -13,6 +17,7 @@ use crate::{
 		wallet::Wallet,
 		wallet_error::WalletError,
 	},
+	NEO_INSTANCE,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -128,8 +133,7 @@ impl Account {
 	}
 
 	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
-		let private_key = wif.as_bytes().from_wif();
-		let key_pair = KeyPair::from_private_key(private_key);
+		let key_pair = KeyPair::from_private_key(PrivateKey::from_wif(wif).unwrap());
 		Self::from_key_pair(key_pair, None, None)
 	}
 
@@ -195,7 +199,7 @@ impl Account {
 			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))
 			.unwrap();
 		let key_pair = NEP2::decrypt(password, encrypted_private_key).unwrap();
-		self.key_pair = Some(KeyPair::from_private_key(key_pair));
+		self.key_pair = Some(KeyPair::from_private_key(key_pair.private_key().clone()));
 		Ok(())
 	}
 
@@ -205,7 +209,7 @@ impl Account {
 			.as_ref()
 			.ok_or(WalletError::AccountState("No decrypted key pair present".to_string()))
 			.unwrap();
-		let encrypted_private_key = NEP2::encrypt(password, &key_pair.private_key()).unwrap();
+		let encrypted_private_key = NEP2::encrypt(password, key_pair).unwrap();
 		self.encrypted_private_key = Some(encrypted_private_key);
 		self.key_pair = None;
 		Ok(())
@@ -226,7 +230,9 @@ impl Account {
 	}
 
 	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
-		let balances = NeoRust::instance()
+		let balances = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.get_nep17_balances(self.get_script_hash().clone())
 			.request()
 			.await
@@ -301,7 +307,7 @@ impl Account {
 
 		Ok(Self {
 			address,
-			label: Some(address.to_string()),
+			label: Some(H160Externsion::to_string(&address)),
 			verification_script: Some(script.clone()),
 			signing_threshold: signing_threshold.map(|x| x as u32),
 			nr_of_participants: nr_of_participants.map(|x| x as u32),
@@ -328,7 +334,7 @@ impl Account {
 		let script = VerificationScript::from_multisig(public_keys, signing_threshold as u8);
 
 		Ok(Self {
-			label: Some(script.to_string()),
+			label: Some(script.script().to_base64()),
 			verification_script: Some(script),
 			signing_threshold: Some(signing_threshold),
 			nr_of_participants: Some(public_keys.len() as u32),
@@ -338,7 +344,7 @@ impl Account {
 
 	pub fn from_address(address: &str) -> Result<Self, WalletError> {
 		let address = Address::from_str(address).unwrap();
-		Ok(Self { address, label: Some(address.to_string()), ..Default::default() })
+		Ok(Self { address, label: Some(H160Externsion::to_string(&address)), ..Default::default() })
 	}
 
 	pub fn from_script_hash(script_hash: &H160) -> Result<Self, WalletError> {
@@ -347,7 +353,7 @@ impl Account {
 	}
 
 	pub fn create() -> Result<Self, WalletError> {
-		let key_pair = KeyPair::create().unwrap();
+		let key_pair = KeyPair::generate();
 		Self::from_key_pair(key_pair, None, None)
 	}
 

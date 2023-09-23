@@ -1,11 +1,14 @@
+use std::fmt::Display;
 use crate::{
-	crypto::{hash::HashableForVec, wif::Wif},
+	crypto::{
+		hash::HashableForVec,
+		wif::{str_to_wif, Wif},
+	},
 	neo_error::{NeoError, NeoError::InvalidPublicKey},
 	protocol::core::responses::{
-		neo_validate_address::ValidateAddress, transaction_attribute::TransactionAttribute,
-		transaction_send_token::TransactionSendToken, transaction_signer::TransactionSigner,
+		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
-	transaction::signer::Signer,
+	transaction::signers::signer::Signer,
 	types::contract_parameter::ContractParameter,
 	utils::*,
 };
@@ -16,7 +19,7 @@ use p256::{
 	ecdsa::{SigningKey, VerifyingKey},
 	elliptic_curve::{
 		group::prime::PrimeCurveAffine,
-		sec1::{FromEncodedPoint, ToEncodedPoint},
+		sec1::{EncodedPoint, ToEncodedPoint},
 	},
 	pkcs8::der::{Decode, Encode},
 };
@@ -24,6 +27,7 @@ use primitive_types::{H160, H256};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Digest;
+use crate::transaction::signers::transaction_signer::TransactionSigner;
 
 pub mod call_flags;
 pub mod contract_parameter;
@@ -159,7 +163,10 @@ impl PublicKeyExtension for PublicKey {
 
 		let mut arr = [0u8; 64];
 		arr.copy_from_slice(slice);
-		Ok(Self::from_encoded_point(&arr.into()).map_err(|_| InvalidPublicKey).unwrap())
+
+		Ok(Self::from_encoded_point(&EncodedPoint::from_bytes(slice).unwrap())
+			.map_err(|_| InvalidPublicKey)
+			.unwrap())
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
@@ -201,7 +208,7 @@ impl PrivateKeyExtension for PrivateKey {
 	}
 
 	fn from_wif(wif: &str) -> Result<Self, NeoError> {
-		let bytes = wif.from_wif().unwrap();
+		let bytes = str_to_wif(wif).unwrap();
 		Ok(Self::from_slice(&bytes).unwrap())
 	}
 }
@@ -230,7 +237,7 @@ impl ValueExtension for &str {
 
 impl ValueExtension for H160 {
 	fn to_value(&self) -> Value {
-		Value::String(self.to_string())
+		Value::String(bs58::encode(self.0).into_string())
 	}
 }
 

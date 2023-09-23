@@ -1,7 +1,6 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
-		signer::{Signer, SignerTrait, SignerType},
 		transaction_error::TransactionError,
 		witness_scope::WitnessScope,
 	},
@@ -15,6 +14,7 @@ use std::{
 	hash::{Hash, Hasher},
 	ops::Deref,
 };
+use crate::transaction::signers::signer::{SignerTrait, SignerType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct AccountSigner {
@@ -54,10 +54,10 @@ impl Hash for AccountSigner {
 		self.signer_hash.hash(state);
 		self.scopes.hash(state);
 		self.allowed_contracts.hash(state);
-		// self.allowed_groups.hash(state);
+		self.allowed_groups.to_vec().hash(state);
 		self.rules.hash(state);
-		self.account.hash(state);
-		self.scope.hash(state);
+		// self.account.hash(state);
+		// self.scope.hash(state);
 	}
 }
 

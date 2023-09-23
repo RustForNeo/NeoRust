@@ -5,6 +5,9 @@ use crate::{
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
+use crate::transaction::signers::signer::{Signer, SignerTrait, SignerType};
+use crate::types::PublicKey;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TransactionSigner {
@@ -45,5 +48,40 @@ impl TransactionSigner {
 			allowed_groups: Some(allowed_groups),
 			rules: Some(rules),
 		}
+	}
+}
+
+impl SignerTrait for TransactionSigner{
+	fn get_type(&self) -> SignerType {
+		SignerType::Transaction
+	}
+
+	fn get_signer_hash(&self) -> &H160 {
+		&self.account
+	}
+
+	fn set_signer_hash(&mut self, signer_hash: H160) {
+		self.account = signer_hash;
+	}
+
+	fn get_scopes(&self) -> &Vec<WitnessScope> {
+		&self.scopes
+	}
+
+	fn set_scopes(&mut self, scopes: Vec<WitnessScope>) {
+		self.scopes = scopes;
+	}
+
+	fn get_allowed_contracts(&self) -> &Vec<H160> {
+		&self.allowed_contracts.map(|x| x.iter().map(|y| H160::from_str(y).unwrap()).collect()).unwrap_or(vec![])
+	}
+
+	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
+		panic!("Not implemented")
+		// &self.allowed_groups
+	}
+
+	fn get_rules(&self) -> &Vec<WitnessRule> {
+		&self.rules.unwrap()
 	}
 }

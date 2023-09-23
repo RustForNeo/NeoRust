@@ -11,11 +11,14 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},
-	transaction::{signer::Signer, transaction_builder::TransactionBuilder},
 	types::{call_flags::CallFlags, contract_parameter::ContractParameter, Bytes, H160Externsion},
+	NEO_INSTANCE,
 };
 use async_trait::async_trait;
 use primitive_types::H160;
+use rustc_serialize::hex::ToHex;
+use crate::transaction::signers::signer::Signer;
+use crate::transaction::transaction_builder::TransactionBuilder;
 
 #[async_trait]
 pub trait SmartContractTrait: Send + Sync {
@@ -121,10 +124,13 @@ pub trait SmartContractTrait: Send + Sync {
 				"Function cannot be empty".to_string(),
 			)))
 		}
-		NeoRust::instance()
-			.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
-			.request()
-			.await
+		let req = NEO_INSTANCE
+				.read()
+				.unwrap()
+				.invoke_function(&self.script_hash().clone(), function.into(), params, signers).clone()
+
+		;
+		req.request().await
 	}
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
@@ -155,44 +161,53 @@ pub trait SmartContractTrait: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		mapper: impl Fn(StackItem) -> Result<U, ContractError>,
-	) -> Result<NeoIterator<U>, ContractError> {
-		let output =
-			self.call_invoke_function(function, params, vec![]).await.unwrap().get_result();
+		mapper: impl Fn(StackItem) -> U + Send + 'static,
+	) -> NeoIterator<U>
+		where
+			U: Send + 'static, // Adding this bound if necessary
+	{
+		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = &output.stack[0];
-		let interface = item
-			.as_interop()
-			.ok_or_else(|| ContractError::UnexpectedReturnType("Iterator".to_string()))
-			.unwrap();
+		let StackItem::InteropInterface { id, interface } = item;
 
 		let session_id = output
 			.session_id
 			.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))
 			.unwrap();
 
-		Ok(NeoIterator::new(session_id, interface.iterator_id, mapper))
+		// Wrapper function that matches the expected signature
+		fn wrapper_fn<T: Send + 'static>(item: StackItem, original_mapper: Box<dyn Fn(StackItem) -> T + Send>) -> T {
+			original_mapper(item)
+		}
+		NeoIterator::new(session_id, id.clone(), |item| wrapper_fn(item, Box::new(mapper)))
 	}
+
 
 	async fn call_function_and_unwrap_iterator<U>(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
 		max_items: usize,
-		mapper: impl Fn(StackItem) -> U,
+		mapper: impl Fn(StackItem) -> U+ Send,
 	) -> Result<Vec<U>, ContractError> {
 		let script = ScriptBuilder::build_contract_call_and_unwrap_iterator(
 			&self.script_hash(),
 			function,
-			params.iter().filter_map(|p| Some(p)).collect(),
+			&params,
+			255, //TODO
 			CallFlags::All,
 		)
-		.unwrap()
-		.build();
+		.unwrap();
 
-		let output = NeoRust::instance()
-			.invoke_script(script.script().to_hex(), vec![])
+		let output ={ NEO_INSTANCE
+			.read()
+			.unwrap()
+			.invoke_script(script.to_hex(), vec![])
+		};
+
+		let output = output
 			.request()
 			.await
 			.unwrap();
@@ -222,15 +237,21 @@ pub trait SmartContractTrait: Send + Sync {
 			.push_data(contract_name.as_bytes().to_vec())
 			.unwrap();
 
-		Ok(H160::from_slice(script.script().as_slice()))
+		Ok(H160::from_slice(&script.to_bytes()))
 	}
 
-	async fn get_manifest(&self) -> ContractManifest {
-		NeoRust::instance()
-			.get_contract_state(self.script_hash())
+	async fn get_manifest(&self) -> &ContractManifest {
+		let req = {
+			NEO_INSTANCE
+				.read()
+				.unwrap()
+				.get_contract_state(self.script_hash())
+		};
+		&req
 			.request()
 			.await
 			.unwrap()
 			.manifest
+			.clone()
 	}
 }

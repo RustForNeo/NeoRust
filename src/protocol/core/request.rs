@@ -3,11 +3,11 @@
 use crate::{
 	neo_error::NeoError,
 	protocol::{
-		core::response::ResponseTrait, http_service::HttpService, neo_rust::NeoRust,
+		core::response::ResponseTrait,
 		neo_service::NeoService,
 	},
+	NEO_INSTANCE,
 };
-use futures::future::ready;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -15,13 +15,17 @@ use std::{
 	sync::atomic::{AtomicU64, Ordering},
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NeoRequest<'a, T> {
 	jsonrpc: &'static str,
 	method: String,
 	params: Vec<Value>,
 	id: u64,
 	_marker: PhantomData<&'a T>,
+}
+
+unsafe impl Sync for NeoRequest<'_, ()> {
+
 }
 
 impl<'a, T> NeoRequest<'a, T>
@@ -43,10 +47,10 @@ where
 	}
 
 	pub async fn request(&self) -> Result<T, NeoError> {
-		let neo_rust_instance_guard = NeoRust::instance();
-		let service = neo_rust_instance_guard.get_neo_service();
-		let cloned_self = self.clone();
-		let response = service.send(&cloned_self).unwrap(); // No async call here since send isn't marked as async
+		let neo_rust_instance_guard ={
+			NEO_INSTANCE.read().unwrap().get_neo_service().clone()
+		};
+		let response = neo_rust_instance_guard.send(&self).await.unwrap();
 
 		response.get_result()
 	}

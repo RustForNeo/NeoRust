@@ -1,8 +1,11 @@
+use derive_more::Display;
 use crate::contract::contract_error::ContractError;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Display,PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Getters, Setters)]
 pub struct NNSName {
+	#[getset(get = "pub")]
 	name: String,
 }
 

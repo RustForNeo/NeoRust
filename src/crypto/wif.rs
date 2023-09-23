@@ -1,8 +1,11 @@
+use crate::{crypto::hash::HashableForVec, neo_error::NeoError, types::Bytes, NeoRust};
+use primitive_types::H256;
 use sha2::{Digest, Sha256};
+use std::hash::Hash;
 
 pub trait Wif {
 	fn to_wif(&self) -> String;
-	fn from_wif(s: &str) -> Option<Vec<u8>>;
+	// fn from_wif(&self, s: &str) -> Option<Vec<u8>>;
 }
 
 impl Wif for &[u8] {
@@ -20,19 +23,19 @@ impl Wif for &[u8] {
 
 		bs58::encode(extended.as_slice()).into_string()
 	}
+}
 
-	fn from_wif(s: &str) -> Option<Vec<u8>> {
-		let data = bs58::decode(s).into_vec().ok().unwrap();
+pub fn str_to_wif(s: &str) -> Result<Bytes, NeoError> {
+	let data = bs58::encode(s).into_vec();
 
-		if data.len() != 38 || data[0] != 0x80 || data[33] != 0x01 {
-			return None
-		}
-
-		let checksum = &Sha256::digest(&Sha256::digest(&data[0..34]))[0..4];
-		if checksum != &data[34..] {
-			return None
-		}
-
-		Some(data[1..33].to_vec())
+	if data.len() != 38 || data[0] != 0x80 || data[33] != 0x01 {
+		return Err(NeoError::InvalidFormat)
 	}
+
+	let checksum = &data[..34].hash256()[..4];
+	if checksum != &data[34..] {
+		return Err(NeoError::InvalidPublicKey)
+	}
+
+	Ok(data[1..33].to_vec())
 }

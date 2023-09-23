@@ -6,3 +6,5 @@ pub mod neo_rust_express;
 pub mod neo_service;
 pub mod protocol_error;
 pub mod rx;
+
+pub use neo_rust::*;

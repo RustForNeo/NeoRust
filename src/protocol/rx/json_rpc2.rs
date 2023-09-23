@@ -4,8 +4,9 @@ use crate::{
 		core::{neo_trait::NeoTrait, responses::neo_block::NeoBlock},
 		neo_rust::NeoRust,
 	},
+	NEO_INSTANCE,
 };
-use futures::{stream::iter, Stream, StreamExt, TryStreamExt};
+use futures::{stream::iter, Stream, StreamExt, TryStreamExt, stream};
 use std::time::Duration;
 use tokio::{task::spawn_blocking, time::sleep};
 
@@ -20,17 +21,20 @@ impl JsonRpc2 {
 	pub async fn block_index_publisher(
 		&mut self,
 		polling_interval: i32,
-	) -> impl Stream<Item = i32> {
-		let mut index = self.latest_block_index_publisher().await.unwrap();
+	) -> impl Stream<Item = i32> +'_{
+		let initial_index = self.latest_block_index_publisher().await.unwrap();
 
-		futures::stream::unfold(index, |last_index| async move {
-			sleep(Duration::from_secs(polling_interval as u64)).await;
+		futures::stream::unfold(initial_index, move |last_index| {
+			let cloned_self = self.clone(); // Assuming your struct is clonable. If not, you might need another approach.
+			async move {
+				sleep(Duration::from_secs(polling_interval as u64)).await;
 
-			let latest_index = self.latest_block_index_publisher().await.unwrap();
-			if latest_index > last_index {
-				Some((latest_index, latest_index))
-			} else {
-				None
+				let latest_index = cloned_self.latest_block_index_publisher().await.unwrap();
+				if latest_index > last_index {
+					Some((latest_index, latest_index))
+				} else {
+					None
+				}
 			}
 		})
 		.boxed()
@@ -43,11 +47,12 @@ impl JsonRpc2 {
 	) -> impl Stream<Item = NeoBlock> {
 		self.block_index_publisher(polling_interval)
 			.await
-			.and_then(move |index| {
-				let neo_rust = NeoRust::instance().clone();
+			.then(move |index| {
 				let full_transaction_objects = full_transaction_objects;
 				async move {
-					neo_rust.get_block(index, full_transaction_objects).request().await.unwrap()
+					let neo_instance_lock = NEO_INSTANCE.read().unwrap();
+					let req = neo_instance_lock.get_block_by_index(index as u32, full_transaction_objects);
+					req.request().await.unwrap();
 				}
 			})
 			.boxed()
@@ -67,7 +72,7 @@ impl JsonRpc2 {
 		};
 
 		let stream = iter(blocks.into_iter().map(move |block| {
-			let neo_rust = NeoRust::instance().clone();
+			let neo_rust = NEO_INSTANCE.read().unwrap().clone();
 			let full_transaction_objects = full_transaction_objects;
 			async move {
 				neo_rust
@@ -84,12 +89,13 @@ impl JsonRpc2 {
 		&mut self,
 		start_block: i32,
 		full_transaction_objects: bool,
-		on_caught_up_publisher: impl Stream<Item = Result<NeoBlock, NeoError>>,
-	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
+		on_caught_up_publisher: impl Stream<Item = NeoBlock>,
+	) -> impl Stream<Item = NeoBlock> {
 		let latest_block = self.latest_block_index_publisher().await.unwrap();
 
 		if start_block >= latest_block {
-			Box::pin(on_caught_up_publisher)
+			// Create an empty stream and chain it to ensure consistent types
+			Box::pin(stream::empty().chain(on_caught_up_publisher))
 		} else {
 			let replay_stream = self
 				.replay_blocks_publisher(start_block, latest_block, full_transaction_objects, false)
@@ -103,7 +109,7 @@ impl JsonRpc2 {
 				)
 				.await;
 
-			replay_stream.chain(new_publisher)
+			Box::pin(replay_stream.chain(new_publisher))
 		}
 	}
 	pub async fn catch_up_to_latest_and_subscribe_to_new_blocks_publisher(
@@ -111,7 +117,7 @@ impl JsonRpc2 {
 		start_block: i32,
 		full_transaction_objects: bool,
 		polling_interval: i32,
-	) -> impl Stream<Item = Result<NeoBlock, NeoError>> {
+	) -> impl Stream<Item = NeoBlock> {
 		self.catch_up_to_latest_block_publisher(
 			start_block,
 			full_transaction_objects,
@@ -120,12 +126,13 @@ impl JsonRpc2 {
 		.await
 	}
 	pub async fn latest_block_index_publisher(&self) -> Result<i32, NeoError> {
-		let block_count = spawn_blocking(async move || {
-			NeoRust::instance().get_block_count().request().await.unwrap()
-		})
-		.await
-		.unwrap() - 1;
+		let neo = NEO_INSTANCE.read().unwrap().clone();
+		let req ={
+			neo.get_block_count()
+		}.clone();
 
-		Ok(block_count as i32)
+		let count = req.request().await.unwrap() - 1;
+
+		Ok(count as i32)
 	}
 }

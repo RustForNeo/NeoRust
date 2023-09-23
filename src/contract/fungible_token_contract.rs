@@ -2,7 +2,7 @@ use crate::{
 	contract::traits::{
 		fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
 	},
-	transaction::signer::Signer,
+	transaction::signers::signer::Signer,
 };
 use async_trait::async_trait;
 use primitive_types::H160;

@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HttpService {
 	url: Url,
 	client: Client,
@@ -56,7 +56,7 @@ impl NeoService for HttpService {
 		for (key, value) in &self.headers {
 			client = client.header(key, value);
 		}
-		client = client.body(&request.to_json());
+		client = client.body(request.to_json());
 
 		let response = client.send().await.unwrap();
 
@@ -68,12 +68,11 @@ impl NeoService for HttpService {
 			}
 
 			let result = response.json::<NeoResponse<T>>().await.unwrap();
-			Ok(result.get_result())
+			Ok(result)
 		} else {
 			let result = response.json::<Value>().await.unwrap();
-			Err(result)
+			Err(NeoError::InvalidData(result.to_string()))
 		}
-		.expect("Failed to parse response")
 	}
 
 	fn close(&self) {

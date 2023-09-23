@@ -2,6 +2,7 @@ use crate::types::{Address, PublicKey, PublicKeyExtension};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::script::op_code::OpCode;
 
 // | doesn't satisfy `StackItem: Hash`
 // | doesn't satisfy `StackItem: std::cmp::Eq`
@@ -201,6 +202,28 @@ impl StackItem {
 	pub fn as_hash256(&self) -> Option<H256> {
 		self.as_bytes().and_then(|bytes| Some(H256::from_slice(&bytes)))
 	}
+	pub fn as_interop(&self, interface_name: &str) -> Option<StackItem> {
+		match self {
+			StackItem::Integer{value} => Some(StackItem::InteropInterface {
+				id: value.to_string(),
+				interface: interface_name.to_string(),
+			}),
+			StackItem::Boolean{value} => Some(StackItem::InteropInterface {
+				id: value.to_string(),
+				interface: interface_name.to_string(),
+			}),
+			StackItem::ByteString{value} => Some(StackItem::InteropInterface {
+				id: value.to_string(),
+				interface: interface_name.to_string(),
+			}),
+			StackItem::Buffer{value} => Some(StackItem::InteropInterface {
+					id: value.to_string(),
+					interface: interface_name.to_string()
+				}),
+			_ => None,
+		}
+	}
+
 	pub fn len(&self) -> Option<usize> {
 		match self {
 			StackItem::Array { value } | StackItem::Struct { value } => Some(value.len()),

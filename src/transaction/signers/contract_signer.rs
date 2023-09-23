@@ -1,7 +1,6 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
-		signer::{SignerTrait, SignerType},
 		witness_scope::WitnessScope,
 	},
 	types::{contract_parameter::ContractParameter, PublicKey},
@@ -10,6 +9,7 @@ use crate::{
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+use crate::transaction::signers::signer::{SignerTrait, SignerType};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Deserialize)]
 pub struct ContractSigner {
@@ -29,13 +29,14 @@ pub struct ContractSigner {
 	rules: Vec<WitnessRule>,
 	pub verify_params: Vec<ContractParameter>,
 	#[serde(serialize_with = "serialize_address", deserialize_with = "deserialize_address")]
+	#[serde(skip_deserializing)]
 	contract_hash: H160,
 	scope: WitnessScope,
 }
 
 impl Hash for ContractSigner {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		// self.signer_hash.hash(state);
+		self.signer_hash.hash(state);
 		self.scopes.hash(state);
 		// self.allowed_contracts.hash(state);
 		// self.allowed_groups.hash(state);

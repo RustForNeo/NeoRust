@@ -1,5 +1,5 @@
 use crate::{
-	contract::{nef_file::NefFile, role_management::Role},
+	contract::{nef_file::NefFile, nns_name::NNSName, role_management::Role},
 	types::{contract_parameter_type::ContractParameterType, PublicKey},
 };
 use base64::encode;
@@ -124,6 +124,12 @@ impl From<String> for ContractParameter {
 
 impl From<&String> for ContractParameter {
 	fn from(value: &String) -> Self {
+		Self::string(value.to_string())
+	}
+}
+
+impl From<NNSName> for ContractParameter {
+	fn from(value: NNSName) -> Self {
 		Self::string(value.to_string())
 	}
 }

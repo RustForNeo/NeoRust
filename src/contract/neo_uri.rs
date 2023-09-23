@@ -15,11 +15,11 @@ use crate::{
 	utils::*,
 	wallet::account::Account,
 };
-use decimal::d128;
 use primitive_types::H160;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, str::FromStr};
+use rust_decimal::Decimal;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NeoURI {
@@ -36,7 +36,7 @@ pub struct NeoURI {
 	#[serde(serialize_with = "serialize_address_option")]
 	token: Option<H160>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	amount: Option<d128>,
+	amount: Option<Decimal>,
 }
 
 impl NeoURI {
@@ -126,7 +126,7 @@ impl NeoURI {
 		let mut token = &mut FungibleTokenContract::new(&tokenHash);
 
 		// Validate amount precision
-		let amount_scale = amount.digits() as u8; //.scale();
+		let amount_scale = amount.scale() as u8; //.scale();
 
 		if Self::is_neo_token(&tokenHash) && amount_scale > 0 {
 			return Err(NeoError::from(ContractError::InvalidArgError(
@@ -147,7 +147,7 @@ impl NeoURI {
 			)))
 		}
 
-		let amt = token.to_fractions(amount).await.unwrap() as i32;
+		let amt = token.to_fractions(amount, 0).unwrap();
 		token
 			.transfer_from_account(sender, &recipient, amt, None)
 			.await
@@ -185,7 +185,7 @@ impl NeoURI {
 		Ok(self)
 	}
 
-	pub fn amount(mut self, amount: d128) -> Self {
+	pub fn amount(mut self, amount: Decimal) -> Self {
 		self.amount = Some(amount);
 		self
 	}

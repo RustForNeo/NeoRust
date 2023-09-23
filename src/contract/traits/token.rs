@@ -8,12 +8,15 @@ use crate::{
 		http_service::HttpService,
 		neo_rust::NeoRust,
 	},
-	types::H160Externsion,
+	types::{contract_parameter::ContractParameter, H160Externsion},
+	NEO_INSTANCE,
 };
 use async_trait::async_trait;
-use decimal::d128;
-use futures::TryFutureExt;
+use num_traits::real::Real;
+use rust_decimal::Decimal;
+
 use primitive_types::H160;
+use  rust_decimal::prelude::*;
 
 #[async_trait]
 pub trait TokenTrait: SmartContractTrait {
@@ -70,45 +73,64 @@ pub trait TokenTrait: SmartContractTrait {
 		Ok(symbol)
 	}
 
-	async fn to_fractions(&mut self, amount: d128) -> Result<u64, ContractError> {
-		let a = d128!(1.1);
-		let decimals = self.get_decimals().await.unwrap();
-		Self::to_fractions_decimal(amount, decimals)
-	}
-
-	fn to_fractions_decimal(amount: d128, decimals: u8) -> Result<u64, ContractError> {
+	 fn to_fractions(&self, amount: Decimal, decimals: u32) -> Result<i32, ContractError> {
 		if amount.scale() > decimals {
-			return Err(ContractError::InvalidArgError("Too many decimal places".to_string()))
+			return Err(ContractError::RuntimeError("Amount has too many decimal points".to_string()));
 		}
 
-		let scaled = d128::from(10u64.pow(decimals.into())) * amount;
-		Ok(scaled.as_u64().unwrap())
+		let scaled = amount * Decimal::from(10i32.pow(decimals));
+		Ok(scaled.trunc().to_i32().unwrap())
+	}
+
+	 fn to_fractions_decimal(&self, amount: Decimal, decimals: u32) -> Result<u64, ContractError> {
+		if amount.scale() > decimals {
+			return Err(ContractError::RuntimeError("Amount has too many decimal places".to_string()));
+		}
+
+		let mut scaled = amount;
+		scaled *= Decimal::from(10_u32.pow(decimals));
+
+		let fractions = scaled.trunc().to_u64().unwrap();
+		Ok(fractions)
 	}
 
 	// Other helper methods
-	async fn to_decimals_u64(&mut self, amount: u64) -> Result<d128, ContractError> {
-		let decimals = self.get_decimals().await.unwrap();
-		Ok(Self::to_decimals(amount, decimals))
+	fn to_decimals_u64(&self, fractions: u64, decimals: u32) -> Decimal {
+		let divisor = Decimal::from(10_u32.pow(decimals));
+		let amount = Decimal::from(fractions);
+
+		amount / divisor
 	}
 
-	fn to_decimals(amount: u64, decimals: u8) -> d128 {
-		let mut dec = d128::from(amount);
-		if decimals > 0 {
-			dec /= d128::from(10_u64.pow(decimals.into()));
-		} else if decimals < 0 {
-			dec *= d128::from(10_u64.pow(-decimals.into()));
+
+	fn to_decimals(&self, amount: i64, decimals: u32) -> Decimal {
+		let divisor = Decimal::from(10_u32.pow(decimals));
+		let decimal_amount = Decimal::from(amount);
+
+		if decimals >= 0 {
+			decimal_amount / divisor
+		} else {
+			decimal_amount * divisor
 		}
-		dec
 	}
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-		let address = NeoRust::instance()
-			.invoke_function(
-				&NeoNameService::new().script_hash(),
-				"resolve".to_string(),
-				vec![name.to_param().unwrap(), RecordType::TXT.to_param().unwrap()],
-				vec![],
-			)
+		let req = {
+			NEO_INSTANCE
+				.read()
+				.unwrap()
+				.invoke_function(
+					&NeoNameService::new().script_hash(),
+					"resolve".to_string(),
+					vec![
+						ContractParameter::from(name.name()),
+						ContractParameter::from(RecordType::TXT.byte_repr()),
+					],
+					vec![],
+				).clone()
+		};
+
+		let address =req
 			.request()
 			.await
 			.unwrap()
@@ -119,6 +141,6 @@ pub trait TokenTrait: SmartContractTrait {
 		// .map(|item| H160::from_address)
 		// ;
 
-		Ok(H160::from_slice(&address.as_bytes().unwrap()).unwrap())
+		Ok(H160::from_slice(&address.as_bytes().unwrap()))
 	}
 }

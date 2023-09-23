@@ -17,6 +17,8 @@ pub mod wallet;
 
 pub use primitive_types::{H160, H256, U256};
 
+pub use crate::protocol::neo_rust::*;
+
 pub fn add(left: usize, right: usize) -> usize {
 	left + right
 }

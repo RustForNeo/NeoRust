@@ -5,7 +5,7 @@ use crate::{
 		traits::token::TokenTrait,
 	},
 	protocol::core::stack_item::StackItem,
-	transaction::{account_signer::AccountSigner, transaction_builder::TransactionBuilder},
+	transaction::{signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder},
 	types::{
 		contract_parameter::ContractParameter, Address, Bytes, H160Externsion, ValueExtension,
 	},
@@ -37,12 +37,12 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	// NFT methods
 
 	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes>, ContractError> {
-		self.call_function_returning_iterator(
+		Ok(self.call_function_returning_iterator(
 			<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
 			vec![owner.into()],
-			|item| Ok(item.as_bytes().unwrap()),
+			|item| item.as_bytes().unwrap(),
 		)
-		.await
+		.await)
 	}
 
 	// Non-divisible NFT methods
@@ -175,7 +175,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 			.transfer_divisible_from_hashes(from.get_script_hash(), to, amount, token_id, data)
 			.await
 			.unwrap();
-		builder.set_script(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
+		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
 		Ok(builder)
 	}
 
@@ -256,12 +256,12 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Address>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
-		self.call_function_returning_iterator(
+		Ok(self.call_function_returning_iterator(
 			<NftContract as NonFungibleTokenTrait>::OWNER_OF,
 			vec![token_id.into()],
-			|item| Ok(item.as_address().unwrap()),
+			|item| item.as_address().unwrap(),
 		)
-		.await
+		.await)
 	}
 
 	async fn throw_if_non_divisible_nft(&mut self) -> Result<(), ContractError> {
@@ -291,12 +291,12 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	// Optional methods
 
 	async fn tokens(&mut self) -> Result<NeoIterator<Bytes>, ContractError> {
-		self.call_function_returning_iterator(
+		Ok(self.call_function_returning_iterator(
 			<NftContract as NonFungibleTokenTrait>::TOKENS,
 			vec![],
-			|item| Ok(item.as_bytes().unwrap()),
+			|item| item.as_bytes().unwrap(),
 		)
-		.await
+		.await)
 	}
 
 	async fn properties(

@@ -37,13 +37,14 @@ impl<'a, T> NeoResponse<T>
 where
 	T: Serialize + Deserialize<'a>,
 {
-	fn new(result: T) -> Self {
+	pub fn new(result: T) -> Self {
 		Self { jsonrpc: "2.0", id: 0, result: Some(result), error: None }
 	}
 
-	fn is_error(&self) -> bool {
+	pub fn is_error(&self) -> bool {
 		self.error.is_some()
 	}
+
 }
 
 impl<'a, T> ResponseTrait<'a, T> for NeoResponse<T>

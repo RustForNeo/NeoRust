@@ -21,8 +21,7 @@ impl Bytes {
 	}
 
 	fn base64_encoded(&self) -> String {
-		let engine = general_purpose::STANDARD;
-		Base64Engine::new(engine).encode(self.0.as_slice())
+		base64::encode(&self.0)
 	}
 
 	fn base58_encoded(&self) -> String {

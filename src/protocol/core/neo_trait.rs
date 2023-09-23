@@ -17,7 +17,7 @@ use crate::{
 		},
 		stack_item::StackItem,
 	},
-	transaction::signer::Signer,
+	transaction::signers::signer::Signer,
 	types::{contract_parameter::ContractParameter, Address, H256Def},
 };
 use async_trait::async_trait;

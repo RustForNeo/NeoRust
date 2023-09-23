@@ -6,6 +6,7 @@ use crate::{
 		core::{neo_trait::NeoTrait, stack_item::StackItem},
 		neo_rust::NeoRust,
 	},
+	NEO_INSTANCE,
 };
 
 use crate::protocol::http_service::HttpService;
@@ -30,7 +31,9 @@ impl<T> NeoIterator<T> {
 	}
 
 	pub async fn traverse(&self, count: i32) -> Result<Vec<T>, NeoError> {
-		let result = NeoRust::instance()
+		let result = NEO_INSTANCE
+			.read()
+			.unwrap()
 			.traverse_iterator(self.session_id.clone(), self.iterator_id.clone(), count as u32)
 			.request()
 			.await?;
@@ -39,7 +42,9 @@ impl<T> NeoIterator<T> {
 	}
 
 	pub async fn terminate_session(&self) -> Result<(), NeoError> {
-		NeoRust::instance()
+		NEO_INSTANCE
+			.read()
+			.unwrap()
 			.terminate_session(&self.session_id)
 			.request()
 			.await

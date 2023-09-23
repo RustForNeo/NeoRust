@@ -2,10 +2,11 @@ use crate::{types::Address, utils::*, wallet::nep6contract::NEP6Contract};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Getters, Setters)]
 pub struct NEP6Account {
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]
+	#[getset(get = "pub", set = "pub")]
 	pub address: Address,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub label: Option<String>,

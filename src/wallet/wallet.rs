@@ -52,7 +52,7 @@ impl Wallet {
 	// Serialization methods
 
 	pub fn to_nep6(&self) -> Result<NEP6Wallet, WalletError> {
-		let accounts = self.accounts.values().map(|a| a.to_nep6()).collect();
+		let accounts = self.accounts.values().filter_map(|a| a.to_nep6_account().ok()).collect();
 
 		Ok(NEP6Wallet {
 			name: self.name.clone(),
@@ -64,13 +64,17 @@ impl Wallet {
 	}
 
 	pub fn from_nep6(nep6: NEP6Wallet) -> Result<Self, WalletError> {
-		let accounts = nep6.accounts().into_iter().map(Account::from_nep6).collect();
+		let accounts = nep6
+			.accounts()
+			.into_iter()
+			.filter_map(|v| Account::from_nep6_account(v).ok())
+			.collect::<Vec<_>>();
 
 		let default_account = nep6
 			.accounts()
 			.iter()
 			.find(|a| a.is_default)
-			.map(|a| a.script_hash())
+			.map(|a| a.address())
 			.ok_or(WalletError::NoDefaultAccount)
 			.unwrap();
 
@@ -78,8 +82,8 @@ impl Wallet {
 			name: nep6.name().clone(),
 			version: nep6.version().clone(),
 			scrypt_params: nep6.scrypt().clone(),
-			accounts,
-			default_account,
+			accounts: accounts.into_iter().map(|a| (a.get_script_hash().clone(), a)).collect(),
+			default_account: default_account.clone(),
 		})
 	}
 	pub fn save_to_file(&self, path: PathBuf) -> Result<(), WalletError> {
