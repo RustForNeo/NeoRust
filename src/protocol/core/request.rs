@@ -16,19 +16,23 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct NeoRequest<'a, T> {
+pub struct NeoRequest<T> {
 	jsonrpc: &'static str,
 	method: String,
 	params: Vec<Value>,
 	id: u64,
-	_marker: PhantomData<&'a T>,
+	_marker: PhantomData<T>,
 }
 
-unsafe impl Sync for NeoRequest<'_, ()> {
+unsafe impl<'a, T> Send for NeoRequest<T> {
 
 }
 
-impl<'a, T> NeoRequest<'a, T>
+unsafe impl<'a, T> Sync for NeoRequest<T> {
+
+}
+
+impl<'a, T> NeoRequest<T>
 where
 	T: Serialize + Deserialize<'a>,
 {

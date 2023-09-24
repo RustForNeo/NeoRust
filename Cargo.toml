@@ -28,7 +28,7 @@ json = "0.12"
 hex-literal = "0.4.1"
 # Neo Rust SDK
 #neo = "0.9"
-decimal = "2.1.0"
+rust_decimal = "1.0"
 # JSON serialization
 
 # Cryptography
@@ -76,6 +76,7 @@ rayon = "1.7.0"
 indexmap = "2.0.0"
 getset = "0.1.2"
 educe = "0.4.23"
+byteorder = "1.4.3"
 serde-big-array       = "0.5.1"
 blake2                = { version = "0.10.6", default-features=false }
 tiny-keccak           = { version = "2.0", features = ["keccak"] }

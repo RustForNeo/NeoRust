@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use crate::transaction::signers::signer::{Signer, SignerTrait, SignerType};
-use crate::types::PublicKey;
+use crate::types::{PublicKey, PublicKeyExtension};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TransactionSigner {
@@ -68,12 +68,30 @@ impl SignerTrait for TransactionSigner{
 		&self.scopes
 	}
 
+	fn get_scopes_mut(&mut self) -> &mut Vec<WitnessScope> {
+		&mut self.scopes
+	}
+
 	fn set_scopes(&mut self, scopes: Vec<WitnessScope>) {
 		self.scopes = scopes;
 	}
 
 	fn get_allowed_contracts(&self) -> &Vec<H160> {
-		&self.allowed_contracts.map(|x| x.iter().map(|y| H160::from_str(y).unwrap()).collect()).unwrap_or(vec![])
+		&self.allowed_contracts
+			.clone()
+			.map(|x| x.iter()
+				.map(|y| H160::from_str(y).unwrap())
+				.collect::<Vec<_>>())
+			.unwrap_or_else(Vec::new)
+	}
+
+	fn get_allowed_contracts_mut(&mut self) -> &mut Vec<H160> {
+		&mut self.allowed_contracts
+			.clone()
+			.map(|x| x.iter()
+				.map(|y| H160::from_str(y).unwrap())
+				.collect::<Vec<_>>())
+			.unwrap_or_else(Vec::new)
 	}
 
 	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
@@ -81,7 +99,20 @@ impl SignerTrait for TransactionSigner{
 		// &self.allowed_groups
 	}
 
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+		&mut self.allowed_groups
+			.clone()
+			.map(|x| x.iter()
+				.map(|y| PublicKey::from_hex(y).unwrap())
+				.collect::<Vec<_>>())
+			.unwrap_or_else(Vec::new)
+	}
+
 	fn get_rules(&self) -> &Vec<WitnessRule> {
 		&self.rules.unwrap()
+	}
+
+	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule> {
+		&mut self.rules.unwrap()
 	}
 }

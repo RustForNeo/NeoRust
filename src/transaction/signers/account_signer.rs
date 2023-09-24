@@ -15,6 +15,7 @@ use std::{
 	ops::Deref,
 };
 use crate::transaction::signers::signer::{SignerTrait, SignerType};
+use crate::types::PublicKeyExtension;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct AccountSigner {
@@ -54,7 +55,10 @@ impl Hash for AccountSigner {
 		self.signer_hash.hash(state);
 		self.scopes.hash(state);
 		self.allowed_contracts.hash(state);
-		self.allowed_groups.to_vec().hash(state);
+		for group in self.allowed_groups.iter() {
+			group.to_vec().hash(state);
+		}
+		// self.allowed_groups.to_vec().hash(state);
 		self.rules.hash(state);
 		// self.account.hash(state);
 		// self.scope.hash(state);
@@ -78,6 +82,10 @@ impl SignerTrait for AccountSigner {
 		&self.scopes
 	}
 
+	fn get_scopes_mut(&mut self) -> &mut Vec<WitnessScope> {
+		&mut self.scopes
+	}
+
 	fn set_scopes(&mut self, scopes: Vec<WitnessScope>) {
 		self.scopes = scopes;
 	}
@@ -86,12 +94,24 @@ impl SignerTrait for AccountSigner {
 		&self.allowed_contracts
 	}
 
+	fn get_allowed_contracts_mut(&mut self) -> &mut Vec<H160> {
+		&mut self.allowed_contracts
+	}
+
 	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
 		&self.allowed_groups
 	}
 
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+		&mut self.allowed_groups
+	}
+
 	fn get_rules(&self) -> &Vec<WitnessRule> {
 		&self.rules
+	}
+
+	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule> {
+		&mut self.rules
 	}
 }
 
@@ -136,6 +156,6 @@ impl AccountSigner {
 	}
 
 	pub fn is_multisig(&self) -> bool {
-		matches!(self.account.verification_script, Some(script) if script.is_multisig())
+		matches!(&self.account.verification_script, Some(script) if script.is_multisig())
 	}
 }

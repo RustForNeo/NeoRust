@@ -1,18 +1,13 @@
+use p256::ecdsa::Signature;
+use p256::ecdsa::signature::{Signer, Verifier};
+use p256::pkcs8::der::Encode;
+use serde_derive::{Deserialize, Serialize};
 use crate::{
 	crypto::{hash::HashableForVec, key_pair::KeyPair},
 	neo_error::NeoError,
 	types::{Bytes, PrivateKey},
 };
-use p256::{
-	ecdsa::{
-		signature::{digest::Mac, Signer, SignerMut},
-		Signature,
-	},
-	PublicKey,
-};
-use serde::{Deserialize, Serialize};
-use sha2::Digest;
-use std::hash::Hash;
+use crate::types::PublicKey;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureData {
@@ -44,7 +39,8 @@ impl SignatureData {
 	) -> Result<SignatureData, NeoError> {
 		let message = hex::decode(hex_message).unwrap();
 		let sign = key_pair.private_key().sign(&message);
-		Ok(SignatureData::from_bytes(sign))
+		// Ok(SignatureData::from_bytes(sign.))
+		Err(NeoError::Runtime("Not implemented".to_string()))
 	}
 
 	pub fn sign_message(
@@ -53,15 +49,13 @@ impl SignatureData {
 	) -> Result<SignatureData, NeoError> {
 		let signature = key_pair.private_key().sign(&message.hash256());
 
+
 		let mut rec_id = None;
 		for i in 0..4 {
-			if let Some(key) =
-				key_pair.public_key().recover(&i, &signature, &message.hash256()).unwrap()
+			if key_pair.public_key().verify(&message.hash256(), &signature).is_ok()
 			{
-				if key == key_pair.public_key() {
 					rec_id = Some(i);
 					break
-				}
 			}
 		}
 
@@ -70,10 +64,12 @@ impl SignatureData {
 			.unwrap();
 
 		let v = 27 + rec_id;
+		let (r,s) = signature.split_bytes();
+
 		Ok(SignatureData::new(
 			v as u8,
-			signature.r.to_bytes_padded(32).unwrap(),
-			signature.s.to_bytes_padded(32).unwrap(),
+			r.to_vec(),
+			s.to_vec()
 		))
 	}
 }
@@ -86,7 +82,7 @@ pub fn sign_message(msg: &[u8], kp: &mut KeyPair) -> SignatureData {
 
 // Get public key from private key
 pub fn public_key(priv_key: &PrivateKey) -> PublicKey {
-	PublicKey::from_secret_key(priv_key)
+	PublicKey::from(priv_key)
 }
 
 // Verify signature against public key

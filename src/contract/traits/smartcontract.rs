@@ -17,6 +17,7 @@ use crate::{
 use async_trait::async_trait;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
+use crate::protocol::core::request::NeoRequest;
 use crate::transaction::signers::signer::Signer;
 use crate::transaction::transaction_builder::TransactionBuilder;
 
@@ -25,7 +26,7 @@ pub trait SmartContractTrait: Send + Sync {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
 	async fn name(&self) -> String {
-		self.get_manifest().await.name.unwrap()
+		self.get_manifest().await.name.clone().unwrap()
 	}
 	fn set_name(&mut self, name: String) {
 		panic!("Cannot set name for NNS")
@@ -124,18 +125,25 @@ pub trait SmartContractTrait: Send + Sync {
 				"Function cannot be empty".to_string(),
 			)))
 		}
-		let req = NEO_INSTANCE
-				.read()
-				.unwrap()
-				.invoke_function(&self.script_hash().clone(), function.into(), params, signers).clone()
 
-		;
+		let req = {
+			let binding = NEO_INSTANCE.read().unwrap();
+			let res = binding
+				.invoke_function(
+					&self.script_hash().clone(),
+					function.into(),
+					params,
+					signers)
+				.clone();
+			res
+
+		};
 		req.request().await
 	}
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
 		if output.has_state_fault() {
-			Err(ContractError::UnexpectedReturnType(output.exception.unwrap()))
+			Err(ContractError::UnexpectedReturnType(output.exception.clone().unwrap()))
 		} else {
 			Ok(())
 		}
@@ -170,7 +178,7 @@ pub trait SmartContractTrait: Send + Sync {
 		self.throw_if_fault_state(&output).unwrap();
 
 		let item = &output.stack[0];
-		let StackItem::InteropInterface { id, interface } = item;
+		let StackItem::InteropInterface { id, interface } = item else { panic!("") };
 
 		let session_id = output
 			.session_id
@@ -181,7 +189,7 @@ pub trait SmartContractTrait: Send + Sync {
 		fn wrapper_fn<T: Send + 'static>(item: StackItem, original_mapper: Box<dyn Fn(StackItem) -> T + Send>) -> T {
 			original_mapper(item)
 		}
-		NeoIterator::new(session_id, id.clone(), |item| wrapper_fn(item, Box::new(mapper)))
+		NeoIterator::new(session_id, id.clone(), Box::new(|item| wrapper_fn(item, Box::new(mapper))))
 	}
 
 
@@ -228,13 +236,13 @@ pub trait SmartContractTrait: Send + Sync {
 		nef_checksum: u32,
 		contract_name: &str,
 	) -> Result<H160, NeoError> {
-		let mut script = ScriptBuilder::new()
-			.op_code(&[OpCode::Abort])
-			.push_data(sender.to_vec())
-			.unwrap()
-			.push_integer(nef_checksum as i64)
-			.unwrap()
-			.push_data(contract_name.as_bytes().to_vec())
+		let mut script = ScriptBuilder::new();
+		script.op_code(&[OpCode::Abort]);
+		script.push_data(sender.to_vec())
+			.unwrap();
+		script.push_integer(nef_checksum as i64)
+			.unwrap();
+		script.push_data(contract_name.as_bytes().to_vec())
 			.unwrap();
 
 		Ok(H160::from_slice(&script.to_bytes()))
@@ -245,8 +253,10 @@ pub trait SmartContractTrait: Send + Sync {
 			NEO_INSTANCE
 				.read()
 				.unwrap()
-				.get_contract_state(self.script_hash())
+				.get_contract_state(self.script_hash()).clone()
+			// binding.clone()
 		};
+
 		&req
 			.request()
 			.await

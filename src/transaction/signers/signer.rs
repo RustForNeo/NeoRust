@@ -29,16 +29,21 @@ pub trait SignerTrait {
 	fn set_signer_hash(&mut self, signer_hash: H160);
 
 	fn get_scopes(&self) -> &Vec<WitnessScope>;
+	fn get_scopes_mut(&mut self) -> &mut Vec<WitnessScope>;
 
 	fn set_scopes(&mut self, scopes: Vec<WitnessScope>);
 
 	fn get_allowed_contracts(&self) -> &Vec<H160>;
 
+	fn get_allowed_contracts_mut(&mut self) -> &mut Vec<H160>;
+
 	// fn set_allowed_contracts(&mut self, allowed_contracts: Vec<H160>);
 
 	fn get_allowed_groups(&self) -> &Vec<PublicKey>;
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey>;
 
 	fn get_rules(&self) -> &Vec<WitnessRule>;
+	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule>;
 
 	// fn new(signer_hash: H160, scope: WitnessScope) -> Self {
 	//     Self {

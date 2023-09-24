@@ -33,6 +33,7 @@ impl ContractState {
 		Self { id, nef, update_counter, hash, manifest }
 	}
 
+
 	pub fn contract_identifiers(
 		stack_item: &StackItem,
 	) -> Result<ContractIdentifiers, &'static str> {

@@ -64,6 +64,10 @@ impl SignerTrait for ContractSigner {
 		&self.scopes
 	}
 
+	fn get_scopes_mut(&mut self) -> &mut Vec<WitnessScope> {
+		&mut self.scopes
+	}
+
 	fn set_scopes(&mut self, scopes: Vec<WitnessScope>) {
 		self.scopes = scopes;
 	}
@@ -72,12 +76,24 @@ impl SignerTrait for ContractSigner {
 		&self.allowed_contracts
 	}
 
+	fn get_allowed_contracts_mut(&mut self) -> &mut Vec<H160> {
+		&mut self.allowed_contracts
+	}
+
 	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
 		&self.allowed_groups
 	}
 
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+		&mut self.allowed_groups
+	}
+
 	fn get_rules(&self) -> &Vec<WitnessRule> {
 		&self.rules
+	}
+
+	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule> {
+		&mut self.rules
 	}
 }
 

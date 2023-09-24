@@ -69,18 +69,18 @@ impl VerificationScript {
 
 		let mut reader = BinaryReader::new(&self.script);
 
-		let n = reader.read_var_int().unwrap();
+		let n = reader.by_ref().read_var_int().unwrap();
 		if !(1..16).contains(&n) {
 			return false
 		}
 
 		let mut m = 0;
-		while reader.read_u8() == OpCode::PushData1 as u8 {
-			let len = reader.read_u8();
+		while reader.by_ref().read_u8() == OpCode::PushData1 as u8 {
+			let len = reader.by_ref().read_u8();
 			if len != 33 {
 				return false
 			}
-			let _ = reader.skip(33);
+			let _ = reader.by_ref().skip(33);
 			m += 1;
 		}
 
@@ -94,11 +94,11 @@ impl VerificationScript {
 			return false
 		}
 
-		if m != reader.read_var_int().unwrap() {
+		if m != reader.by_ref().read_var_int().unwrap() {
 			return false
 		}
 
-		if reader.read_u8() != OpCode::Syscall as u8 {
+		if reader.by_ref().read_u8() != OpCode::Syscall as u8 {
 			return false
 		}
 
@@ -114,9 +114,9 @@ impl VerificationScript {
 		let mut reader = BinaryReader::new(&self.script);
 		let mut signatures = vec![];
 
-		while reader.read_u8() == OpCode::PushData1 as u8 {
-			let len = reader.read_u8();
-			let sig = Signature::from_der(&reader.read_bytes(len as usize).unwrap()).unwrap();
+		while reader.by_ref().read_u8() == OpCode::PushData1 as u8 {
+			let len = reader.by_ref().read_u8();
+			let sig = Signature::from_der(&reader.by_ref().read_bytes(len as usize).unwrap()).unwrap();
 			signatures.push(sig);
 		}
 
@@ -126,11 +126,11 @@ impl VerificationScript {
 	pub fn get_public_keys(&self) -> Result<Vec<PublicKey>, NeoError> {
 		if self.is_single_sig() {
 			let mut reader = BinaryReader::new(&self.script);
-			reader.read_u8(); // skip pushdata1
-			reader.read_u8(); // skip length
+			reader.by_ref().read_u8(); // skip pushdata1
+			reader.by_ref().read_u8(); // skip length
 
 			let mut point = [0; 33];
-			point.copy_from_slice(&reader.read_bytes(33).unwrap());
+			point.copy_from_slice(&reader.by_ref().read_bytes(33).unwrap());
 
 			let key = PublicKey::from_sec1_bytes(&point).unwrap();
 			return Ok(vec![key])
@@ -138,13 +138,13 @@ impl VerificationScript {
 
 		if self.is_multisig() {
 			let mut reader = BinaryReader::new(&self.script);
-			reader.read_var_int().unwrap(); // skip threshold
+			reader.by_ref().read_var_int().unwrap(); // skip threshold
 
 			let mut keys = vec![];
-			while reader.read_u8() == OpCode::PushData1 as u8 {
-				reader.read_u8(); // skip length
+			while reader.by_ref().read_u8() == OpCode::PushData1 as u8 {
+				reader.by_ref().read_u8(); // skip length
 				let mut point = [0; 33];
-				point.copy_from_slice(&reader.read_bytes(33).unwrap());
+				point.copy_from_slice(&reader.by_ref().read_bytes(33).unwrap());
 				keys.push(PublicKey::from_sec1_bytes(&point).unwrap());
 			}
 
@@ -159,7 +159,7 @@ impl VerificationScript {
 			Ok(1)
 		} else if self.is_multisig() {
 			let reader = &mut BinaryReader::new(&self.script);
-			Ok(reader.read_var_int()? as usize)
+			Ok(reader.by_ref().read_var_int()? as usize)
 		} else {
 			Err(NeoError::InvalidScript("Invalid verification script".to_string()))
 		}

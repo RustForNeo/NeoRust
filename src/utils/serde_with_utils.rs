@@ -275,8 +275,8 @@ where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	let pubkey_bytes = parse_string_h256(&s).as_bytes();
-	let key = PrivateKey::from_slice(pubkey_bytes).unwrap();
+	// let pubkey_bytes = ;
+	let key = PrivateKey::from_slice(parse_string_h256(&s).as_bytes()).unwrap();
 	Ok(key)
 }
 
@@ -294,8 +294,7 @@ where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	let pubkey_bytes = parse_string_h256(&s).as_bytes();
-	let key = PublicKey::from_slice(pubkey_bytes).unwrap();
+	let key = PublicKey::from_slice(parse_string_h256(&s).as_bytes()).unwrap();
 	Ok(key)
 }
 

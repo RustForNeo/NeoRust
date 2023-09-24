@@ -34,14 +34,14 @@ pub struct NeoToken {
 
 impl NeoToken {
 	pub const NAME: &'static str = "NeoToken";
-	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
+	// pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 	pub const DECIMALS: u8 = 0;
 	pub const SYMBOL: &'static str = "NEO";
 	pub const TOTAL_SUPPLY: u64 = 100_000_000;
 
 	pub(crate) fn new() -> Self {
 		NeoToken {
-			script_hash: Self::SCRIPT_HASH,
+			script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(),
 			total_supply: Some(Self::TOTAL_SUPPLY),
 			decimals: Some(Self::DECIMALS),
 			symbol: Some(Self::SYMBOL.to_string()),

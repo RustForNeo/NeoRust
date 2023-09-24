@@ -17,10 +17,10 @@ pub struct PolicyContract {
 
 impl PolicyContract {
 	pub const NAME: &'static str = "PolicyContract";
-	pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
+	// pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 
 	pub fn new() -> Self {
-		Self { script_hash: Self::SCRIPT_HASH }
+		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap() }
 	}
 
 	// Read-only methods

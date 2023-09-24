@@ -8,7 +8,7 @@ use crate::{
 use p256::ecdsa::signature::Signer;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, CopyGetters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default

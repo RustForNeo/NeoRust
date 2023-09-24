@@ -51,7 +51,7 @@ impl NefFile {
 	}
 
 	fn compute_checksum_from_bytes(bytes: Bytes) -> Bytes {
-		let mut file_bytes = bytes;
+		let mut file_bytes = bytes.clone();
 		file_bytes.truncate(bytes.len() - CHECKSUM_SIZE);
 		file_bytes.hash256()[..CHECKSUM_SIZE].try_into().unwrap()
 	}

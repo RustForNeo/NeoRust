@@ -54,7 +54,7 @@ impl ScriptBuilder {
 		}
 
 		Ok(self
-			.push_integer(call_flags.bits())
+			.push_integer(call_flags.value() as i64)
 			.unwrap()
 			.push_data(method.as_bytes().to_vec())
 			.unwrap()
@@ -81,7 +81,7 @@ impl ScriptBuilder {
 		if param.get_type() == ContractParameterType::Any {
 			self.op_code(&[OpCode::PushNull]);
 		}
-		match &param.value.unwrap() {
+		match &param.value.clone().unwrap() {
 			ParameterValue::Boolean(b) => self.push_bool(*b),
 			ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
 			ParameterValue::ByteArray(b)

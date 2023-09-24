@@ -20,22 +20,29 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, str::FromStr};
 use rust_decimal::Decimal;
+use std::borrow::Borrow;
+use std::borrow::BorrowMut;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Getters,Setters)]
 pub struct NeoURI {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(deserialize_with = "deserialize_url_option")]
 	#[serde(serialize_with = "serialize_url_option")]
+	#[getset(get = "pub", set = "pub")]
 	uri: Option<Url>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(deserialize_with = "deserialize_address_option")]
 	#[serde(serialize_with = "serialize_address_option")]
+	#[getset(get = "pub", set = "pub")]
 	recipient: Option<H160>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(deserialize_with = "deserialize_address_option")]
 	#[serde(serialize_with = "serialize_address_option")]
+	#[getset(get = "pub", set = "pub")]
 	token: Option<H160>,
 	#[serde(skip_serializing_if = "Option::is_none")]
+	#[getset(get = "pub", set = "pub")]
 	amount: Option<Decimal>,
 }
 
@@ -62,7 +69,8 @@ impl NeoURI {
 			return Err(ContractError::InvalidNeoName("Invalid NEP-9 URI".to_string()))
 		}
 
-		let mut neo_uri = Self::new().to(H160::from_address(base_parts[1]).unwrap());
+		let mut neo_uri = Self::new();
+		neo_uri.set_recipient(H160::from_address(base_parts[1]).ok());
 
 		if let Some(query_str) = query {
 			for part in query_str.split("&") {
@@ -72,8 +80,8 @@ impl NeoURI {
 				}
 
 				match kv[0] {
-					"asset" if neo_uri.token.is_none() => {
-						neo_uri.token(H160::from_str(kv[1].clone()).unwrap());
+					"asset" if neo_uri.token().is_none() => {
+						&neo_uri.set_token(H160::from_str(kv[1].clone()).ok());
 					},
 					"amount" if neo_uri.amount.is_none() => {
 						neo_uri.amount = Some(kv[1].parse().unwrap());
@@ -83,7 +91,7 @@ impl NeoURI {
 			}
 		}
 
-		Ok(neo_uri)
+		Ok(neo_uri.clone())
 	}
 
 	// Getters
@@ -98,8 +106,8 @@ impl NeoURI {
 
 	pub fn token_string(&self) -> Option<String> {
 		self.token.as_ref().map(|token| match token {
-			token if *token == NeoToken::SCRIPT_HASH => Self::NEO_TOKEN_STRING.to_owned(),
-			token if *token == GasToken::SCRIPT_HASH => Self::GAS_TOKEN_STRING.to_owned(),
+			token if *token == NeoToken::new().script_hash() => Self::NEO_TOKEN_STRING.to_owned(),
+			token if *token == GasToken::new().script_hash() => Self::GAS_TOKEN_STRING.to_owned(),
 			_ => H160Externsion::to_string(token),
 		})
 	}
@@ -166,28 +174,12 @@ impl NeoURI {
 
 	// Setters
 
-	pub fn to(mut self, recipient: H160) -> Self {
-		self.recipient = Some(recipient);
-		self
-	}
-
-	pub fn token(mut self, token: H160) -> Self {
-		self.token = Some(token);
-		self
-	}
-
-	pub fn token_str(mut self, token_str: &str) -> Result<Self, NeoError> {
+	pub fn token_str(&mut self, token_str: &str) {
 		self.token = match token_str {
 			Self::NEO_TOKEN_STRING => Some(NeoToken::new().script_hash()),
 			Self::GAS_TOKEN_STRING => Some(GasToken::new().script_hash()),
 			_ => Some(token_str.parse().unwrap()),
 		};
-		Ok(self)
-	}
-
-	pub fn amount(mut self, amount: Decimal) -> Self {
-		self.amount = Some(amount);
-		self
 	}
 
 	// URI builder
@@ -214,7 +206,7 @@ impl NeoURI {
 		parts.join("&")
 	}
 
-	pub fn build_uri(mut self) -> Result<Self, NeoError> {
+	pub fn build_uri(&mut self) -> Result<Url, NeoError> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("No recipient set".to_string()))
@@ -225,6 +217,7 @@ impl NeoURI {
 		let uri_str = if query.is_empty() { base } else { format!("{}.unwrap(){}", base, query) };
 
 		self.uri = Some(uri_str.parse().unwrap());
-		Ok(self)
+
+		Ok(self.uri.clone().unwrap())
 	}
 }

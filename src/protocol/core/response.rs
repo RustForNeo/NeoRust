@@ -18,7 +18,7 @@ pub struct NeoResponse<T>
 where
 	T: Serialize,
 {
-	jsonrpc: &'static str,
+	jsonrpc: String,
 	id: u64,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	result: Option<T>,
@@ -38,7 +38,7 @@ where
 	T: Serialize + Deserialize<'a>,
 {
 	pub fn new(result: T) -> Self {
-		Self { jsonrpc: "2.0", id: 0, result: Some(result), error: None }
+		Self { jsonrpc: "2.0".to_string(), id: 0, result: Some(result), error: None }
 	}
 
 	pub fn is_error(&self) -> bool {

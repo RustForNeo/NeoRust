@@ -25,10 +25,10 @@ pub struct RoleManagement {
 
 impl RoleManagement {
 	const NAME: &'static str = "RoleManagement";
-	const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
+	// const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
 	pub fn new() -> Self {
-		Self { script_hash: Self::SCRIPT_HASH }
+		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap() }
 	}
 
 	pub async fn get_designated_by_role(

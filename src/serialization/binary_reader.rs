@@ -90,10 +90,10 @@ impl<'a> BinaryReader<'a> {
 			_ => return Err(NeoError::InvalidFormat),
 		};
 
-		let mut bytes = self.read_bytes(len).unwrap();
+		let bytes = self.read_bytes(len).unwrap();
 		if negative {
 			// Flip sign bit
-			if let Some(byte) = bytes.get_mut(len - 1) {
+			if let Some(byte) = bytes.to_owned().get_mut(len - 1) {
 				*byte ^= 0x80;
 			} else {
 				return Err(NeoError::InvalidFormat)

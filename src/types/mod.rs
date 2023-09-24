@@ -15,14 +15,10 @@ use crate::{
 use base64::{engine::general_purpose, Engine};
 use futures::TryFutureExt;
 use hex::FromHexError;
-use p256::{
-	ecdsa::{SigningKey, VerifyingKey},
-	elliptic_curve::{
-		group::prime::PrimeCurveAffine,
-		sec1::{EncodedPoint, ToEncodedPoint},
-	},
-	pkcs8::der::{Decode, Encode},
-};
+use p256::{ecdsa::{SigningKey, VerifyingKey}, elliptic_curve::{
+	group::prime::PrimeCurveAffine,
+	sec1::{EncodedPoint, ToEncodedPoint},
+}, NistP256, pkcs8::der::{Decode, Encode}};
 use primitive_types::{H160, H256};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
@@ -164,7 +160,7 @@ impl PublicKeyExtension for PublicKey {
 		let mut arr = [0u8; 64];
 		arr.copy_from_slice(slice);
 
-		Ok(Self::from_encoded_point(&EncodedPoint::from_bytes(slice).unwrap())
+		Ok(Self::from_encoded_point(&EncodedPoint::<NistP256>::from_bytes(slice).unwrap())
 			.map_err(|_| InvalidPublicKey)
 			.unwrap())
 	}

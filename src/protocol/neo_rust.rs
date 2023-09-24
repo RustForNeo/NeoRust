@@ -35,7 +35,6 @@ use crate::{
 		},
 		http_service::HttpService,
 		neo_config::NeoConfig,
-		rx::json_rpc2::JsonRpc2,
 	},
 	transaction::signers::signer::Signer,
 	types::{
