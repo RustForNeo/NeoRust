@@ -65,3 +65,62 @@ impl ToBytes for f64 {
 fn to_milliseconds(datetime: chrono::DateTime<chrono::Utc>) -> i64 {
 	datetime.timestamp_millis()
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_to_bytes_padded() {
+		let n = BigInt::from(1234);
+		let bytes = n.to_bytes_padded(8);
+
+		assert_eq!(bytes, vec![0, 0, 0, 0, 4, 210, 0, 0]);
+	}
+
+	#[test]
+	fn test_power() {
+		assert_eq!(power_of(2, 3), 8);
+		assert_eq!(power_of(5, 2), 25);
+	}
+
+	#[test]
+	fn test_var_size() {
+		assert_eq!(var_size(100), 1);
+		assert_eq!(var_size(1000), 3);
+		assert_eq!(var_size(1000000), 5);
+		assert_eq!(var_size(10000000000), 9);
+	}
+
+	#[test]
+	fn test_to_unsigned() {
+		assert_eq!(to_unsigned(-1), 4294967295);
+		assert_eq!(to_unsigned(10), 10);
+	}
+
+	#[test]
+	fn test_i32_to_bytes() {
+		let n = 256;
+		assert_eq!(n.to_bytes(), vec![0, 1, 0, 0]);
+	}
+
+	#[test]
+	fn test_i64_to_bytes() {
+		let n = 123456;
+		assert_eq!(n.to_bytes(), vec![0, 0, 1, 214, 210, 96, 0, 0]);
+	}
+
+	#[test]
+	fn test_f32_to_bytes() {
+		let n = 1.5f32;
+		assert_eq!(n.to_bytes(), vec![0, 0, 120, 63]);
+	}
+
+	#[test]
+	fn test_datetime_to_ms() {
+		let dt = chrono::Utc::now();
+		let ms = to_milliseconds(dt);
+
+		assert!(ms > 0);
+	}
+}

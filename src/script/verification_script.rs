@@ -2,14 +2,15 @@ use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode, script_builder::ScriptBuilder},
 	serialization::binary_reader::BinaryReader,
-	types::{Bytes, PublicKey, PublicKeyExtension},
+	types::{Bytes, *},
 };
-use derive_more::Display;
-use getset::{CopyGetters, Getters, MutGetters, Setters};
+use getset::{Getters, Setters};
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::{fmt::Display, vec};
+
+use crate::types::public_key::PublicKeyExtension;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
 pub struct VerificationScript {

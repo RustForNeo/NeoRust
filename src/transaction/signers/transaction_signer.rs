@@ -1,10 +1,10 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
-		signers::signer::{Signer, SignerTrait, SignerType},
+		signers::signer::{SignerTrait, SignerType},
 		witness_scope::WitnessScope,
 	},
-	types::{PublicKey, PublicKeyExtension},
+	types::PublicKey,
 	utils::*,
 };
 use primitive_types::H160;

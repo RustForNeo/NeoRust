@@ -1,5 +1,3 @@
-// use secp256k1::{Secp256k1, PrivateKey};
-
 pub struct NeoConstants {}
 impl NeoConstants {
 	// Accounts, Addresses, Keys

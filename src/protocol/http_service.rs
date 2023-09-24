@@ -1,16 +1,13 @@
 use crate::{
 	neo_error::NeoError,
 	protocol::{
-		core::{
-			request::NeoRequest,
-			response::{NeoResponse, ResponseTrait},
-		},
+		core::{request::NeoRequest, response::NeoResponse},
 		neo_service::NeoService,
 	},
 };
 use async_trait::async_trait;
 use reqwest::{Client, Url};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 

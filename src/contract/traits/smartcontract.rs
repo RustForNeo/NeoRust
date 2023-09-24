@@ -13,7 +13,10 @@ use crate::{
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},
 	transaction::{signers::signer::Signer, transaction_builder::TransactionBuilder},
-	types::{call_flags::CallFlags, contract_parameter::ContractParameter, Bytes, H160Externsion},
+	types::{
+		call_flags::CallFlags, contract_parameter::ContractParameter,
+		script_hash::ScriptHashExtension, Bytes, ScriptHash,
+	},
 	NEO_INSTANCE,
 };
 use async_trait::async_trait;
@@ -156,7 +159,7 @@ pub trait SmartContractTrait: Send + Sync {
 		let item = &output.stack[0];
 		item.as_bytes()
 			.as_deref()
-			.map(|b| H160::from_script(b))
+			.map(|b| ScriptHash::from_script(b))
 			.ok_or_else(|| ContractError::UnexpectedReturnType("Script hash".to_string()))
 	}
 

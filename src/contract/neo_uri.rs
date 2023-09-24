@@ -11,7 +11,7 @@ use crate::{
 	},
 	neo_error::NeoError,
 	transaction::transaction_builder::TransactionBuilder,
-	types::H160Externsion,
+	types::{script_hash::ScriptHashExtension, ScriptHash},
 	utils::*,
 	wallet::account::Account,
 };
@@ -71,7 +71,7 @@ impl NeoURI {
 		}
 
 		let mut neo_uri = Self::new();
-		neo_uri.set_recipient(H160::from_address(base_parts[1]).ok());
+		neo_uri.set_recipient(ScriptHash::from_address(base_parts[1]).ok());
 
 		if let Some(query_str) = query {
 			for part in query_str.split("&") {
@@ -109,7 +109,7 @@ impl NeoURI {
 		self.token.as_ref().map(|token| match token {
 			token if *token == NeoToken::new().script_hash() => Self::NEO_TOKEN_STRING.to_owned(),
 			token if *token == GasToken::new().script_hash() => Self::GAS_TOKEN_STRING.to_owned(),
-			_ => H160Externsion::to_string(token),
+			_ => ScriptHashExtension::to_string(token),
 		})
 	}
 
@@ -194,7 +194,7 @@ impl NeoURI {
 					Self::NEO_TOKEN_STRING.to_owned(),
 				token if *token == GasToken::new().script_hash() =>
 					Self::GAS_TOKEN_STRING.to_owned(),
-				_ => H160Externsion::to_string(token),
+				_ => ScriptHashExtension::to_string(token),
 			};
 
 			parts.push(format!("asset={}", token_str));

@@ -1,6 +1,10 @@
 use crate::{
-	crypto::{hash::HashableForVec, key_pair::KeyPair},
-	types::{PrivateKey, PrivateKeyExtension, PublicKeyExtension},
+	crypto::{
+		base58_helper::{base58check_decode, base58check_encode},
+		hash::HashableForVec,
+		key_pair::KeyPair,
+	},
+	types::{private_key::PrivateKeyExtension, public_key::PublicKeyExtension, PrivateKey},
 };
 use aes::{
 	cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit},
@@ -18,7 +22,7 @@ pub struct NEP2;
 
 impl NEP2 {
 	pub fn decrypt(password: &str, nep2_string: &str) -> Result<KeyPair, &'static str> {
-		let nep2_data = bs58::decode(nep2_string).into_vec().unwrap();
+		let nep2_data = base58check_decode(nep2_string).unwrap();
 
 		if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
 			return Err("Invalid NEP2 length")
@@ -71,7 +75,7 @@ impl NEP2 {
 		result.extend_from_slice(&encrypted_half1);
 		result.extend_from_slice(&encrypted_half2);
 
-		Ok(bs58::encode(result).into_string())
+		Ok(base58check_encode(&result))
 	}
 }
 

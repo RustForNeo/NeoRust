@@ -9,7 +9,7 @@ use crate::{
 		witness::Witness,
 	},
 	types::{
-		contract_parameter::ContractParameter, Bytes, H160Externsion, PublicKey, PublicKeyExtension,
+		contract_parameter::ContractParameter, public_key::PublicKeyExtension, Bytes, PublicKey,
 	},
 	NEO_INSTANCE,
 };
@@ -399,7 +399,7 @@ impl TransactionBuilder {
 			.await?
 			.into_iter()
 			.map(|key| PublicKey::from_hex(&key))
-			.map(|key| key.unwrap().to_address_h160())
+			.map(|key| key.unwrap().to_script_hash())
 			.collect::<HashSet<_>>();
 
 		Ok(self
@@ -416,7 +416,7 @@ impl TransactionBuilder {
 				if account_signer.is_multisig() {
 					if let Some(script) = &account_signer.account().verification_script {
 						for pubkey in script.get_public_keys().unwrap() {
-							let hash = pubkey.to_address_h160();
+							let hash = pubkey.to_script_hash();
 							if committee.contains(&hash) {
 								return true
 							}

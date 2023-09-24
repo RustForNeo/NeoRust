@@ -2,19 +2,14 @@ use crate::{
 	constant::NeoConstants,
 	contract::nef_file::HEADER_SIZE,
 	crypto::hash::HashableForVec,
-	neo_error::NeoError,
-	protocol::{
-		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
-		http_service::HttpService,
-		neo_rust::NeoRust,
-	},
+	protocol::core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
 	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
 	transaction::{signers::signer::Signer, transaction_error::TransactionError, witness::Witness},
 	types::Bytes,
 	NEO_INSTANCE,
 };
 use bincode::Options;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::hash::Hash;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 

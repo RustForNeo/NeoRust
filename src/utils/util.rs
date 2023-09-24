@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
+// #![allow(unused_imports)]
+// #![allow(dead_code)]
 
 use serde::{
 	de::Deserializer,
@@ -13,15 +11,13 @@ use blake2::digest::{Update, VariableOutput};
 use tiny_keccak::{Hasher, Keccak};
 
 use rand::{
-	rngs::StdRng,
 	seq::{IteratorRandom, SliceRandom},
 	SeedableRng,
 };
 
-use crate::types::{Address, PublicKey};
+use crate::types::{Address, PublicKey, ScriptHash};
 use futures::AsyncWriteExt;
 use primitive_types::{H160, H256, U256};
-use std::collections::HashMap;
 
 pub fn keccak_hash(msg: &[u8]) -> [u8; 32] {
 	// hash the message with keccak-256
@@ -31,20 +27,6 @@ pub fn keccak_hash(msg: &[u8]) -> [u8; 32] {
 	keccak.finalize(&mut msg_hash);
 	msg_hash
 }
-
-// pub fn blake2_hash(msg: &[u8]) -> [u8; 32] {
-//     // create a Blake2b object
-//     let mut hasher = VarBlake2b::new(32).unwrap();
-//
-//     hasher.update(&msg);
-//
-//     let mut res = [0_u8; 32];
-//     // read hash digest and consume hasher
-//     hasher.finalize_variable(|result| {
-//         res.copy_from_slice(result);
-//     });
-//     res
-// }
 
 pub fn parse_string_u64(u64_str: &str) -> u64 {
 	if u64_str.starts_with("0x") {
@@ -62,36 +44,18 @@ pub fn parse_string_u256(u256_str: &str) -> U256 {
 	}
 }
 
-pub fn parse_string_h160(h160_str: &str) -> H160 {
-	let bytes = hex::decode(h160_str.trim_start_matches("0x")).unwrap();
+pub fn parse_address(address: &str) -> ScriptHash {
+	let bytes = hex::decode(address.trim_start_matches("0x")).unwrap();
 	let mut padded_bytes = [0_u8; 20];
 	padded_bytes[20 - bytes.len()..].copy_from_slice(&bytes);
-	H160::from_slice(&padded_bytes)
+	ScriptHash::from_slice(&padded_bytes)
 }
 
 pub fn encode_string_h160(h160: &H160) -> String {
-	// here we just make use of the display functionality of H160
-	// the debug string prints in full form (hex)
 	format!("{:?}", h160).to_owned()
 }
 
 pub fn parse_string_h256(h256_str: &str) -> H256 {
-	// hex string can be one of two forms
-	// 1. 0x1123a5
-	// 2.   1123a5
-	// NOTE: for ethereum h256, the bytestring is represented in "big-endian" form
-	// that is for an array of the form
-	//   lsb [a5, 23, 11] msb
-	// index: 0   1   2
-	// the corresponding bytestring is of the form:
-	// 0xa523110000..00
-	//
-	// Here, we'll strip the initial 0x and parse it using hex::decode
-	// which gives us the exact representation we want.
-	// 0xa5 23 11 00 .. 00
-	//   a5 23 11 00 .. 00
-	//  [a5,23,11,00,..,00] <- in the right endianness
-
 	let bytes = hex::decode(h256_str.trim_start_matches("0x")).unwrap();
 	// pad the bytes to 32bytes
 	let mut padded_bytes = [0_u8; 32];
@@ -101,8 +65,6 @@ pub fn parse_string_h256(h256_str: &str) -> H256 {
 }
 
 pub fn encode_string_h256(h256: &H256) -> String {
-	// here we just make use of the display functionality of H256
-	// the debug string prints in full form (hex)
 	format!("{:?}", h256).to_owned()
 }
 

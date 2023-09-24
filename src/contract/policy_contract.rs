@@ -1,7 +1,7 @@
 use crate::{
 	contract::{contract_error::ContractError, traits::smartcontract::SmartContractTrait},
 	transaction::transaction_builder::TransactionBuilder,
-	types::H160Externsion,
+	types::{script_hash::ScriptHashExtension, ScriptHash},
 	utils::*,
 };
 use async_trait::async_trait;
@@ -63,7 +63,7 @@ impl PolicyContract {
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
-		let account = H160::from_address(address).unwrap();
+		let account = ScriptHash::from_address(address).unwrap();
 		self.block_account(&account).await
 	}
 
@@ -78,7 +78,7 @@ impl PolicyContract {
 		&self,
 		address: &str,
 	) -> Result<TransactionBuilder, ContractError> {
-		let account = H160::from_address(address).unwrap();
+		let account = ScriptHash::from_address(address).unwrap();
 		self.unblock_account(&account).await
 	}
 }

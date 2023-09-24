@@ -6,7 +6,8 @@ use crate::{
 		call_flags::CallFlags,
 		contract_parameter::{ContractParameter, ParameterValue},
 		contract_parameter_type::ContractParameterType,
-		Bytes, H160Externsion, PublicKey,
+		script_hash::ScriptHashExtension,
+		Bytes, PublicKey,
 	},
 };
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
@@ -154,7 +155,7 @@ impl ScriptBuilder {
 
 	// Push data handling
 
-	pub fn push_data(&mut self, data: Bytes) -> Result<&mut Self, NeoError> {
+	pub fn push_data(&mut self, data: Vec<u8>) -> Result<&mut Self, NeoError> {
 		match data.len() {
 			0..=75 => {
 				self.op_code(&[OpCode::PushData1]);

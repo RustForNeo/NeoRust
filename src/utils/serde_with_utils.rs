@@ -22,7 +22,10 @@ use crate::contract::nef_file::MethodToken;
 use serde::ser::{SerializeMap, SerializeSeq};
 
 use crate::{
-	types::{Address, PrivateKey, PrivateKeyExtension, PublicKey, PublicKeyExtension},
+	types::{
+		private_key::PrivateKeyExtension, public_key::PublicKeyExtension, Address, PrivateKey,
+		PublicKey,
+	},
 	utils::util::*,
 	wallet::account::Account,
 };
@@ -172,7 +175,7 @@ where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	let addr = parse_string_h160(&s);
+	let addr = parse_address(&s);
 	Ok(addr)
 }
 
@@ -191,7 +194,7 @@ where
 	let string_seq = <Vec<String>>::deserialize(deserializer)?;
 	let mut vec: Vec<Address> = Vec::new();
 	for v_str in string_seq {
-		let v = parse_string_h160(&v_str);
+		let v = parse_address(&v_str);
 		vec.push(v);
 	}
 	Ok(vec)
@@ -228,7 +231,7 @@ where
 	let s: Option<String> = Deserialize::deserialize(deserializer)?;
 	match s {
 		Some(s) => {
-			let addr = parse_string_h160(&s);
+			let addr = parse_address(&s);
 			Ok(Some(addr))
 		},
 		None => Ok(None),
@@ -260,7 +263,7 @@ where
 	let mut hashmap: HashMap<H160, Account> = HashMap::new();
 
 	for (k, v) in map {
-		let k_h160 = parse_string_h160(&k);
+		let k_h160 = parse_address(&k);
 		hashmap.insert(k_h160, v);
 	}
 	Ok(hashmap)
@@ -561,7 +564,7 @@ where
 	let mut hashmap: HashMap<Address, U256> = HashMap::new();
 
 	for (k, v) in map {
-		let k_h160 = parse_string_h160(&k);
+		let k_h160 = parse_address(&k);
 		let v_u256 = parse_string_u256(&v);
 		hashmap.insert(k_h160, v_u256);
 	}

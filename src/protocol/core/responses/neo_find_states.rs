@@ -7,7 +7,9 @@ pub struct NeoFindStates {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct States {
+	#[serde(rename = "firstproof")]
 	pub first_proof: Option<String>,
+	#[serde(rename = "lastproof")]
 	pub last_proof: Option<String>,
 	pub truncated: bool,
 	pub results: Vec<Result>,

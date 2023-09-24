@@ -3,7 +3,9 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Hash)]
 pub struct Diagnostics {
+	#[serde(rename = "invokedcontracts")]
 	pub invoked_contracts: InvokedContract,
+	#[serde(rename = "storagechanges")]
 	pub storage_changes: Vec<StorageChange>,
 }
 

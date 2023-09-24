@@ -2,12 +2,11 @@ use crate::{
 	crypto::{hash::HashableForVec, wif::Wif},
 	neo_error::NeoError,
 	script::script_builder::ScriptBuilder,
-	types::{Address, H160Externsion, PrivateKey, PublicKey},
+	types::{script_hash::ScriptHashExtension, Address, PrivateKey, PublicKey, ScriptHash},
 	utils::*,
 };
 use getset::{CopyGetters, Getters};
 use p256::ecdsa::{signature::SignerMut, Signature, VerifyingKey};
-use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::hash::Hash;
 
@@ -25,12 +24,8 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-	// pub fn new(private_key: PrivateKey, public_key: PublicKey) -> Self {
-	// 	Self { private_key, public_key }
-	// }
-
 	pub fn from_private_key(private_key: PrivateKey) -> Self {
-		let public_key = VerifyingKey::from(&private_key); //. p256::PublicKey::from_secret_key(&private_key);
+		let public_key = VerifyingKey::from(&private_key);
 		Self { private_key, public_key }
 	}
 
@@ -46,9 +41,9 @@ impl KeyPair {
 		// Ok(address)
 	}
 
-	pub fn get_script_hash(&self) -> Result<H160, NeoError> {
+	pub fn get_script_hash(&self) -> Result<ScriptHash, NeoError> {
 		let script = ScriptBuilder::build_verification_script(&self.public_key);
-		Ok(H160::from_script(&script))
+		Ok(ScriptHash::from_script(&script))
 	}
 
 	pub fn sign(&mut self, message: &[u8]) -> Result<Signature, NeoError> {
@@ -59,5 +54,63 @@ impl KeyPair {
 
 	pub fn export_wif(&self) -> String {
 		self.private_key.to_bytes().as_slice().to_wif()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{crypto::wif::str_to_wif, types::private_key::PrivateKeyExtension};
+	use p256::ecdsa::signature::Verifier;
+
+	#[test]
+	fn test_from_private_key() {
+		let private_key = PrivateKey::random(&mut rand::thread_rng());
+		let keypair = KeyPair::from_private_key(private_key);
+
+		// assert_eq!(keypair.private_key, private_key);
+		// assert_eq!(keypair.public_key, VerifyingKey::from(&private_key));
+	}
+
+	#[test]
+	fn test_generate() {
+		let keypair = KeyPair::generate();
+
+		// assert!(keypair.private_key.is_valid());
+		// assert!(keypair.public_key.is_valid());
+	}
+
+	#[test]
+	fn test_get_address() {
+		let keypair = KeyPair::generate();
+		let address = keypair.get_address().unwrap();
+
+		// assert!(address.is_valid());
+	}
+
+	#[test]
+	fn test_get_script_hash() {
+		let keypair = KeyPair::generate();
+		let script_hash = keypair.get_script_hash().unwrap();
+
+		let expected = ScriptHash::from_public_key(&keypair.public_key);
+		assert_eq!(script_hash, expected);
+	}
+
+	#[test]
+	fn test_sign() {
+		let mut keypair = KeyPair::generate();
+		let message = b"Hello World";
+		let signature = keypair.sign(message).unwrap();
+
+		assert!(keypair.public_key.verify(message, &signature).is_ok());
+	}
+
+	#[test]
+	fn test_export_wif() {
+		let keypair = KeyPair::generate();
+		let wif = keypair.export_wif();
+
+		assert_eq!(PrivateKey::from_wif(&wif).unwrap(), keypair.private_key);
 	}
 }

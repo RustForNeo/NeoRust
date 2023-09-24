@@ -9,7 +9,7 @@ use std::collections::HashMap;
 pub struct NEP6Wallet {
 	pub(crate) name: String,
 	pub(crate) version: String,
-	#[serde(skip_serializing)]
+	// #[serde(skip_serializing)]
 	pub(crate) scrypt: ScryptParamsDef,
 	pub(crate) accounts: Vec<NEP6Account>,
 	#[serde(skip_serializing_if = "Option::is_none")]

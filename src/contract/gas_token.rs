@@ -23,7 +23,6 @@ pub struct GasToken {
 
 impl GasToken {
 	pub const NAME: &'static str = "GasToken";
-	// pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 	pub const DECIMALS: u8 = 8;
 	pub const SYMBOL: &'static str = "GAS";
 

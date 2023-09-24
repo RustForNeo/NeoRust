@@ -1,13 +1,7 @@
-use crate::{
-	script::op_code::OpCode,
-	types::{Address, PublicKey, PublicKeyExtension},
-};
+use crate::types::{public_key::PublicKeyExtension, Address, PublicKey};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-// | doesn't satisfy `StackItem: Hash`
-// | doesn't satisfy `StackItem: std::cmp::Eq`
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]

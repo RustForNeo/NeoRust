@@ -38,7 +38,7 @@ use crate::{
 	},
 	transaction::signers::{signer::Signer, transaction_signer::TransactionSigner},
 	types::{
-		contract_parameter::ContractParameter, Address, Bytes, ExternBase64, H160Externsion,
+		contract_parameter::ContractParameter, script_hash::ScriptHashExtension, Address, Bytes,
 		H256Def, ValueExtension, *,
 	},
 };

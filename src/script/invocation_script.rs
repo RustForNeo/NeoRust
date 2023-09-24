@@ -27,14 +27,6 @@ pub struct InvocationScript {
 }
 
 impl InvocationScript {
-	// pub fn new() -> Self {
-	// 	Self { 0:Bytes::new() }
-	// }
-
-	// pub fn from(script: Bytes) -> Self {
-	// 	Self { 0 }
-	// }
-
 	pub fn from_signature(signature: &SignatureData) -> Self {
 		let mut builder = ScriptBuilder::new();
 		builder.push_data(signature.concatenated()).expect("TODO: panic message");

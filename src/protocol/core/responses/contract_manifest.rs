@@ -21,6 +21,7 @@ pub struct ContractManifest {
 	#[serde(default)]
 	#[serde(serialize_with = "serialize_wildcard")]
 	#[serde(deserialize_with = "deserialize_wildcard")]
+	#[serde(rename = "supportedstandards")]
 	pub supported_standards: Vec<String>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub abi: Option<ContractABI>,

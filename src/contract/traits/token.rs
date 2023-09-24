@@ -3,12 +3,8 @@ use crate::{
 		contract_error::ContractError, name_service, name_service::NeoNameService,
 		nns_name::NNSName, traits::smartcontract::SmartContractTrait,
 	},
-	protocol::{
-		core::{neo_trait::NeoTrait, record_type::RecordType},
-		http_service::HttpService,
-		neo_rust::NeoRust,
-	},
-	types::{contract_parameter::ContractParameter, H160Externsion},
+	protocol::core::{neo_trait::NeoTrait, record_type::RecordType},
+	types::contract_parameter::ContractParameter,
 	NEO_INSTANCE,
 };
 use async_trait::async_trait;
@@ -135,7 +131,7 @@ pub trait TokenTrait: SmartContractTrait {
 		};
 
 		let address = req.request().await.unwrap().stack.first().unwrap().clone();
-		// .map(|item| H160::from_address)
+		// .map(|item| ScriptHash::from_address)
 		// ;
 
 		Ok(H160::from_slice(&address.as_bytes().unwrap()))

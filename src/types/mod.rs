@@ -13,15 +13,10 @@ use crate::{
 };
 use base64::{engine::general_purpose, Engine};
 use futures::TryFutureExt;
-use hex::FromHexError;
 use p256::{
 	ecdsa::{SigningKey, VerifyingKey},
-	elliptic_curve::{
-		group::prime::PrimeCurveAffine,
-		sec1::{EncodedPoint, ToEncodedPoint},
-	},
+	elliptic_curve::{group::prime::PrimeCurveAffine, sec1::ToEncodedPoint},
 	pkcs8::der::{Decode, Encode},
-	NistP256,
 };
 use primitive_types::{H160, H256};
 use serde_derive::{Deserialize, Serialize};
@@ -29,14 +24,17 @@ use serde_json::Value;
 use sha2::Digest;
 use std::fmt::Display;
 
+pub mod address;
 pub mod call_flags;
 pub mod contract_parameter;
 pub mod contract_parameter_type;
 pub mod plugin_type;
+pub mod private_key;
+pub mod public_key;
+pub mod script_hash;
 pub mod secp256r1_keys;
+pub mod serde_value;
 pub mod vm_state;
-
-// Bring EC types into scope
 
 pub type PrivateKey = SigningKey;
 
@@ -44,174 +42,10 @@ pub type PublicKey = VerifyingKey;
 
 pub type Address = H160;
 
+pub type ScriptHash = H160;
+
 pub type Byte = u8;
 pub type Bytes = Vec<u8>;
-
-pub trait H160Externsion
-where
-	Self: Sized,
-{
-	fn to_string(&self) -> String;
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
-
-	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
-	fn from_address(address: &str) -> Result<Self, NeoError>;
-
-	fn from_public_key(public_key: &PublicKey) -> Self;
-	fn to_address(&self) -> String;
-	fn to_vec(&self) -> Vec<u8>;
-	fn from_script(script: &[u8]) -> Self;
-}
-
-impl H160Externsion for H160 {
-	fn to_string(&self) -> String {
-		bs58::encode(self.0).into_string()
-	}
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
-		if slice.len() != 20 {
-			return Err(NeoError::InvalidAddress)
-		}
-
-		let mut arr = [0u8; 20];
-		arr.copy_from_slice(slice);
-		Ok(Self(arr))
-	}
-
-	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex).unwrap();
-		Ok(Self::from_slice(&bytes))
-	}
-
-	fn from_address(address: &str) -> Result<Self, NeoError> {
-		let bytes = bs58::decode(address).into_vec().unwrap();
-
-		Ok(Self::from_slice(&bytes))
-	}
-
-	fn from_public_key(public_key: &PublicKey) -> Self {
-		let hash = public_key.to_encoded_point(false).as_bytes().sha256_ripemd160();
-
-		let mut arr = [0u8; 20];
-		arr.copy_from_slice(&hash);
-		Self(arr)
-	}
-
-	fn to_address(&self) -> String {
-		bs58::encode(&self.0).into_string()
-	}
-
-	fn to_vec(&self) -> Vec<u8> {
-		self.0.to_vec().unwrap()
-	}
-
-	fn from_script(script: &[u8]) -> Self {
-		let result = script.sha256_ripemd160();
-		let mut arr = [0u8; 20];
-		arr.copy_from_slice(&result);
-		Self(arr)
-	}
-}
-
-pub trait PublicKeyExtension
-where
-	Self: Sized,
-{
-	fn to_address(&self) -> String;
-	fn to_vec(&self) -> Vec<u8>;
-
-	fn to_address_h160(&self) -> H160;
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
-	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
-	fn from_private_key(private_key: &PrivateKey) -> Self;
-}
-
-pub trait PrivateKeyExtension
-where
-	Self: Sized,
-{
-	fn to_address(&self) -> String;
-	fn to_vec(&self) -> Vec<u8>;
-
-	fn to_wif(&self) -> String;
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError>;
-	fn from_hex(hex: &str) -> Result<Self, hex::FromHexError>;
-
-	fn from_wif(wif: &str) -> Result<Self, NeoError>;
-}
-
-impl PublicKeyExtension for PublicKey {
-	fn to_address(&self) -> String {
-		H160::from_public_key(self).to_address()
-	}
-
-	fn to_vec(&self) -> Vec<u8> {
-		self.to_encoded_point(false).as_bytes().to_vec()
-	}
-
-	fn to_address_h160(&self) -> H160 {
-		H160::from_public_key(self)
-	}
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
-		if slice.len() != 64 {
-			return Err(InvalidPublicKey)
-		}
-
-		let mut arr = [0u8; 64];
-		arr.copy_from_slice(slice);
-
-		Ok(Self::from_encoded_point(&EncodedPoint::<NistP256>::from_bytes(slice).unwrap())
-			.map_err(|_| InvalidPublicKey)
-			.unwrap())
-	}
-
-	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex).unwrap();
-		Ok(Self::from_slice(&bytes).unwrap())
-	}
-
-	fn from_private_key(private_key: &PrivateKey) -> Self {
-		PublicKey::from(private_key)
-	}
-}
-
-impl PrivateKeyExtension for PrivateKey {
-	fn to_address(&self) -> String {
-		PublicKey::from(self).to_address()
-	}
-
-	fn to_vec(&self) -> Vec<u8> {
-		self.to_bytes().to_vec()
-	}
-
-	fn to_wif(&self) -> String {
-		self.to_vec().as_slice().to_wif()
-	}
-
-	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
-		if slice.len() != 32 {
-			return Err(InvalidPublicKey)
-		}
-
-		let mut arr = [0u8; 32];
-		arr.copy_from_slice(slice);
-		Ok(Self::from_bytes(&arr).map_err(|_| InvalidPublicKey).unwrap())
-	}
-
-	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
-		let bytes = hex::decode(hex).unwrap();
-		Ok(Self::from_slice(&bytes).unwrap())
-	}
-
-	fn from_wif(wif: &str) -> Result<Self, NeoError> {
-		let bytes = str_to_wif(wif).unwrap();
-		Ok(Self::from_slice(&bytes).unwrap())
-	}
-}
 
 pub trait ValueExtension {
 	fn to_value(&self) -> Value;
@@ -347,7 +181,7 @@ pub trait ExternBase64 {
 
 impl ExternBase64 for String {
 	fn to_base64(&self) -> String {
-		general_purpose::STANDARD_NO_PAD.encode(self.as_bytes())
+		general_purpose::STANDARD.encode(self.as_bytes())
 	}
 }
 
@@ -394,5 +228,34 @@ impl Base64Encode for Vec<u8> {
 impl Base64Encode for &[u8] {
 	fn to_base64(&self) -> String {
 		base64::encode(&self)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use base64;
+	use hex;
+	use rustc_serialize::base64::FromBase64;
+
+	#[test]
+	fn test_base64_encode_bytes() {
+		let input = hex::decode("150c14242dbf5e2f6ac2568b59b7822278d571b75f17be0c14242dbf5e2f6ac2568b59b7822278d571b75f17be13c00c087472616e736665720c14897720d8cd76f4f00abfa37c0edd889c208fde9b41627d5b5238").unwrap();
+		let expected = "FQwUJC2/Xi9qwlaLWbeCInjVcbdfF74MFCQtv14vasJWi1m3giJ41XG3Xxe+E8AMCHRyYW5zZmVyDBSJdyDYzXb08Aq/o3wO3YicII/em0FifVtSOA==";
+
+		let encoded = input.to_base64();
+
+		assert_eq!(encoded, expected);
+	}
+
+	#[test]
+	fn test_base64_decode() {
+		let encoded = "FQwUJC2/Xi9qwlaLWbeCInjVcbdfF74MFCQtv14vasJWi1m3giJ41XG3Xxe+E8AMCHRyYW5zZmVyDBSJdyDYzXb08Aq/o3wO3YicII/em0FifVtSOA==";
+		let expected = "150c14242dbf5e2f6ac2568b59b7822278d571b75f17be0c14242dbf5e2f6ac2568b59b7822278d571b75f17be13c00c087472616e736665720c14897720d8cd76f4f00abfa37c0edd889c208fde9b41627d5b5238";
+
+		let decoded = encoded.from_base64().unwrap();
+		let decoded_hex = hex::encode(decoded);
+
+		assert_eq!(decoded_hex, expected);
 	}
 }

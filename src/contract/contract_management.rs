@@ -5,16 +5,12 @@ use crate::{
 		contract_error::ContractError, nef_file::NefFile, traits::smartcontract::SmartContractTrait,
 	},
 	neo_error::NeoError,
-	protocol::{
-		core::{
-			neo_trait::NeoTrait,
-			responses::contract_state::{ContractIdentifiers, ContractState},
-		},
-		http_service::HttpService,
-		neo_rust::NeoRust,
+	protocol::core::{
+		neo_trait::NeoTrait,
+		responses::contract_state::{ContractIdentifiers, ContractState},
 	},
 	transaction::transaction_builder::TransactionBuilder,
-	types::{contract_parameter::ContractParameter, H160Externsion},
+	types::contract_parameter::ContractParameter,
 	utils::*,
 };
 use async_trait::async_trait;
@@ -22,7 +18,7 @@ use futures::{FutureExt, TryFutureExt};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-use crate::protocol::neo_rust::NEO_INSTANCE;
+use crate::{protocol::neo_rust::NEO_INSTANCE, types::ScriptHash};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContractManagement {
@@ -87,7 +83,7 @@ impl ContractManagement {
 		self.get_contract(hash).await
 	}
 
-	pub async fn get_contract_hash_by_id(&self, id: u32) -> Result<H160, ContractError> {
+	pub async fn get_contract_hash_by_id(&self, id: u32) -> Result<ScriptHash, ContractError> {
 		let result = NEO_INSTANCE
 			.read()
 			.unwrap()
@@ -103,7 +99,7 @@ impl ContractManagement {
 			.stack;
 
 		let item = &result[0];
-		Ok(H160::from_slice(&item.as_bytes().unwrap()))
+		Ok(ScriptHash::from_slice(&item.as_bytes().unwrap()))
 	}
 
 	pub async fn get_contract_hashes(&self) -> Result<ContractIdentifiers, NeoError> {

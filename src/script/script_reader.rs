@@ -20,7 +20,6 @@ impl ScriptReader {
 	pub fn get_interop_service_code(_hash: String) -> Option<InteropService> {
 		InteropService::from_hash(_hash)
 	}
-
 	pub fn convert_to_op_code_string(script: &Bytes) -> String {
 		let mut reader = BinaryReader::new(script);
 		let mut result = String::new();

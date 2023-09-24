@@ -54,6 +54,8 @@ pub enum NeoError {
 	InvalidOpCode,
 	#[error("Numeric overflow")]
 	NumericOverflow,
+	#[error("Wif error {0}")]
+	WifError(String),
 }
 
 impl Into<TransactionError> for NeoError {

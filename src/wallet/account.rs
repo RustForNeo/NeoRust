@@ -1,14 +1,10 @@
 use crate::{
-	crypto::{
-		key_pair::KeyPair,
-		nep2::NEP2,
-		wif::{str_to_wif, Wif},
-	},
-	protocol::{core::neo_trait::NeoTrait, neo_rust::NeoRust},
+	crypto::{key_pair::KeyPair, nep2::NEP2},
+	protocol::core::neo_trait::NeoTrait,
 	script::verification_script::VerificationScript,
 	types::{
-		contract_parameter_type::ContractParameterType, Address, Base64Encode, H160Externsion,
-		PrivateKey, PrivateKeyExtension, PublicKey,
+		contract_parameter_type::ContractParameterType, private_key::PrivateKeyExtension,
+		script_hash::ScriptHashExtension, Address, Base64Encode, PrivateKey, PublicKey, ScriptHash,
 	},
 	utils::*,
 	wallet::{
@@ -98,7 +94,7 @@ impl Account {
 		Ok(Self {
 			key_pair: Some(key_pair.clone()),
 			address,
-			label: Some(H160Externsion::to_string(&address)),
+			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(VerificationScript::from_public_key(
 				&key_pair.clone().public_key(),
 			)),
@@ -296,7 +292,7 @@ impl Account {
 	// Static methods
 
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
-		let address = H160::from_script(&script.script());
+		let address = ScriptHash::from_script(&script.script());
 
 		let (signing_threshold, nr_of_participants) = if script.is_multisig() {
 			(
@@ -309,7 +305,7 @@ impl Account {
 
 		Ok(Self {
 			address,
-			label: Some(H160Externsion::to_string(&address)),
+			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(script.clone()),
 			signing_threshold: signing_threshold.map(|x| x as u32),
 			nr_of_participants: nr_of_participants.map(|x| x as u32),
@@ -319,11 +315,11 @@ impl Account {
 
 	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
 		let script = VerificationScript::from_public_key(public_key);
-		let address = H160::from_script(&script.script());
+		let address = ScriptHash::from_script(&script.script());
 
 		Ok(Self {
 			address,
-			label: Some(H160Externsion::to_string(&address)),
+			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(script),
 			..Default::default()
 		})
@@ -346,7 +342,11 @@ impl Account {
 
 	pub fn from_address(address: &str) -> Result<Self, WalletError> {
 		let address = Address::from_str(address).unwrap();
-		Ok(Self { address, label: Some(H160Externsion::to_string(&address)), ..Default::default() })
+		Ok(Self {
+			address,
+			label: Some(ScriptHashExtension::to_string(&address)),
+			..Default::default()
+		})
 	}
 
 	pub fn from_script_hash(script_hash: &H160) -> Result<Self, WalletError> {

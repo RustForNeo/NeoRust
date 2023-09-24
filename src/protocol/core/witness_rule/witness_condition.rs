@@ -1,5 +1,5 @@
 use crate::{
-	types::{PublicKey, PublicKeyExtension},
+	types::{public_key::PublicKeyExtension, PublicKey},
 	utils::*,
 };
 use primitive_types::H160;

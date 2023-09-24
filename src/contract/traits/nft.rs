@@ -9,7 +9,8 @@ use crate::{
 		signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
 	},
 	types::{
-		contract_parameter::ContractParameter, Address, Bytes, H160Externsion, ValueExtension,
+		contract_parameter::ContractParameter, script_hash::ScriptHashExtension, Address, Bytes,
+		ScriptHash,
 	},
 	wallet::account::Account,
 };
@@ -92,7 +93,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 			.unwrap();
 
 		let mut build = self
-			.transfer_inner(H160::from_address(to).unwrap(), token_id, data)
+			.transfer_inner(ScriptHash::from_address(to).unwrap(), token_id, data)
 			.await
 			.unwrap();
 		build.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);

@@ -5,16 +5,13 @@ use crate::{
 		transaction_error::TransactionError,
 		witness_scope::WitnessScope,
 	},
-	types::{H160Externsion, PublicKey, PublicKeyExtension},
+	types::{public_key::PublicKeyExtension, script_hash::ScriptHashExtension, PublicKey},
 	utils::*,
 	wallet::account::Account,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::{
-	hash::{Hash, Hasher},
-	ops::Deref,
-};
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct AccountSigner {
