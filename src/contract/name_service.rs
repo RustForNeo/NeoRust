@@ -16,10 +16,10 @@ use crate::{
 	utils::*,
 	NEO_INSTANCE,
 };
+use futures::FutureExt;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use std::string::ToString;
-use futures::FutureExt;
+use std::{string::ToString, sync::Arc};
 
 #[repr(u8)]
 enum RecordType {
@@ -104,7 +104,11 @@ impl NeoNameService {
 	async fn get_roots(&self) -> Result<NeoIterator<String>, ContractError> {
 		let args = vec![];
 		let roots = self
-			.call_function_returning_iterator(Self::ROOTS, args, |item| item.to_string())
+			.call_function_returning_iterator(
+				Self::ROOTS,
+				args,
+				Arc::new(|item: StackItem| item.to_string()),
+			)
 			.await;
 
 		Ok(roots)

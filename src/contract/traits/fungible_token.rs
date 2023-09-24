@@ -3,7 +3,9 @@ use crate::{
 		contract_error::ContractError, fungible_token_contract::FungibleTokenContract,
 		nns_name::NNSName, traits::token::TokenTrait,
 	},
-	transaction::{signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder},
+	transaction::{
+		signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
+	},
 	types::{contract_parameter::ContractParameter, Address, Bytes},
 	wallet::{account::Account, wallet::Wallet},
 };

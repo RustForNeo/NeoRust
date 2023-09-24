@@ -16,7 +16,7 @@ use num_traits::real::Real;
 use rust_decimal::Decimal;
 
 use primitive_types::H160;
-use  rust_decimal::prelude::*;
+use rust_decimal::prelude::*;
 
 #[async_trait]
 pub trait TokenTrait: SmartContractTrait {
@@ -73,18 +73,22 @@ pub trait TokenTrait: SmartContractTrait {
 		Ok(symbol)
 	}
 
-	 fn to_fractions(&self, amount: Decimal, decimals: u32) -> Result<i32, ContractError> {
+	fn to_fractions(&self, amount: Decimal, decimals: u32) -> Result<i32, ContractError> {
 		if amount.scale() > decimals {
-			return Err(ContractError::RuntimeError("Amount has too many decimal points".to_string()));
+			return Err(ContractError::RuntimeError(
+				"Amount has too many decimal points".to_string(),
+			))
 		}
 
 		let scaled = amount * Decimal::from(10i32.pow(decimals));
 		Ok(scaled.trunc().to_i32().unwrap())
 	}
 
-	 fn to_fractions_decimal(&self, amount: Decimal, decimals: u32) -> Result<u64, ContractError> {
+	fn to_fractions_decimal(&self, amount: Decimal, decimals: u32) -> Result<u64, ContractError> {
 		if amount.scale() > decimals {
-			return Err(ContractError::RuntimeError("Amount has too many decimal places".to_string()));
+			return Err(ContractError::RuntimeError(
+				"Amount has too many decimal places".to_string(),
+			))
 		}
 
 		let mut scaled = amount;
@@ -101,7 +105,6 @@ pub trait TokenTrait: SmartContractTrait {
 
 		amount / divisor
 	}
-
 
 	fn to_decimals(&self, amount: i64, decimals: u32) -> Decimal {
 		let divisor = Decimal::from(10_u32.pow(decimals));
@@ -127,17 +130,11 @@ pub trait TokenTrait: SmartContractTrait {
 						ContractParameter::from(RecordType::TXT.byte_repr()),
 					],
 					vec![],
-				).clone()
+				)
+				.clone()
 		};
 
-		let address =req
-			.request()
-			.await
-			.unwrap()
-			.stack
-			.first()
-			.unwrap()
-			.clone();
+		let address = req.request().await.unwrap().stack.first().unwrap().clone();
 		// .map(|item| H160::from_address)
 		// ;
 

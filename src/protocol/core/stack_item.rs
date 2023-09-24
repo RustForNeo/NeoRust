@@ -1,8 +1,10 @@
-use crate::types::{Address, PublicKey, PublicKeyExtension};
+use crate::{
+	script::op_code::OpCode,
+	types::{Address, PublicKey, PublicKeyExtension},
+};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::script::op_code::OpCode;
 
 // | doesn't satisfy `StackItem: Hash`
 // | doesn't satisfy `StackItem: std::cmp::Eq`
@@ -204,22 +206,22 @@ impl StackItem {
 	}
 	pub fn as_interop(&self, interface_name: &str) -> Option<StackItem> {
 		match self {
-			StackItem::Integer{value} => Some(StackItem::InteropInterface {
+			StackItem::Integer { value } => Some(StackItem::InteropInterface {
 				id: value.to_string(),
 				interface: interface_name.to_string(),
 			}),
-			StackItem::Boolean{value} => Some(StackItem::InteropInterface {
+			StackItem::Boolean { value } => Some(StackItem::InteropInterface {
 				id: value.to_string(),
 				interface: interface_name.to_string(),
 			}),
-			StackItem::ByteString{value} => Some(StackItem::InteropInterface {
+			StackItem::ByteString { value } => Some(StackItem::InteropInterface {
 				id: value.to_string(),
 				interface: interface_name.to_string(),
 			}),
-			StackItem::Buffer{value} => Some(StackItem::InteropInterface {
-					id: value.to_string(),
-					interface: interface_name.to_string()
-				}),
+			StackItem::Buffer { value } => Some(StackItem::InteropInterface {
+				id: value.to_string(),
+				interface: interface_name.to_string(),
+			}),
 			_ => None,
 		}
 	}
@@ -235,8 +237,8 @@ impl StackItem {
 		self.len().map(|len| len == 0)
 	}
 
-	pub fn get(&self, index: usize) -> Option<&StackItem> {
-		self.as_array().and_then(|arr| arr.get(index))
+	pub fn get(&self, index: usize) -> Option<StackItem> {
+		self.as_array().and_then(|arr| arr.get(index).cloned())
 	}
 
 	pub fn to_json(&self) -> Option<String> {

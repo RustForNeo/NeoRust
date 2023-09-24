@@ -96,10 +96,12 @@ impl Account {
 	) -> Result<Self, WalletError> {
 		let address = key_pair.get_address().unwrap();
 		Ok(Self {
-			key_pair: Some(key_pair),
+			key_pair: Some(key_pair.clone()),
 			address,
 			label: Some(H160Externsion::to_string(&address)),
-			verification_script: Some(VerificationScript::from_public_key(&key_pair.public_key())),
+			verification_script: Some(VerificationScript::from_public_key(
+				&key_pair.clone().public_key(),
+			)),
 			is_locked: false,
 			encrypted_private_key: None,
 			wallet: None,
@@ -141,8 +143,8 @@ impl Account {
 		let (verification_script, signing_threshold, nr_of_participants) =
 			match nep6_account.contract {
 				Some(ref contract) if contract.script.is_some() => {
-					let script = contract.script.unwrap().as_bytes();
-					let verification_script = VerificationScript::from(script.to_vec());
+					let script = contract.script.clone().unwrap();
+					let verification_script = VerificationScript::from(script.as_bytes().to_vec());
 					let signing_threshold = if verification_script.is_multisig() {
 						Some(verification_script.get_signing_threshold().unwrap())
 					} else {

@@ -13,7 +13,7 @@ impl Diagnostics {
 	}
 }
 
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize, Hash, Clone)]
 pub struct InvokedContract {
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]
@@ -21,7 +21,7 @@ pub struct InvokedContract {
 	pub invoked_contracts: Option<Vec<InvokedContract>>,
 }
 
-#[derive(Serialize, Deserialize, Hash)]
+#[derive(Serialize, Deserialize, Hash, Clone)]
 pub struct StorageChange {
 	pub state: String,
 	pub key: String,

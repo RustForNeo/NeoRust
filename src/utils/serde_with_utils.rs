@@ -313,8 +313,8 @@ where
 	let string_seq = <Vec<String>>::deserialize(deserializer)?;
 	let mut vec: Vec<PublicKey> = Vec::new();
 	for v_str in string_seq {
-		let v = parse_string_h256(&v_str).as_bytes();
-		let key = PublicKey::from_slice(v).unwrap();
+		let v = parse_string_h256(&v_str);
+		let key = PublicKey::from_slice(v.as_bytes()).unwrap();
 		vec.push(key);
 	}
 	Ok(vec)
@@ -356,8 +356,8 @@ where
 	let s: Option<String> = Deserialize::deserialize(deserializer)?;
 	match s {
 		Some(s) => {
-			let pubkey_bytes = parse_string_h256(&s).as_bytes();
-			let key = PublicKey::from_slice(pubkey_bytes).unwrap();
+			let pubkey_bytes = parse_string_h256(&s);
+			let key = PublicKey::from_slice(pubkey_bytes.as_bytes()).unwrap();
 			Ok(Some(key))
 		},
 		None => Ok(None),

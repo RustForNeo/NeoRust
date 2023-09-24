@@ -5,8 +5,7 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use std::error::Error;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
-#[derive(Getters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize, Getters, Setters)]
 pub struct BinaryReader<'a> {
 	data: &'a [u8],
 	#[getset(get = "pub")]
@@ -201,7 +200,9 @@ impl<'a> BinaryReader<'a> {
 	// Serialization helper methods
 
 	pub fn read_serializable<T: Deserialize<'a>>(&mut self) -> Result<T, NeoError> {
-		 let value:T = bincode::deserialize(&self.data[self.pointer..]).map_err(|e| NeoError::InvalidFormat).unwrap();
+		let value: T = bincode::deserialize(&self.data[self.pointer..])
+			.map_err(|e| NeoError::InvalidFormat)
+			.unwrap();
 		Ok(value)
 	}
 

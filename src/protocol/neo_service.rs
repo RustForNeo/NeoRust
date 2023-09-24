@@ -3,11 +3,11 @@ use crate::{
 	protocol::core::{request::NeoRequest, response::NeoResponse},
 };
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 #[async_trait]
 pub trait NeoService: Send + Sync {
-	async fn send<'a, T: Deserialize<'a> + Serialize>(
+	async fn send<T: DeserializeOwned + Serialize + Clone>(
 		&self,
 		request: &NeoRequest<T>,
 	) -> Result<NeoResponse<T>, NeoError>;

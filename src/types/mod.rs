@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use crate::{
 	crypto::{
 		hash::HashableForVec,
@@ -8,22 +7,27 @@ use crate::{
 	protocol::core::responses::{
 		transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken,
 	},
-	transaction::signers::signer::Signer,
+	transaction::signers::{signer::Signer, transaction_signer::TransactionSigner},
 	types::contract_parameter::ContractParameter,
 	utils::*,
 };
 use base64::{engine::general_purpose, Engine};
 use futures::TryFutureExt;
 use hex::FromHexError;
-use p256::{ecdsa::{SigningKey, VerifyingKey}, elliptic_curve::{
-	group::prime::PrimeCurveAffine,
-	sec1::{EncodedPoint, ToEncodedPoint},
-}, NistP256, pkcs8::der::{Decode, Encode}};
+use p256::{
+	ecdsa::{SigningKey, VerifyingKey},
+	elliptic_curve::{
+		group::prime::PrimeCurveAffine,
+		sec1::{EncodedPoint, ToEncodedPoint},
+	},
+	pkcs8::der::{Decode, Encode},
+	NistP256,
+};
 use primitive_types::{H160, H256};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::Digest;
-use crate::transaction::signers::transaction_signer::TransactionSigner;
+use std::fmt::Display;
 
 pub mod call_flags;
 pub mod contract_parameter;

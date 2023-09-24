@@ -2,13 +2,13 @@ use crate::{
 	protocol::core::responses::{
 		neo_witness::NeoWitness, transaction_attribute::TransactionAttribute,
 	},
+	transaction::signers::transaction_signer::TransactionSigner,
 	types::vm_state::VMState,
 	utils::*,
 };
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use crate::transaction::signers::transaction_signer::TransactionSigner;
 
 #[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 pub struct Transaction {

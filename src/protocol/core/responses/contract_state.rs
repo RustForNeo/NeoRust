@@ -33,16 +33,15 @@ impl ContractState {
 		Self { id, nef, update_counter, hash, manifest }
 	}
 
-
 	pub fn contract_identifiers(
 		stack_item: &StackItem,
 	) -> Result<ContractIdentifiers, &'static str> {
 		match stack_item {
 			StackItem::Struct { value } if value.len() >= 2 => {
 				let id = value[0].as_int().unwrap();
-				let mut v = &value[1].as_bytes().unwrap();
+				let mut v = value[1].as_bytes().unwrap();
 				v.reverse();
-				let hash = H160::from_slice(v);
+				let hash = H160::from_slice(&v);
 				Ok(ContractIdentifiers { id: id as i32, hash })
 			},
 			_ => Err("Could not deserialize ContractIdentifiers from stack item"),

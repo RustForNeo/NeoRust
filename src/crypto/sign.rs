@@ -1,13 +1,16 @@
-use p256::ecdsa::Signature;
-use p256::ecdsa::signature::{Signer, Verifier};
-use p256::pkcs8::der::Encode;
-use serde_derive::{Deserialize, Serialize};
 use crate::{
 	crypto::{hash::HashableForVec, key_pair::KeyPair},
 	neo_error::NeoError,
-	types::{Bytes, PrivateKey},
+	types::{Bytes, PrivateKey, PublicKey},
 };
-use crate::types::PublicKey;
+use p256::{
+	ecdsa::{
+		signature::{Signer, Verifier},
+		Signature,
+	},
+	pkcs8::der::Encode,
+};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignatureData {
@@ -49,13 +52,11 @@ impl SignatureData {
 	) -> Result<SignatureData, NeoError> {
 		let signature = key_pair.private_key().sign(&message.hash256());
 
-
 		let mut rec_id = None;
 		for i in 0..4 {
-			if key_pair.public_key().verify(&message.hash256(), &signature).is_ok()
-			{
-					rec_id = Some(i);
-					break
+			if key_pair.public_key().verify(&message.hash256(), &signature).is_ok() {
+				rec_id = Some(i);
+				break
 			}
 		}
 
@@ -64,13 +65,9 @@ impl SignatureData {
 			.unwrap();
 
 		let v = 27 + rec_id;
-		let (r,s) = signature.split_bytes();
+		let (r, s) = signature.split_bytes();
 
-		Ok(SignatureData::new(
-			v as u8,
-			r.to_vec(),
-			s.to_vec()
-		))
+		Ok(SignatureData::new(v as u8, r.to_vec(), s.to_vec()))
 	}
 }
 

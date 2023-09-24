@@ -4,6 +4,7 @@ use crate::{
 	protocol::{
 		core::{
 			neo_trait::NeoTrait,
+			request::NeoRequest,
 			responses::{contract_manifest::ContractManifest, invocation_result::InvocationResult},
 			stack_item::StackItem,
 		},
@@ -11,15 +12,14 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	script::{op_code::OpCode, script_builder::ScriptBuilder},
+	transaction::{signers::signer::Signer, transaction_builder::TransactionBuilder},
 	types::{call_flags::CallFlags, contract_parameter::ContractParameter, Bytes, H160Externsion},
 	NEO_INSTANCE,
 };
 use async_trait::async_trait;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
-use crate::protocol::core::request::NeoRequest;
-use crate::transaction::signers::signer::Signer;
-use crate::transaction::transaction_builder::TransactionBuilder;
+use std::sync::Arc;
 
 #[async_trait]
 pub trait SmartContractTrait: Send + Sync {
@@ -129,14 +129,9 @@ pub trait SmartContractTrait: Send + Sync {
 		let req = {
 			let binding = NEO_INSTANCE.read().unwrap();
 			let res = binding
-				.invoke_function(
-					&self.script_hash().clone(),
-					function.into(),
-					params,
-					signers)
+				.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
 				.clone();
 			res
-
 		};
 		req.request().await
 	}
@@ -169,10 +164,10 @@ pub trait SmartContractTrait: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		mapper: impl Fn(StackItem) -> U + Send + 'static,
+		mapper: Arc<dyn Fn(StackItem) -> U + Send + Sync>,
 	) -> NeoIterator<U>
-		where
-			U: Send + 'static, // Adding this bound if necessary
+	where
+		U: Send + Sync, // Adding this bound if necessary
 	{
 		let output = self.call_invoke_function(function, params, vec![]).await.unwrap();
 		self.throw_if_fault_state(&output).unwrap();
@@ -185,20 +180,15 @@ pub trait SmartContractTrait: Send + Sync {
 			.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))
 			.unwrap();
 
-		// Wrapper function that matches the expected signature
-		fn wrapper_fn<T: Send + 'static>(item: StackItem, original_mapper: Box<dyn Fn(StackItem) -> T + Send>) -> T {
-			original_mapper(item)
-		}
-		NeoIterator::new(session_id, id.clone(), Box::new(|item| wrapper_fn(item, Box::new(mapper))))
+		NeoIterator::new(session_id, id.clone(), mapper)
 	}
-
 
 	async fn call_function_and_unwrap_iterator<U>(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
 		max_items: usize,
-		mapper: impl Fn(StackItem) -> U+ Send,
+		mapper: impl Fn(StackItem) -> U + Send,
 	) -> Result<Vec<U>, ContractError> {
 		let script = ScriptBuilder::build_contract_call_and_unwrap_iterator(
 			&self.script_hash(),
@@ -209,16 +199,9 @@ pub trait SmartContractTrait: Send + Sync {
 		)
 		.unwrap();
 
-		let output ={ NEO_INSTANCE
-			.read()
-			.unwrap()
-			.invoke_script(script.to_hex(), vec![])
-		};
+		let output = { NEO_INSTANCE.read().unwrap().invoke_script(script.to_hex(), vec![]) };
 
-		let output = output
-			.request()
-			.await
-			.unwrap();
+		let output = output.request().await.unwrap();
 
 		self.throw_if_fault_state(&output).unwrap();
 
@@ -238,30 +221,19 @@ pub trait SmartContractTrait: Send + Sync {
 	) -> Result<H160, NeoError> {
 		let mut script = ScriptBuilder::new();
 		script.op_code(&[OpCode::Abort]);
-		script.push_data(sender.to_vec())
-			.unwrap();
-		script.push_integer(nef_checksum as i64)
-			.unwrap();
-		script.push_data(contract_name.as_bytes().to_vec())
-			.unwrap();
+		script.push_data(sender.to_vec()).unwrap();
+		script.push_integer(nef_checksum as i64).unwrap();
+		script.push_data(contract_name.as_bytes().to_vec()).unwrap();
 
 		Ok(H160::from_slice(&script.to_bytes()))
 	}
 
-	async fn get_manifest(&self) -> &ContractManifest {
+	async fn get_manifest(&self) -> ContractManifest {
 		let req = {
-			NEO_INSTANCE
-				.read()
-				.unwrap()
-				.get_contract_state(self.script_hash()).clone()
+			NEO_INSTANCE.read().unwrap().get_contract_state(self.script_hash()).clone()
 			// binding.clone()
 		};
 
-		&req
-			.request()
-			.await
-			.unwrap()
-			.manifest
-			.clone()
+		req.request().await.unwrap().manifest.clone()
 	}
 }

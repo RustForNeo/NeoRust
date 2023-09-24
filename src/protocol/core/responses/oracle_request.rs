@@ -2,7 +2,7 @@ use crate::utils::*;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct OracleRequest {
 	#[serde(rename = "requestid")]
 	pub request_id: i32,

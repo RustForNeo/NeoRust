@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use crate::{
 	neo_error::NeoError,
 	script::{interop_service::InteropService, op_code::OpCode, script_builder::ScriptBuilder},
@@ -10,7 +9,7 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
-use std::vec;
+use std::{fmt::Display, vec};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
 pub struct VerificationScript {
@@ -116,7 +115,8 @@ impl VerificationScript {
 
 		while reader.by_ref().read_u8() == OpCode::PushData1 as u8 {
 			let len = reader.by_ref().read_u8();
-			let sig = Signature::from_der(&reader.by_ref().read_bytes(len as usize).unwrap()).unwrap();
+			let sig =
+				Signature::from_der(&reader.by_ref().read_bytes(len as usize).unwrap()).unwrap();
 			signatures.push(sig);
 		}
 

@@ -5,7 +5,9 @@ use crate::{
 		traits::token::TokenTrait,
 	},
 	protocol::core::stack_item::StackItem,
-	transaction::{signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder},
+	transaction::{
+		signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
+	},
 	types::{
 		contract_parameter::ContractParameter, Address, Bytes, H160Externsion, ValueExtension,
 	},
@@ -13,7 +15,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use primitive_types::H160;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 #[async_trait]
 pub trait NonFungibleTokenTrait: TokenTrait + Send {
@@ -37,12 +39,15 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	// NFT methods
 
 	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes>, ContractError> {
-		Ok(self.call_function_returning_iterator(
-			<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
-			vec![owner.into()],
-			|item| item.as_bytes().unwrap(),
-		)
-		.await)
+		// |item| item.as_bytes().unwrap()
+		let mapper_fn = Arc::new(|item: StackItem| item.as_bytes().unwrap());
+		Ok(self
+			.call_function_returning_iterator(
+				<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
+				vec![owner.into()],
+				mapper_fn,
+			)
+			.await)
 	}
 
 	// Non-divisible NFT methods
@@ -256,12 +261,13 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Address>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
-		Ok(self.call_function_returning_iterator(
-			<NftContract as NonFungibleTokenTrait>::OWNER_OF,
-			vec![token_id.into()],
-			|item| item.as_address().unwrap(),
-		)
-		.await)
+		Ok(self
+			.call_function_returning_iterator(
+				<NftContract as NonFungibleTokenTrait>::OWNER_OF,
+				vec![token_id.into()],
+				Arc::new(|item: StackItem| item.as_address().unwrap()),
+			)
+			.await)
 	}
 
 	async fn throw_if_non_divisible_nft(&mut self) -> Result<(), ContractError> {
@@ -291,12 +297,13 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	// Optional methods
 
 	async fn tokens(&mut self) -> Result<NeoIterator<Bytes>, ContractError> {
-		Ok(self.call_function_returning_iterator(
-			<NftContract as NonFungibleTokenTrait>::TOKENS,
-			vec![],
-			|item| item.as_bytes().unwrap(),
-		)
-		.await)
+		Ok(self
+			.call_function_returning_iterator(
+				<NftContract as NonFungibleTokenTrait>::TOKENS,
+				vec![],
+				Arc::new(|item: StackItem| item.as_bytes().unwrap()),
+			)
+			.await)
 	}
 
 	async fn properties(

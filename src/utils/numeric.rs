@@ -21,7 +21,7 @@ fn power_of(base: i32, exp: i32) -> i32 {
 	base.pow(exp as u32)
 }
 
-fn var_size(n: i32) -> usize {
+fn var_size(n: i128) -> usize {
 	match n {
 		n if n < 0xfd => 1,
 		n if n <= 0xffff => 3,

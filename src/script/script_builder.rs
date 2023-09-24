@@ -21,11 +21,8 @@ pub struct ScriptBuilder {
 }
 
 impl ScriptBuilder {
-
-	pub fn new()-> Self{
-		Self {
-			script: BinaryWriter::new(),
-		}
+	pub fn new() -> Self {
+		Self { script: BinaryWriter::new() }
 	}
 	pub fn op_code(&mut self, op_codes: &[OpCode]) -> &mut Self {
 		for opcode in op_codes {

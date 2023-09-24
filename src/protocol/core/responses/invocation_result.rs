@@ -70,7 +70,7 @@ impl InvocationResult {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq,Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct PendingSignature {
 	pub typ: String,
 	pub data: String,
@@ -87,7 +87,7 @@ impl Hash for PendingSignature {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq,Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Item {
 	pub script: String,
 	pub parameters: Vec<ContractParameter>,
@@ -111,7 +111,7 @@ pub struct Diagnostics {
 	pub storage_changes: Vec<StorageChange>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash,Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct InvokedContract {
 	#[serde(deserialize_with = "deserialize_address")]
 	#[serde(serialize_with = "serialize_address")]

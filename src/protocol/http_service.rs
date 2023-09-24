@@ -10,7 +10,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use reqwest::{Client, Url};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -45,7 +45,7 @@ impl HttpService {
 
 #[async_trait]
 impl NeoService for HttpService {
-	async fn send<'a, T: Deserialize<'a> + Serialize>(
+	async fn send<T: DeserializeOwned + Serialize + Clone>(
 		&self,
 		request: &NeoRequest<T>,
 	) -> Result<NeoResponse<T>, NeoError> {
@@ -56,7 +56,7 @@ impl NeoService for HttpService {
 		for (key, value) in &self.headers {
 			client = client.header(key, value);
 		}
-		client = client.body(request.to_json());
+		client = client.body(request.clone().to_json());
 
 		let response = client.send().await.unwrap();
 

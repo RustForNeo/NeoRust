@@ -1,5 +1,6 @@
 use crate::{
 	constant::NeoConstants,
+	contract::nef_file::HEADER_SIZE,
 	crypto::hash::HashableForVec,
 	neo_error::NeoError,
 	protocol::{
@@ -8,6 +9,7 @@ use crate::{
 		neo_rust::NeoRust,
 	},
 	serialization::{binary_reader::BinaryReader, binary_writer::BinaryWriter},
+	transaction::{signers::signer::Signer, transaction_error::TransactionError, witness::Witness},
 	types::Bytes,
 	NEO_INSTANCE,
 };
@@ -15,10 +17,6 @@ use bincode::Options;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use crate::contract::nef_file::HEADER_SIZE;
-use crate::transaction::signers::signer::Signer;
-use crate::transaction::transaction_error::TransactionError;
-use crate::transaction::witness::Witness;
 
 #[derive(Debug, Clone, Setters, Getters)]
 pub struct SerializableTransaction {
@@ -167,8 +165,8 @@ impl SerializableTransaction {
 		// let mut signers = Vec::new();
 		// for _ in 0..signers_len {
 
-			let signers:Vec<Signer> = reader.read_serializable_list::<Vec<Signer>>().unwrap();
-			// signers.push();
+		let signers: Vec<Signer> = reader.read_serializable_list::<Vec<Signer>>().unwrap();
+		// signers.push();
 		// }
 
 		// Read attributes
@@ -208,7 +206,7 @@ impl SerializableTransaction {
 
 		// Add attributes
 		for attribute in &self.attributes {
-			size +=  bincode::serialize(attribute).unwrap().len();//attribute.serialized_size();
+			size += bincode::serialize(attribute).unwrap().len(); //attribute.serialized_size();
 		}
 
 		// Add script
@@ -216,7 +214,7 @@ impl SerializableTransaction {
 
 		// Add witnesses
 		for witness in &self.witnesses {
-			size += bincode::serialize(witness).unwrap().len();//witness.serialized_size();
+			size += bincode::serialize(witness).unwrap().len(); //witness.serialized_size();
 		}
 
 		size
@@ -233,7 +231,7 @@ impl SerializableTransaction {
 
 		// Write valid until block
 		// if let Some(valid_until_block) = self.valid_until_block {
-			result.extend_from_slice(&self.valid_until_block.to_le_bytes());
+		result.extend_from_slice(&self.valid_until_block.to_le_bytes());
 		// }
 
 		// Write signers
@@ -248,8 +246,8 @@ impl SerializableTransaction {
 
 		// Write script
 		// if let Some(script) = &self.script {
-			result.push(0x00); // push 0
-			result.extend_from_slice(&self.script);
+		result.push(0x00); // push 0
+		result.extend_from_slice(&self.script);
 		// }
 
 		result

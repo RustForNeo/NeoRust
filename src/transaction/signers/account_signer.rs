@@ -1,10 +1,11 @@
 use crate::{
 	protocol::core::witness_rule::witness_rule::WitnessRule,
 	transaction::{
+		signers::signer::{SignerTrait, SignerType},
 		transaction_error::TransactionError,
 		witness_scope::WitnessScope,
 	},
-	types::{H160Externsion, PublicKey},
+	types::{H160Externsion, PublicKey, PublicKeyExtension},
 	utils::*,
 	wallet::account::Account,
 };
@@ -14,8 +15,6 @@ use std::{
 	hash::{Hash, Hasher},
 	ops::Deref,
 };
-use crate::transaction::signers::signer::{SignerTrait, SignerType};
-use crate::types::PublicKeyExtension;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct AccountSigner {

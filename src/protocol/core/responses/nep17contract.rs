@@ -1,7 +1,7 @@
 use crate::utils::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone)]
 pub struct Nep17Contract {
 	#[serde(serialize_with = "serialize_address")]
 	#[serde(deserialize_with = "deserialize_address")]

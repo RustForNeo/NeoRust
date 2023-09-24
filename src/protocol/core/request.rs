@@ -2,13 +2,10 @@
 
 use crate::{
 	neo_error::NeoError,
-	protocol::{
-		core::response::ResponseTrait,
-		neo_service::NeoService,
-	},
+	protocol::{core::response::ResponseTrait, neo_service::NeoService},
 	NEO_INSTANCE,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::{
 	marker::PhantomData,
@@ -24,17 +21,13 @@ pub struct NeoRequest<T> {
 	_marker: PhantomData<T>,
 }
 
-unsafe impl<'a, T> Send for NeoRequest<T> {
+unsafe impl<'a, T> Send for NeoRequest<T> {}
 
-}
+unsafe impl<'a, T> Sync for NeoRequest<T> {}
 
-unsafe impl<'a, T> Sync for NeoRequest<T> {
-
-}
-
-impl<'a, T> NeoRequest<T>
+impl<T> NeoRequest<T>
 where
-	T: Serialize + Deserialize<'a>,
+	T: Serialize + DeserializeOwned + Clone,
 {
 	pub fn new(method: &str, params: Vec<Value>) -> Self {
 		Self {
@@ -51,9 +44,7 @@ where
 	}
 
 	pub async fn request(&self) -> Result<T, NeoError> {
-		let neo_rust_instance_guard ={
-			NEO_INSTANCE.read().unwrap().get_neo_service().clone()
-		};
+		let neo_rust_instance_guard = { NEO_INSTANCE.read().unwrap().get_neo_service().clone() };
 		let response = neo_rust_instance_guard.send(&self).await.unwrap();
 
 		response.get_result()

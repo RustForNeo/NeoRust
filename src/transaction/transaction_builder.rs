@@ -1,11 +1,10 @@
 use crate::{
 	constant::NeoConstants,
 	neo_error::NeoError,
-	protocol::{
-		core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
-	},
+	protocol::core::{neo_trait::NeoTrait, responses::transaction_attribute::TransactionAttribute},
 	transaction::{
 		serializable_transaction::SerializableTransaction,
+		signers::signer::{Signer, SignerType},
 		transaction_error::TransactionError,
 		witness::Witness,
 	},
@@ -25,7 +24,6 @@ use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
-use crate::transaction::signers::signer::{Signer, SignerType};
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {
@@ -298,8 +296,9 @@ impl TransactionBuilder {
 				let acc = &account_signer.account;
 				if acc.is_multi_sig() {
 					return Err(NeoError::IllegalState(
-						"Transactions with multi-sig signers cannot be signed automatically.".to_string(),
-					));
+						"Transactions with multi-sig signers cannot be signed automatically."
+							.to_string(),
+					))
 				}
 
 				let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
@@ -311,7 +310,10 @@ impl TransactionBuilder {
 				witnesses_to_add.push(Witness::create(tx_bytes.clone(), key_pair).unwrap());
 			} else {
 				let contract_signer = signer.as_contract_signer().unwrap();
-				witnesses_to_add.push(Witness::create_contract_witness(contract_signer.verify_params.clone()).unwrap());
+				witnesses_to_add.push(
+					Witness::create_contract_witness(contract_signer.verify_params.clone())
+						.unwrap(),
+				);
 			}
 		}
 

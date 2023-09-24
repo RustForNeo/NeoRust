@@ -36,10 +36,10 @@ use crate::{
 		http_service::HttpService,
 		neo_config::NeoConfig,
 	},
-	transaction::signers::signer::Signer,
+	transaction::signers::{signer::Signer, transaction_signer::TransactionSigner},
 	types::{
 		contract_parameter::ContractParameter, Address, Bytes, ExternBase64, H160Externsion,
-		H256Def, ValueExtension,
+		H256Def, ValueExtension, *,
 	},
 };
 use async_trait::async_trait;
@@ -48,8 +48,6 @@ use primitive_types::{H160, H256};
 use reqwest::Url;
 use serde_json::Value;
 use std::{collections::HashMap, str::FromStr, sync::RwLock};
-use crate::transaction::signers::transaction_signer::TransactionSigner;
-use crate::types::*;
 
 lazy_static! {
 	pub static ref NEO_INSTANCE: RwLock<NeoRust> = RwLock::new(NeoRust::new_http_service());

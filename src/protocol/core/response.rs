@@ -1,29 +1,24 @@
 use crate::neo_error::NeoError;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
 	future::Future,
 	pin::Pin,
 	task::{Context, Poll},
 };
 
-pub trait ResponseTrait<'a, T>
-where
-	T: Serialize + Deserialize<'a>,
-{
+pub trait ResponseTrait<T> {
 	fn get_result(self) -> Result<T, NeoError>;
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NeoResponse<T>
-where
-	T: Serialize,
-{
+pub struct NeoResponse<T> {
 	jsonrpc: String,
 	id: u64,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	result: Option<T>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	error: Option<Error>,
+	// _marker: &'a PhantomData<T>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,9 +28,9 @@ pub struct Error {
 	data: Option<String>,
 }
 
-impl<'a, T> NeoResponse<T>
+impl<T> NeoResponse<T>
 where
-	T: Serialize + Deserialize<'a>,
+	T: Serialize + DeserializeOwned + Clone,
 {
 	pub fn new(result: T) -> Self {
 		Self { jsonrpc: "2.0".to_string(), id: 0, result: Some(result), error: None }
@@ -44,12 +39,11 @@ where
 	pub fn is_error(&self) -> bool {
 		self.error.is_some()
 	}
-
 }
 
-impl<'a, T> ResponseTrait<'a, T> for NeoResponse<T>
+impl<T> ResponseTrait<T> for NeoResponse<T>
 where
-	T: Serialize + Deserialize<'a>,
+	T: Serialize + for<'a> Deserialize<'a>,
 {
 	fn get_result(self) -> Result<T, NeoError> {
 		match self.error {

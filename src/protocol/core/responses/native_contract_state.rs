@@ -3,7 +3,7 @@ use crate::protocol::core::responses::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NativeContractState {
 	pub id: i32,
 	pub nef: ContractNef,

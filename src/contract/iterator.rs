@@ -1,6 +1,5 @@
 // iterator
 
-use std::fmt;
 use crate::{
 	neo_error::NeoError,
 	protocol::{
@@ -9,13 +8,14 @@ use crate::{
 	},
 	NEO_INSTANCE,
 };
+use std::{fmt, sync::Arc};
 
 use crate::protocol::http_service::HttpService;
 
 pub struct NeoIterator<T> {
 	session_id: String,
 	iterator_id: String,
-	mapper: Box<dyn Fn(StackItem) -> T + Send>,
+	mapper: Arc<dyn Fn(StackItem) -> T + Send + Sync>,
 }
 
 impl<T> fmt::Debug for NeoIterator<T> {
@@ -30,7 +30,11 @@ impl<T> fmt::Debug for NeoIterator<T> {
 }
 
 impl<T> NeoIterator<T> {
-	pub fn new(session_id: String, iterator_id: String, mapper: Box<dyn Fn(StackItem) -> T + Send>) -> Self  {
+	pub fn new(
+		session_id: String,
+		iterator_id: String,
+		mapper: Arc<dyn Fn(StackItem) -> T + Send + Sync>,
+	) -> Self {
 		Self { session_id, iterator_id, mapper }
 	}
 

@@ -1,10 +1,12 @@
-use aes::Aes128;
-use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit};
-use aes::cipher::generic_array::GenericArray;
+use crate::{
+	crypto::{hash::HashableForVec, key_pair::KeyPair},
+	types::{PrivateKey, PrivateKeyExtension, PublicKeyExtension},
+};
+use aes::{
+	cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit},
+	Aes128,
+};
 use crypto::scrypt::{scrypt, ScryptParams};
-use crate::crypto::hash::HashableForVec;
-use crate::crypto::key_pair::KeyPair;
-use crate::types::{PrivateKey, PrivateKeyExtension, PublicKeyExtension};
 
 const DKLEN: usize = 64;
 const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
@@ -15,17 +17,18 @@ const NEP2_FLAGBYTE: u8 = 0xE0;
 pub struct NEP2;
 
 impl NEP2 {
-
 	pub fn decrypt(password: &str, nep2_string: &str) -> Result<KeyPair, &'static str> {
-
 		let nep2_data = bs58::decode(nep2_string).into_vec().unwrap();
 
 		if nep2_data.len() != NEP2_PRIVATE_KEY_LENGTH {
-			return Err("Invalid NEP2 length");
+			return Err("Invalid NEP2 length")
 		}
 
-		if nep2_data[0] != NEP2_PREFIX_1 || nep2_data[1] != NEP2_PREFIX_2 || nep2_data[2] != NEP2_FLAGBYTE {
-			return Err("Invalid NEP2 prefix");
+		if nep2_data[0] != NEP2_PREFIX_1
+			|| nep2_data[1] != NEP2_PREFIX_2
+			|| nep2_data[2] != NEP2_FLAGBYTE
+		{
+			return Err("Invalid NEP2 prefix")
 		}
 
 		let address_hash = &nep2_data[3..7];
@@ -43,14 +46,13 @@ impl NEP2 {
 		let new_address_hash = address_hash_from_pubkey(&key_pair.public_key().to_vec());
 
 		if new_address_hash != address_hash {
-			return Err("Invalid passphrase");
+			return Err("Invalid passphrase")
 		}
 
 		Ok(key_pair)
 	}
 
 	pub fn encrypt(password: &str, key_pair: &KeyPair) -> Result<String, &'static str> {
-
 		let address_hash = address_hash_from_pubkey(&key_pair.public_key().to_vec());
 
 		let private_key = key_pair.private_key().to_vec();
@@ -61,7 +63,8 @@ impl NEP2 {
 		let derived_half2 = &derived_key[32..];
 
 		let encrypted_half1 = encrypt_aes(&xor(&private_key[..16], derived_half1), derived_half2)?;
-		let encrypted_half2 = encrypt_aes(&xor(&private_key[16..32], derived_half1), derived_half2)?;
+		let encrypted_half2 =
+			encrypt_aes(&xor(&private_key[16..32], derived_half1), derived_half2)?;
 
 		let mut result = vec![NEP2_PREFIX_1, NEP2_PREFIX_2, NEP2_FLAGBYTE];
 		result.extend_from_slice(&address_hash);
@@ -70,7 +73,6 @@ impl NEP2 {
 
 		Ok(bs58::encode(result).into_string())
 	}
-
 }
 
 fn generate_derived_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &'static str> {
@@ -84,7 +86,7 @@ fn generate_derived_scrypt_key(password: &str, salt: &[u8]) -> Result<Vec<u8>, &
 
 fn decrypt_aes(data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
 	let cipher = Aes128::new(key.into());
-	let mut block_data = [0u8; 16];//data.iter().try_into().expect("slice with incorrect length");
+	let mut block_data = [0u8; 16]; //data.iter().try_into().expect("slice with incorrect length");
 	block_data.copy_from_slice(data);
 	let mut block = GenericArray::from(block_data);
 	cipher.decrypt_block(&mut block);
@@ -93,7 +95,7 @@ fn decrypt_aes(data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
 
 fn encrypt_aes(data: &[u8], key: &[u8]) -> Result<Vec<u8>, &'static str> {
 	let cipher = Aes128::new(key.into());
-	let mut block_data = [0u8; 16];//data.iter().try_into().expect("slice with incorrect length");
+	let mut block_data = [0u8; 16]; //data.iter().try_into().expect("slice with incorrect length");
 	block_data.copy_from_slice(data);
 	let mut block = GenericArray::from(block_data);
 	cipher.encrypt_block(&mut block);

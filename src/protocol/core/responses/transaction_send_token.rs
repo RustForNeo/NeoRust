@@ -3,7 +3,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct TransactionSendToken {
 	#[serde(rename = "asset")]
 	#[serde(deserialize_with = "deserialize_address")]

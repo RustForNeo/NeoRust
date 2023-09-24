@@ -5,14 +5,17 @@ use crate::{
 		witness_condition::WitnessCondition, witness_rule::WitnessRule,
 	},
 	transaction::{
-		signers::account_signer::AccountSigner, signers::contract_signer::ContractSigner, witness_scope::WitnessScope,
+		signers::{
+			account_signer::AccountSigner, contract_signer::ContractSigner,
+			transaction_signer::TransactionSigner,
+		},
+		witness_scope::WitnessScope,
 	},
 	types::PublicKey,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use crate::transaction::signers::transaction_signer::TransactionSigner;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignerType {
@@ -74,10 +77,10 @@ pub trait SignerTrait {
 
 		// Update state
 		if !self.get_scopes().contains(&WitnessScope::CustomContracts) {
-			self.get_scopes().push(WitnessScope::CustomContracts);
+			self.get_scopes_mut().push(WitnessScope::CustomContracts);
 		}
 
-		self.get_allowed_contracts().extend(contracts);
+		self.get_allowed_contracts_mut().extend(contracts);
 
 		Ok(())
 	}
@@ -97,10 +100,10 @@ pub trait SignerTrait {
 		}
 
 		if !self.get_scopes().contains(&WitnessScope::CustomGroups) {
-			self.get_scopes().push(WitnessScope::CustomGroups);
+			self.get_scopes_mut().push(WitnessScope::CustomGroups);
 		}
 
-		self.get_allowed_groups().extend(groups);
+		self.get_allowed_groups_mut().extend(groups);
 
 		Ok(())
 	}
@@ -123,10 +126,10 @@ pub trait SignerTrait {
 		}
 
 		if !self.get_scopes().contains(&WitnessScope::WitnessRules) {
-			self.get_scopes().push(WitnessScope::WitnessRules);
+			self.get_scopes_mut().push(WitnessScope::WitnessRules);
 		}
 
-		self.get_rules().extend(rules);
+		self.get_rules_mut().extend(rules);
 
 		Ok(())
 	}
@@ -184,7 +187,6 @@ impl Signer {
 		match self {
 			Signer::Account(account_signer) => Some(account_signer),
 			_ => None,
-
 		}
 	}
 
@@ -229,8 +231,7 @@ impl Into<AccountSigner> for Signer {
 	fn into(self) -> AccountSigner {
 		match self {
 			Signer::Account(account_signer) => account_signer,
-			_ =>
-				panic!("Cannot convert ContractSigner into AccountSigner"),
+			_ => panic!("Cannot convert ContractSigner into AccountSigner"),
 		}
 	}
 }
@@ -238,7 +239,8 @@ impl Into<AccountSigner> for Signer {
 impl Into<TransactionSigner> for Signer {
 	fn into(self) -> TransactionSigner {
 		match self {
-			Signer::Account(account_signer) => panic!("Cannot convert AccountSigner into TransactionSigner"),
+			Signer::Account(account_signer) =>
+				panic!("Cannot convert AccountSigner into TransactionSigner"),
 			Signer::Contract(contract_signer) =>
 				panic!("Cannot convert ContractSigner into AccountSigner"),
 			Signer::Transaction(transaction_signer) => transaction_signer,
@@ -246,10 +248,11 @@ impl Into<TransactionSigner> for Signer {
 	}
 }
 
-impl Into<TransactionSigner> for &Signer{
+impl Into<TransactionSigner> for &Signer {
 	fn into(self) -> TransactionSigner {
 		match self {
-			Signer::Account(account_signer) => panic!("Cannot convert AccountSigner into TransactionSigner"),
+			Signer::Account(account_signer) =>
+				panic!("Cannot convert AccountSigner into TransactionSigner"),
 			Signer::Contract(contract_signer) =>
 				panic!("Cannot convert ContractSigner into AccountSigner"),
 			Signer::Transaction(transaction_signer) => transaction_signer.clone(),
@@ -257,10 +260,11 @@ impl Into<TransactionSigner> for &Signer{
 	}
 }
 
-impl Into<TransactionSigner> for &mut Signer{
+impl Into<TransactionSigner> for &mut Signer {
 	fn into(self) -> TransactionSigner {
 		match self {
-			Signer::Account(account_signer) => panic!("Cannot convert AccountSigner into TransactionSigner"),
+			Signer::Account(account_signer) =>
+				panic!("Cannot convert AccountSigner into TransactionSigner"),
 			Signer::Contract(contract_signer) =>
 				panic!("Cannot convert ContractSigner into AccountSigner"),
 			Signer::Transaction(transaction_signer) => transaction_signer.clone(),

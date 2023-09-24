@@ -17,14 +17,15 @@ use crate::{
 };
 use primitive_types::H160;
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
-use std::{error::Error, str::FromStr};
 use rust_decimal::Decimal;
-use std::borrow::Borrow;
-use std::borrow::BorrowMut;
+use serde::{Deserialize, Serialize};
+use std::{
+	borrow::{Borrow, BorrowMut},
+	error::Error,
+	str::FromStr,
+};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Getters,Setters)]
+#[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(deserialize_with = "deserialize_url_option")]
