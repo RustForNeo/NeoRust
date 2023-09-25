@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum ContractError {
 	#[error("Invalid NNS name {0}")]
 	InvalidNeoName(String),

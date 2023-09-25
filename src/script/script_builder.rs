@@ -9,7 +9,10 @@ use crate::{
 		script_hash::ScriptHashExtension,
 		Bytes, PublicKey,
 	},
+	utils::numeric::ToBytesPadded,
 };
+use num_bigint::{BigInt, Sign};
+use num_traits::{ToBytes, ToPrimitive};
 use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;
 use std::collections::HashMap;
@@ -52,7 +55,7 @@ impl ScriptBuilder {
 		}
 
 		Ok(self
-			.push_integer(call_flags.value() as i64)
+			.push_integer(BigInt::from(call_flags.value()))
 			.unwrap()
 			.push_data(method.as_bytes().to_vec())
 			.unwrap()
@@ -72,7 +75,7 @@ impl ScriptBuilder {
 			self.push_param(param).unwrap();
 		}
 
-		self.push_integer(params.len() as i64).unwrap().op_code(&[OpCode::Pack])
+		self.push_integer(BigInt::from(params.len())).unwrap().op_code(&[OpCode::Pack])
 	}
 
 	pub fn push_param(&mut self, param: &ContractParameter) -> Result<&mut Self, NeoError> {
@@ -81,7 +84,7 @@ impl ScriptBuilder {
 		}
 		match &param.value.clone().unwrap() {
 			ParameterValue::Boolean(b) => self.push_bool(*b),
-			ParameterValue::Integer(i) => self.push_integer(i.clone()).unwrap(),
+			ParameterValue::Integer(i) => self.push_integer(BigInt::from(i.clone())).unwrap(),
 			ParameterValue::ByteArray(b)
 			| ParameterValue::Signature(b)
 			| ParameterValue::PublicKey(b) => self.push_data(b.as_bytes().to_vec()).unwrap(),
@@ -114,65 +117,65 @@ impl ScriptBuilder {
 	}
 
 	// Additional push_* methods
-
-	pub fn push_integer(&mut self, n: i64) -> Result<&mut Self, NeoError> {
-		if n == -1 {
-			self.op_code(&[OpCode::PushM1]);
-		} else if 0 <= n && n <= 16 {
-			self.op_code(&[OpCode::try_from(OpCode::Push0 as u8 + n as u8).unwrap()]);
+	pub fn push_integer(&mut self, value: BigInt) -> Result<&mut Self, NeoError> {
+		if value >= BigInt::from(-1) && value <= BigInt::from(16) {
+			self.op_code(vec![OpCode::try_from(value.to_i32().unwrap() as u8 + OpCode::Push0 as u8).unwrap()].as_slice());
 		} else {
-			let mut bytes = n.to_be_bytes();
-			match self.len() {
-				1 => self.op_code_with_arg(OpCode::PushInt8, bytes.to_vec().unwrap()),
-				2 => self.op_code_with_arg(OpCode::PushInt16, bytes.to_vec().unwrap()),
-				4 => self.op_code_with_arg(OpCode::PushInt32, bytes.to_vec().unwrap()),
-				8 => self.op_code_with_arg(OpCode::PushInt64, bytes.to_vec().unwrap()),
-				16 => self.op_code_with_arg(OpCode::PushInt128, bytes.to_vec().unwrap()),
-				32 => self.op_code_with_arg(OpCode::PushInt256, bytes.to_vec().unwrap()),
-				_ => return Err(NeoError::NumericOverflow),
+			let bytes = value.to_signed_bytes_le();
+
+			let padded = match bytes.as_slice().len() {
+				1 => Self::pad_right(&bytes, 1, value.sign() == Sign::Minus),
+				2 => Self::pad_right(&bytes, 2, value.sign() == Sign::Minus),
+				len if len <= 4 => Self::pad_right(&bytes, 4, value.sign() == Sign::Minus),
+				len if len <= 8 => Self::pad_right(&bytes, 8, value.sign() == Sign::Minus),
+				len if len <= 16 => Self::pad_right(&bytes, 16, value.sign() == Sign::Minus),
+				_ => Self::pad_right(&bytes, 32, value.sign() == Sign::Minus),
 			};
+
+			let opcode = match bytes.len() {
+				1 => OpCode::PushInt8,
+				2 => OpCode::PushInt16,
+				len if len <= 4 => OpCode::PushInt32,
+				len if len <= 8 => OpCode::PushInt64,
+				len if len <= 16 => OpCode::PushInt128,
+				_ => OpCode::PushInt256,
+			};
+
+			self.op_code_with_arg(opcode, padded);
 		}
+
 		Ok(self)
 	}
 
-	fn pad_number(&self, n: i128, size: usize) -> Bytes {
-		let mut bytes = n.to_vec().unwrap(); // .to_signed_bytes();
-		if self.len() == size {
-			return bytes
-		}
-		let pad_byte = if n.is_negative() { 0xff } else { 0 };
-		if n.is_negative() {
-			let mut padding =
-				Bytes::from_iter(std::iter::repeat(pad_byte).take(size - &self.len()));
-			padding.append(&mut bytes);
-			padding
-		} else {
-			let mut result = bytes;
-			result.resize(size, pad_byte);
-			result
-		}
+	fn pad_right(bytes: &[u8], size: usize, negative: bool) -> Vec<u8> {
+		let pad_value = if negative { 0xFF } else { 0 };
+
+		let mut padded = vec![0; size];
+		padded[0..bytes.len()].copy_from_slice(bytes);
+		padded[bytes.len()..].fill(pad_value);
+		padded
 	}
 
 	// Push data handling
 
 	pub fn push_data(&mut self, data: Vec<u8>) -> Result<&mut Self, NeoError> {
 		match data.len() {
-			0..=75 => {
+			0..=0xff => {
 				self.op_code(&[OpCode::PushData1]);
 				self.script.write_u8(data.len() as u8);
 				let _ = self.script.write_bytes(&data);
 			},
-			76..=0xff => {
+			0x100..=0xffff => {
 				self.op_code(&[OpCode::PushData2]);
 				self.script.write_u16(data.len() as u16);
 				let _ = self.script.write_bytes(&data);
 			},
-			0x100..=0xffff => {
+			_ => {
 				self.op_code(&[OpCode::PushData4]);
 				self.script.write_u32(data.len() as u32);
 				let _ = self.script.write_bytes(&data);
 			},
-			_ => return Err(NeoError::IllegalArgument("Data too long".to_string())),
+			// _ => return Err(NeoError::IllegalArgument("Data too long".to_string())),
 		}
 		Ok(self)
 	}
@@ -188,15 +191,8 @@ impl ScriptBuilder {
 
 	pub fn push_array(&mut self, arr: &[ContractParameter]) -> Result<&mut Self, NeoError> {
 		if arr.is_empty() {
-			self.op_code(&[OpCode::NewArray]);
+			self.op_code(&[OpCode::NewArray0]);
 		} else {
-			// let arrr = arr
-			// 	.iter()
-			// 	.map(|v| {
-			// 		let vv: ContractParameter = v.clone().into();
-			// 		vv
-			// 	})
-			// 	.collect();
 			self.push_params(arr);
 		};
 		Ok(self)
@@ -213,7 +209,7 @@ impl ScriptBuilder {
 			self.push_param(&kk).unwrap();
 		}
 
-		Ok(self.push_integer(map.len() as i64).unwrap().op_code(&[OpCode::PackMap]))
+		Ok(self.push_integer(BigInt::from(map.len())).unwrap().op_code(&[OpCode::PackMap]))
 	}
 
 	// Additional helper methods
@@ -228,7 +224,7 @@ impl ScriptBuilder {
 
 	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {
 		let mut sb = ScriptBuilder::new();
-		sb.push_data(pub_key.to_encoded_point(false).as_bytes().to_vec())
+		sb.push_data(pub_key.to_encoded_point(true).as_bytes().to_vec())
 			.unwrap()
 			.sys_call(InteropService::SystemCryptoCheckSig);
 		sb.to_bytes()
@@ -239,12 +235,12 @@ impl ScriptBuilder {
 		threshold: u8,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = ScriptBuilder::new();
-		sb.push_integer(threshold as i64).unwrap();
+		sb.push_integer(BigInt::from(threshold)).unwrap();
 		pubkeys.sort_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)));
 		for pk in pubkeys.iter() {
 			sb.push_data(pk.to_encoded_point(true).as_bytes().to_vec()).unwrap();
 		}
-		sb.push_integer(pubkeys.len() as i64).unwrap();
+		sb.push_integer(BigInt::from(pubkeys.len())).unwrap();
 		sb.sys_call(InteropService::SystemCryptoCheckMultisig);
 		Ok(sb.to_bytes())
 	}
@@ -258,7 +254,7 @@ impl ScriptBuilder {
 		sb.op_code(&[OpCode::Abort])
 			.push_data(sender.to_vec())
 			.unwrap()
-			.push_integer(nef_checksum as i64)
+			.push_integer(BigInt::from(nef_checksum))
 			.unwrap()
 			.push_data(name.as_bytes().to_vec())
 			.unwrap();
@@ -272,7 +268,7 @@ impl ScriptBuilder {
 		call_flags: CallFlags,
 	) -> Result<Bytes, NeoError> {
 		let mut sb = Self::new();
-		sb.push_integer(max_items as i64).unwrap();
+		sb.push_integer(BigInt::from(max_items)).unwrap();
 
 		sb.contract_call(contract_hash, method, params, call_flags).unwrap();
 
@@ -317,7 +313,117 @@ impl ScriptBuilder {
 	}
 
 	pub fn len(&self) -> usize {
-		self.len()
+		self.script().size()
 	}
 	// Other static helper methods
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use hex_literal::hex;
+	use num_traits::FromPrimitive;
+	use std::vec;
+
+	#[test]
+	fn test_push_empty_array() {
+		let mut builder = ScriptBuilder::new();
+		builder.push_array(&[]).unwrap();
+		assert_eq!(builder.to_bytes(), vec![OpCode::NewArray0 as u8]);
+	}
+
+	#[test]
+	fn test_push_byte_array() {
+		let mut builder = ScriptBuilder::new();
+
+		builder.push_data(vec![0xAAu8; 1]).unwrap();
+		assert_eq!(builder.to_bytes()[..2], hex!("0c01"));
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_data(vec![0xAAu8; 75]).unwrap();
+		assert_eq!(builder.to_bytes()[..2], hex!("0c4b"));
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_data(vec![0xAAu8; 256]).unwrap();
+		assert_eq!(builder.to_bytes()[..3], hex!("0d0001"));
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_data(vec![0xAAu8; 65536]).unwrap();
+		assert_eq!(builder.to_bytes()[..5], hex!("0e00000100"));
+	}
+
+	#[test]
+	fn test_push_string() {
+		let mut builder = ScriptBuilder::new();
+
+		builder.push_data("".as_bytes().to_vec()).unwrap();
+		assert_eq!(builder.to_bytes()[..2], hex!("0c00"));
+
+		builder.push_data("a".as_bytes().to_vec()).unwrap();
+		assert_eq!(builder.to_bytes()[..3], hex!("0c0161"));
+
+		builder.push_data("a".repeat(10000).as_bytes().to_vec()).unwrap();
+		assert_eq!(builder.to_bytes()[..3], hex!("0d1027"));
+	}
+
+	#[test]
+	fn test_push_integer() {
+		let mut builder = ScriptBuilder::new();
+		builder.push_integer(BigInt::from(0)).unwrap();
+		assert_eq!(builder.to_bytes()[..1], vec![OpCode::Push0 as u8]);
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_integer(BigInt::from(1)).unwrap();
+		assert_eq!(builder.to_bytes()[..1], vec![OpCode::Push1 as u8]);
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_integer(BigInt::from(16)).unwrap();
+		assert_eq!(builder.to_bytes()[..1], vec![OpCode::Push16 as u8]);
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_integer(BigInt::from(17)).unwrap();
+		assert_eq!(builder.to_bytes()[..2], hex!("0011"));
+
+		let mut builder = ScriptBuilder::new();
+		builder.push_integer(BigInt::from(-100000)).unwrap();
+		assert_eq!(builder.to_bytes(), hex!("026079FEFF"));
+
+		// let mut builder = ScriptBuilder::new();
+		// builder.push_integer(-100000000000).unwrap();
+		// assert_eq!(builder.to_bytes()[builder.len()-8..], hex!("FFE8B78918000000"));
+		//
+		// let mut builder = ScriptBuilder::new();
+		// builder.push_integer(BigInt::from_i64(100000000000).unwrap()).unwrap();
+		// assert_eq!(builder.to_bytes()[builder.len()-8..], hex!("001748768E00000000"));
+	}
+
+	#[test]
+	fn test_verification_script() {
+		// let pubkey1 = hex!("035fdb1d1f06759547020891ae97c729327853aeb1256b6fe0473bc2e9fa42ff50");
+		// let pubkey2 = hex!("03eda286d19f7ee0b472afd1163d803d620a961e1581a8f2704b52c0285f6e022d");
+		// let pubkey3 = hex!("03ac81ec17f2f15fd6d193182f927c5971559c2a32b9408a06fec9e711fb7ca02e");
+		//
+		// let script = ScriptBuilder::build_multisig_script(&[pubkey1, pubkey2, pubkey3], 2).unwrap();
+		//
+		// let expected = hex!("5221035fdb1d1f06759547020891ae97c729327853aeb1256b6fe0473bc2e9fa42ff50210"
+		//     "03ac81ec17f2f15fd6d193182f927c5971559c2a32b9408a06fec9e711fb7ca02e210"
+		//     "03eda286d19f7ee0b472afd1163d803d620a961e1581a8f2704b52c0285f6e022d53ae");
+
+		// assert_eq!(script, expected);
+	}
+
+	#[test]
+	fn test_map() {
+		// test map packing in different orders
+		// let mut builder = ScriptBuilder::new();
+		// builder.push_map(BTreeMap::from([
+		// 	(0u8.into(), "first".into()),
+		// 	(b"second".to_vec().into(), true.into())
+		// ])).unwrap();
+		//
+		// let expected1 = hex!("66697273740001737365636f6e6401c2780200");
+		// let expected2 = hex!("01c2780200737365636f6e64666972737400010200");
+		//
+		// assert!(builder.build() == expected1 || builder.build() == expected2);
+	}
 }

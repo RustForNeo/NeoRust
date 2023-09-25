@@ -5,6 +5,7 @@ use crate::{
 	types::{Bytes, *},
 };
 use getset::{Getters, Setters};
+use num_bigint::BigInt;
 use p256::{ecdsa::Signature, pkcs8::der::Encode};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
@@ -42,13 +43,13 @@ impl VerificationScript {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
 		builder
-			.push_integer(threshold as i64)
+			.push_integer(BigInt::from(threshold))
 			.expect("Threshold must be between 1 and 16");
 		for key in public_keys {
 			builder.push_data(key.to_vec()).unwrap();
 		}
 		builder
-			.push_integer(public_keys.len() as i64)
+			.push_integer(BigInt::from(public_keys.len()))
 			.unwrap()
 			.op_code(vec![OpCode::Syscall].as_slice())
 			.push_data(InteropService::SystemCryptoCheckMultisig.hash().into_bytes())

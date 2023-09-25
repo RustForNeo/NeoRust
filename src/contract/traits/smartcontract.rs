@@ -20,6 +20,7 @@ use crate::{
 	NEO_INSTANCE,
 };
 use async_trait::async_trait;
+use num_bigint::BigInt;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use std::sync::Arc;
@@ -225,7 +226,7 @@ pub trait SmartContractTrait: Send + Sync {
 		let mut script = ScriptBuilder::new();
 		script.op_code(&[OpCode::Abort]);
 		script.push_data(sender.to_vec()).unwrap();
-		script.push_integer(nef_checksum as i64).unwrap();
+		script.push_integer(BigInt::from(nef_checksum)).unwrap();
 		script.push_data(contract_name.as_bytes().to_vec()).unwrap();
 
 		Ok(H160::from_slice(&script.to_bytes()))

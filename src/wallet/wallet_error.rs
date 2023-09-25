@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum WalletError {
 	#[error("Account state error: {0}")]
 	AccountState(String),

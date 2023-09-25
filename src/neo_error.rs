@@ -4,7 +4,7 @@ use crate::{
 };
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum NeoError {
 	#[error("Illegal argument: {0}")]
 	IllegalArgument(String),

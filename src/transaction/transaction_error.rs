@@ -1,7 +1,7 @@
 use std::error;
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TransactionError {
 	#[error("Script format error: {0}")]
 	ScriptFormat(String),

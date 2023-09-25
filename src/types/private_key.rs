@@ -1,6 +1,7 @@
 use crate::{
 	crypto::wif::{str_to_wif, Wif},
 	neo_error::{NeoError, NeoError::InvalidPublicKey},
+	script::script_builder::ScriptBuilder,
 	types::{public_key::PublicKeyExtension, PrivateKey, PublicKey, ScriptHash},
 };
 use hex::FromHexError;
@@ -36,7 +37,7 @@ impl PrivateKeyExtension for PrivateKey {
 	}
 
 	fn to_script_hash(&self) -> ScriptHash {
-		todo!()
+		panic!("Not implemented")
 	}
 
 	fn to_vec(&self) -> Vec<u8> {

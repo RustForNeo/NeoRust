@@ -33,11 +33,11 @@ impl BinaryWriter {
 	}
 
 	pub fn write_u16(&mut self, v: u16) {
-		self.data.extend_from_slice(&v.to_be_bytes());
+		self.data.extend_from_slice(&v.to_le_bytes());
 	}
 
 	pub fn write_u32(&mut self, v: u32) {
-		self.data.extend_from_slice(&v.to_be_bytes());
+		self.data.extend_from_slice(&v.to_le_bytes());
 	}
 
 	pub fn write_bytes(&mut self, bytes: &[u8]) {

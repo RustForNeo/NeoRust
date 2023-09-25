@@ -40,16 +40,24 @@ impl PublicKeyExtension for PublicKey {
 	}
 
 	fn from_slice(slice: &[u8]) -> Result<Self, NeoError> {
-		if slice.len() != 64 {
+		if slice.len() != 64 && slice.len() != 33 {
 			return Err(InvalidPublicKey)
 		}
 
-		let mut arr = [0u8; 64];
-		arr.copy_from_slice(slice);
-
-		Ok(Self::from_encoded_point(&EncodedPoint::<NistP256>::from_bytes(slice).unwrap())
-			.map_err(|_| InvalidPublicKey)
-			.unwrap())
+		return if slice.len() == 64 {
+			let mut arr = [0u8; 64];
+			arr.copy_from_slice(slice);
+			Ok(Self::from_encoded_point(&EncodedPoint::<NistP256>::from_bytes(&arr).unwrap())
+				.map_err(|_| InvalidPublicKey)
+				.unwrap())
+		} else {
+			// slice.len() == 33
+			let mut arr = [0u8; 33];
+			arr.copy_from_slice(slice);
+			Ok(Self::from_encoded_point(&EncodedPoint::<NistP256>::from_bytes(&arr).unwrap())
+				.map_err(|_| InvalidPublicKey)
+				.unwrap())
+		}
 	}
 
 	fn from_hex(hex: &str) -> Result<Self, FromHexError> {
