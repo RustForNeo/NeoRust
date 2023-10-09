@@ -1,17 +1,145 @@
-[package]
-name = "NeoRust"
-version = "0.1.0"
+[workspace.package]
+version = "0.0.1"
+authors = ["Jinghui Liao <jimmy@r3e.network>"]
 edition = "2021"
+rust-version = "1.74"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/neo"
+repository = "https://github.com/RustForNeo/NeoRust"
+homepage = "https://github.com/RustForNeo/NeoRust"
+categories = ["cryptography::cryptocurrencies"]
+keywords = ["crypto", "neo", "neo-N3", "web3"]
+exclude = [
+    ".github/",
+    "bin/",
+    "book/",
+    "**/tests/",
+    "**/test-data/",
+    "**/testdata/",
+    "examples",
+    "scripts/",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# https://docs.rs/about/metadata
+[workspace.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
-[dependencies]
-# For serialization/deserialization
-serde = { version = "1.0", features = ["derive"] }
+# https://github.com/integer32llc/rust-playground/blob/c6165a36923db5d99313e6056b5b610a2ede5bb0/top-crates/src/lib.rs#L175-L184
+[workspace.metadata.playground]
+all-features = true
+
+[workspace]
+members = [
+    "neo",
+    "neo-addressbook",
+    "neo-builder",
+    "neo-crypto",
+    "neo-config",
+    "neo-codec",
+    "neo-contract",
+    "neo-types",
+    "neo-middleware",
+    "neo-providers",
+    "neo-signers",
+    # Example crates
+#    "examples/*",
+]
+
+# Do not include example crates in default members
+default-members = [
+    "neo",
+    "neo-addressbook",
+    "neo-builder",
+    "neo-crypto",
+    "neo-config",
+    "neo-codec",
+    "neo-contract",
+    "neo-types",
+    "neo-middleware",
+    "neo-providers",
+    "neo-signers",
+]
+
+# Explicitly set the resolver to version 2, which is the default for packages with edition >= 2021
+# https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"
+
+[workspace.dependencies]
+# workspace crates
+#neo = { version = "0.0.1", path = "neo", default-features = false }
+neo-addressbook = { version = "0.0.1", path = "neo-addressbook", default-features = false }
+neo-contract = { version = "0.0.1", path = "neo-contract", default-features = false }
+neo-builder = { version = "0.0.1", path = "neo-builder", default-features = false }
+neo-types = { version = "0.0.1", path = "neo-types", default-features = false }
+neo-crypto = { version = "0.0.1", path = "neo-crypto", default-features = false }
+neo-middleware = { version = "0.0.1", path = "neo-middleware", default-features = false }
+neo-providers = { version = "0.0.1", path = "neo-providers", default-features = false }
+neo-signers = { version = "0.0.1", path = "neo-signers", default-features = false }
+neo-codec= { version = "0.0.1", path = "neo-codec", default-features = false }
+neo-config= { version = "0.0.1", path = "neo-config", default-features = false }
+
+# async / async utils
+tokio = "1.32"
+tokio-tungstenite = { version = "0.20", default-features = false }
+futures = { version = "0.3.28", default-features = false, features = ["std"] }
+futures-core = "0.3.28"
+futures-util = "0.3.28"
+futures-executor = "0.3.28"
+futures-channel = "0.3.28"
+futures-locks = { version = "0.7.1", default-features = false }
+futures-timer = { version = "3.0.2", default-features = false, features = ["wasm-bindgen"] }
+pin-project = "1.1"
+reqwest = { version = "0.11.19", default-features = false }
+url = { version = "2.4", default-features = false }
+
+# crypto
+elliptic-curve = { version = "0.13.5", default-features = false }
+generic-array = { version = "0.14.7", default-features = false }
+k256 = { version = "0.13.1", default-features = false, features = ["ecdsa", "std"] }
+sha2 = { version = "0.10.7", default-features = false }
+tiny-keccak = { version = "2.0.2", default-features = false }
+spki = { version = "0.7.2", default-features = false }
+
+# serde
+serde = "1.0"
 serde_json = "1.0"
+
+# macros
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["extra-traits"] }
+async-trait = "0.1.73"
+auto_impl = "1.1"
+
+# misc
+bytes = "1.4"
+criterion = "0.5"
+dunce = "1.0"
+eyre = "0.6"
+hex = { package = "const-hex", version = "1.6", features = ["hex"] }
+hex-literal = "0.4"
+home = "0.5.5"
+Inflector = "0.11"
+once_cell = "1.18"
+rand = "0.8"
+rayon = "1.7"
+regex = "1.9"
+semver = "1.0"
+tempfile = "3.8"
+thiserror = "1.0"
+toml = "0.8"
+walkdir = "2.3"
+
+# tracing
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", default-features = false }
+tracing-futures = "0.2.5"
+
+# wasm
+instant = "0.1.12"
 serde_with = "3.3.0"
 serde_derive = "1.0.188"
-tokio = { version = "1.0", features = ["full"] }
 # For base64 encoding
 base64 = "0.21.4"
 bs58 = "0.4.0"
@@ -19,91 +147,37 @@ aes = "0.8.3"
 block-modes = "0.9.1"
 # For hash function
 sha3 = "0.10.8"
-async-trait = { version = "0.1.73", features = [] }
-# For hex encoding/decoding
-hex = { version = "0.4", features = [] }
-thiserror = { version = "1.0.28", features = [] }
 # For JSON manipulation
 json = "0.12"
-hex-literal = "0.4.1"
-# Neo Rust SDK
-#neo = "0.9"
 rust_decimal = "1.0"
-# JSON serialization
+# JSON encode
 
-# Cryptography
-sha2 = "0.10"
 ripemd = "0.1.3"
 
 # Data structures
 bitvec = "1.0"
-
-# HTTP Client
-reqwest = { version = "0.11", features = ["blocking", "json"] }
-
-# Utilities
-#bitcoin = { version = "0.30.1", features = ["serde"] }
-
-#elliptic-curve = "0.13.5"
-p256 = "0.11.1"
-
+p256 = "0.13.2"
 # Big integer math
 num-bigint = "0.4"
-
-futures = "0.3.28"
-
 # Byte array utils
 byte-slice-cast = "1.2"
-
-primitive-types = "0.11.1"
-
+primitive-types = "0.12.1"
 # Serialization
 bincode = "1.3"
-
-rand= "0.8.5"
-
 rust-crypto = "0.2"
-
 lazy_static = "1.4.0"
 num-traits = "0.2.16"
 chrono = "0.4.31"
-
 strum = "0.25.0"
 strum_macros = "0.25.2"
 num_enum = { version = "0.7.0", features = [] }
 derive_more = "0.99.17"
-rayon = "1.7.0"
 indexmap = "2.0.0"
 getset = "0.1.2"
 educe = "0.4.23"
 byteorder = "1.4.3"
 serde-big-array       = "0.5.1"
 blake2                = { version = "0.10.6", default-features=false }
-tiny-keccak           = { version = "2.0", features = ["keccak"] }
+ethereum-types = "0.14.1"
 rustc-serialize = "0.3.24"
 serde_bytes = "0.11.12"
-# Utilities
-#scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
-#codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
-#log = { version = "0.4.17", default-features = false }
-#sp-core = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-inherents = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-offchain = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-session = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-std = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-io = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-transaction-pool = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-#sp-version = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
-
-[features]
-default = [ "std" ]
-std = [
-#    "codec/std",
-#    "log/std",
-#    "scale-info/std",
-#    "sp-core/std",
-#    "sp-io/std",
-#    "sp-runtime/std",
-#    "sp-std/std",
-]
