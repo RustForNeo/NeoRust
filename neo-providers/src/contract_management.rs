@@ -1,4 +1,4 @@
-use crate::{traits::smartcontract::SmartContractTrait, transaction_builder::TransactionBuilder};
+use crate::{traits::smartcontract::SmartContractTrait};
 use async_trait::async_trait;
 use futures::{FutureExt, TryFutureExt};
 use neo_types::{
@@ -7,6 +7,7 @@ use neo_types::{
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use neo_types::contract_state::ContractState;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContractManagement {

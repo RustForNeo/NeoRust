@@ -1,13 +1,11 @@
-use crate::{
-	deserialize_h256, deserialize_h256_option, deserialize_script_hash, serialize_h256,
-	serialize_h256_option, serialize_script_hash,
-	signers::transaction_signer::TransactionSigner,
-	transaction::{transaction_attribute::TransactionAttribute, witness::Witness},
-	vm_state::VMState,
-};
+
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+use neo_types::vm_state::VMState;
+use crate::transaction::signers::transaction_signer::TransactionSigner;
+use crate::transaction::transaction_attribute::TransactionAttribute;
+use crate::transaction::witness::Witness;
 
 #[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 pub struct Transaction {

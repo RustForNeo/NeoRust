@@ -211,7 +211,7 @@ impl<P: JsonRpcClient> Provider<P> {
 	/// provider.call_raw(&tx).state(&state).await?;
 	/// # Ok(()) }
 	/// ```
-	pub fn call_raw<'a>(&'a self, tx: &'a TypedTransaction) -> CallBuilder<'a, P> {
+	pub fn call_raw<'a>(&'a self, tx: &'a Transaction) -> CallBuilder<'a, P> {
 		CallBuilder::new(self, tx)
 	}
 }

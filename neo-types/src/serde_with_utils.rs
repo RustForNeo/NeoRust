@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
 
+use elliptic_curve::sec1::ToEncodedPoint;
 use p256::{PublicKey, SecretKey};
 #[cfg(feature = "substrate")]
 use serde_big_array_substrate::big_array;
@@ -19,7 +20,7 @@ use std::{
 use crate::{
 	address::Address,
 	nef_file::MethodToken,
-	script_hash::ScriptHash,
+	script_hash::{ScriptHash, ScriptHashExtension},
 	util::{
 		encode_string_h160, encode_string_h256, parse_address, parse_string_h256,
 		parse_string_u256, parse_string_u64,
@@ -261,7 +262,7 @@ where
 	match s {
 		Some(s) => {
 			let addr = parse_address(&s);
-			Ok(Some(addr))
+			Ok(Some(addr.to_address()))
 		},
 		None => Ok(None),
 	}
@@ -287,6 +288,7 @@ pub fn deserialize_hash_map_h160_account<'de, D, Account>(
 ) -> Result<HashMap<H160, Account>, D::Error>
 where
 	D: Deserializer<'de>,
+	Account: Deserialize<'de>,
 {
 	let map = <HashMap<String, Account>>::deserialize(deserializer)?;
 	let mut hashmap: HashMap<H160, Account> = HashMap::new();
@@ -300,14 +302,11 @@ where
 
 // SecretKey
 
-// "serialize_private_key", deserialize_with = "deserialize_private_key")]
-
 pub fn deserialize_private_key<'de, D>(deserializer: D) -> Result<SecretKey, D::Error>
 where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	// let pubkey_bytes = ;
 	let key = SecretKey::from_slice(parse_string_h256(&s).as_bytes()).unwrap();
 	Ok(key)
 }
@@ -316,7 +315,7 @@ pub fn serialize_private_key<S>(item: &SecretKey, serializer: S) -> Result<S::Ok
 where
 	S: Serializer,
 {
-	let item_str = encode_string_h256(&H256::from_slice(&item.to_vec()));
+	let item_str = encode_string_h256(&H256::from_slice(&item.to_bytes().to_vec()));
 	serializer.serialize_str(&item_str)
 }
 
@@ -334,7 +333,8 @@ pub fn serialize_public_key<S>(item: &PublicKey, serializer: S) -> Result<S::Ok,
 where
 	S: Serializer,
 {
-	let item_str = encode_string_h256(&H256::from_slice(&item.to_vec()));
+	let item_str =
+		encode_string_h256(&H256::from_slice(&item.to_encoded_point(false).as_bytes().to_vec()));
 	serializer.serialize_str(&item_str)
 }
 
@@ -358,7 +358,9 @@ where
 {
 	let mut seq = serializer.serialize_seq(Some(item.len()))?;
 	for i in item {
-		seq.serialize_element(&encode_string_h256(&H256::from_slice(&i.to_vec())))?;
+		seq.serialize_element(&encode_string_h256(&H256::from_slice(
+			&i.to_encoded_point(false).as_bytes(),
+		)))?;
 	}
 	seq.end()
 }
@@ -373,7 +375,9 @@ where
 {
 	match item {
 		Some(key) => {
-			let key_str = encode_string_h256(&H256::from_slice(&key.to_vec()));
+			let key_str = encode_string_h256(&H256::from_slice(
+				&key.to_encoded_point(false).to_bytes().to_vec(),
+			));
 			serializer.serialize_str(&key_str)
 		},
 		None => serializer.serialize_none(),

@@ -1,11 +1,3 @@
-use crate::{
-	contract_parameter::ContractParameter,
-	deserialize_script_hash, deserialize_vec_address, deserialize_vec_public_key,
-	serialize_script_hash, serialize_vec_address, serialize_vec_public_key,
-	signers::signer::{SignerTrait, SignerType},
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
-};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};

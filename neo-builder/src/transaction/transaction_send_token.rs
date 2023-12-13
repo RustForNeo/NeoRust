@@ -2,8 +2,6 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-use crate::{deserialize_script_hash, serialize_script_hash};
-
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct TransactionSendToken {
 	#[serde(rename = "asset")]

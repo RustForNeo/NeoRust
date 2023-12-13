@@ -1,13 +1,4 @@
-use crate::{
-	signers::{
-		account_signer::AccountSigner, contract_signer::ContractSigner,
-		transaction_signer::TransactionSigner,
-	},
-	transaction_error::TransactionError,
-	witness_condition::WitnessCondition,
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
-};
+
 use neo_config::NeoConstants;
 use p256::PublicKey;
 use primitive_types::H160;

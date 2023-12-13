@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use neo_types::script_hash::ScriptHash;
 use num_enum::TryFromPrimitive;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use neo_types::contract_error::ContractError;
+use neo_types::stack_item::StackItem;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleManagement {

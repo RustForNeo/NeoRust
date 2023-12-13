@@ -1,8 +1,4 @@
-use crate::{
-	signers::signer::{SignerTrait, SignerType},
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
-};
+
 use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -10,8 +6,6 @@ use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
-
-use crate::{deserialize_script_hash, serialize_script_hash};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TransactionSigner {

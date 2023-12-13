@@ -871,7 +871,7 @@ fn address_to_bloom_filter(address: &ValueOrArray<Address>) -> BloomFilter {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::utils::serialize;
+	use crate::address::AddressExtension;
 	use serde_json::json;
 
 	#[test]
@@ -894,7 +894,13 @@ mod tests {
 
 	#[test]
 	fn filter_serialization_test() {
-		let t1 = "9729a6fbefefc8f6005933898b13dc45c3a2c8b7".parse::<Address>().unwrap();
+		let t1 = hex::decode("9729a6fbefefc8f6005933898b13dc45c3a2c8b7")
+			.and_then(|x| {
+				let mut buf = [0u8; 32];
+				buf.copy_from_slice(&x);
+				Ok(H256::from(buf))
+			})
+			.unwrap();
 		let t2 = H256::from([0; 32]);
 		let t3 = U256::from(123);
 
@@ -906,7 +912,7 @@ mod tests {
 		});
 
 		let event = "ValueChanged(address,string,string)";
-		let t0 = H256::from(event.as_bytes());
+		let t0 = H256::from(event.as_bytes().into());
 		let addr: Address = "f817796F60D268A36a57b8D2dF1B97B14C0D0E1d".parse().unwrap();
 		let filter = Filter::new();
 
@@ -941,7 +947,7 @@ mod tests {
 		assert_eq!(ser, json!({ "address" : addr, "topics": [t0, t1_padded, t2]}));
 
 		// 1 & 3
-		let ser = serialize(&filter.clone().topic1(t1).topic3(t3));
+		let ser = serialize(&filter.clone().topic1(&t1).topic3(t3));
 		assert_eq!(ser, json!({ "address" : addr, "topics": [t0, t1_padded, null, t3_padded]}));
 
 		// 2 & 3
@@ -955,7 +961,7 @@ mod tests {
 
 	fn build_bloom(address: Address, topic1: H256, topic2: H256) -> Bloom {
 		let mut block_bloom = Bloom::default();
-		block_bloom.accrue(BloomInput::Raw(&address[..]));
+		block_bloom.accrue(BloomInput::Raw(&address.as_bytes()[..]));
 		block_bloom.accrue(BloomInput::Raw(&topic1[..]));
 		block_bloom.accrue(BloomInput::Raw(&topic2[..]));
 		block_bloom

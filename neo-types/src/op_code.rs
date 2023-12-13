@@ -1,7 +1,6 @@
 // op_code
 use getset::Getters;
 use num_enum::TryFromPrimitive;
-use std::fmt::Display;
 use strum_macros::{Display, EnumCount, EnumString};
 
 #[derive(

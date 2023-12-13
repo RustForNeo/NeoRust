@@ -26,6 +26,7 @@ all-features = true
 neo-contract = { workspace = true, features = ["abigen", "providers"] }
 neo-providers.workspace = true
 neo-signers.workspace = true
+neo-types.workspace = true
 
 async-trait.workspace = true
 auto_impl.workspace = true
@@ -37,6 +38,7 @@ futures-channel.workspace = true
 tracing.workspace = true
 tracing-futures.workspace = true
 instant.workspace = true
+primitive-types.workspace = true
 
 # for gas oracles
 reqwest.workspace = true

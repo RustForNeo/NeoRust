@@ -62,11 +62,6 @@ impl SignatureData {
 		SignatureData { v, r, s }
 	}
 
-	/// Get the byte array representation of the signature.
-	pub fn to_byte_array(&self) -> Vec<u8> {
-		[self.r.clone(), self.s.clone()].concat()
-	}
-
 	/// Create a new SignatureData instance with given v, r, and s values.
 	pub fn new(v: u8, r: &[u8], s: &[u8]) -> Self {
 		SignatureData { v, r: r.to_vec(), s: s.to_vec() }

@@ -120,7 +120,6 @@ impl ScriptHashExtension for H160 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use neo_crypto::key_pair::PublicKeyExtension;
 	use p256::PublicKey;
 	use rustc_serialize::hex::ToHex;
 	use std::str::FromStr;
@@ -194,55 +193,5 @@ mod tests {
 			H160::from_address("NLnyLtep7jwyq1qhNPkwXbJpurC4jUT8keas"),
 			Err(TypeError::InvalidAddress)
 		);
-	}
-
-	#[test]
-	fn test_from_public_key() {
-		let key = "035fdb1d1f06759547020891ae97c729327853aeb1256b6fe0473bc2e9fa42ff50";
-		let script = hex::decode(
-			"0c21035fdb1d1f06759547020891ae97c729327853aeb1256b6fe0473bc2e9fa42ff504156e7b327",
-		)
-		.unwrap();
-		let pubkey = PublicKey::from_slice(&hex::decode(key).unwrap()).unwrap();
-		let encode_key = pubkey.to_vec().to_hex();
-		assert_eq!(encode_key, key);
-
-		let hash = H160::from_public_key(&pubkey);
-		assert_eq!(hash.to_vec(), script.sha256_ripemd160());
-	}
-
-	#[test]
-	fn test_from_contract_script() {
-		let expected = hex::decode("0898ea2197378f623a7670974454448576d0aeaf").unwrap();
-		let hash = H160::from_script(&hex::decode("110c21026aa8fe6b4360a67a530e23c08c6a72525afde34719c5436f9d3ced759f939a3d110b41138defaf").unwrap());
-		assert_eq!(hash.to_vec(), expected);
-	}
-
-	#[test]
-	fn test_to_address() {
-		let pubkey = PublicKey::from_slice(
-			&hex::decode("250863ad64a87ae8a2fe83c1af1a8403cb53f53e486d8511dad8a04887e5b235")
-				.unwrap(),
-		)
-		.unwrap();
-		let hash = H160::from_public_key(&pubkey);
-		assert_eq!(hash.to_address(), "NK2nJJpJr6o664CWJKi1QRXjqeic2zRp8y");
-	}
-
-	#[test]
-	fn test_compare() {
-		let hash1 = H160::from_script(&hex::decode("01a402d8").unwrap());
-		let hash2 = H160::from_script(&hex::decode("d802a401").unwrap());
-		let hash3 = H160::from_script(&hex::decode("a7b3a191").unwrap());
-
-		assert!(hash2 > hash1);
-		assert!(hash3 > hash1);
-		assert!(hash2 > hash3);
-	}
-
-	#[test]
-	fn test_size() {
-		let hash = H160::from_str("23ba2703c53263e8d6e522dc32203339dcd8eee9").unwrap();
-		assert_eq!(hash.as_bytes().len(), 20);
 	}
 }

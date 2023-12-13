@@ -1,9 +1,12 @@
 use neo_crypto::hash::HashableForVec;
+use rand::Rng;
 
 pub type Address = String;
 
 pub trait AddressExtension {
 	fn to_script_hash(&self) -> Result<Vec<u8>, &'static str>;
+
+	fn random() -> Self;
 }
 
 impl AddressExtension for String {
@@ -21,11 +24,17 @@ impl AddressExtension for String {
 
 		Ok(script_hash)
 	}
-}
 
-impl AddressExtension for &str {
-	fn to_script_hash(&self) -> Result<Vec<u8>, &'static str> {
-		self.to_string().to_script_hash()
+	fn random() -> Self {
+		let mut rng = rand::thread_rng();
+		let mut bytes = [0u8; 20];
+		rng.fill(&mut bytes);
+		let script_hash = bytes.sha256_ripemd160();
+		let mut data = vec![0x17];
+		data.extend_from_slice(&script_hash);
+		let mut sha = &data.hash256().hash256();
+		data.extend_from_slice(&sha[..4]);
+		bs58::encode(data).into_string()
 	}
 }
 
@@ -38,12 +47,12 @@ mod tests {
 		// Test case 1: Valid N3 address
 		let n3_address = "NTGYC16CN5QheM4ZwfhUp9JKq8bMjWtcAp";
 		let expected_script_hash_hex = "87c06be672d5600dce4a260e7b2d497112c0ac50";
-		let result = n3_address.to_script_hash().unwrap();
+		let result = n3_address.to_string().to_script_hash().unwrap();
 		assert_eq!(hex::encode(result), expected_script_hash_hex);
 
 		// Test case 3: Invalid N3 address
 		let n3_address = "Invalid_Address";
-		let result = n3_address.to_script_hash();
+		let result = n3_address.to_string().to_script_hash();
 		assert!(result.is_err());
 	}
 }

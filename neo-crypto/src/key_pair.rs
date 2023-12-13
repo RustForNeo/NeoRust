@@ -7,11 +7,8 @@
 //! and converting them to various formats.
 
 use crate::error::CryptoError;
-use p256::{
-	elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
-	EncodedPoint, NonZeroScalar, PublicKey, SecretKey,
-};
-use primitive_types::H160;
+use p256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar, PublicKey, SecretKey};
+
 use rand::rngs::OsRng;
 
 /// Represents an Elliptic Curve Key Pair containing both a private and a public key.

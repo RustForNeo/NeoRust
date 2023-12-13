@@ -9,7 +9,7 @@ use rand::{
 	SeedableRng,
 };
 
-use crate::{address::Address, error::TypeError, script_hash::ScriptHash};
+use crate::{script_hash::ScriptHash};
 use futures::AsyncWriteExt;
 use neo_crypto::hash::HashableForVec;
 use primitive_types::{H160, H256, U256};
@@ -69,20 +69,6 @@ pub fn parse_vec_string_vec_u256(item: Vec<String>) -> Vec<U256> {
 
 pub fn h256_to_u256(item: H256) -> U256 {
 	U256::from_big_endian(item.as_bytes())
-}
-
-pub fn neo_secp256k1_to_accountid(pubkey: &PublicKey) -> Address {
-	let mut data = [0_u8; 64];
-	let mut key = pubkey.to_encoded_point(false).to_bytes();
-	data.copy_from_slice(key.as_ref());
-
-	let mut keccak = Keccak::v256();
-	let mut msg_hash = [0_u8; 32];
-	keccak.update(&data);
-	keccak.finalize(&mut msg_hash);
-	let mut addr_bytes = [0_u8; 20];
-	addr_bytes.copy_from_slice(&msg_hash[12..]);
-	addr_bytes.into()
 }
 
 pub fn bytes_to_string(mybytes: &[u8]) -> String {

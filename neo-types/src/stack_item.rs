@@ -1,47 +1,63 @@
-use crate::address::Address;
+/// This module defines the `StackItem` enum and `MapEntry` struct, which are used to represent items on the Neo virtual machine stack.
+/// `StackItem` is a recursive enum that can represent any type of value that can be stored on the stack, including arrays, maps, and custom types.
+/// `MapEntry` is a simple struct that represents a key-value pair in a `StackItem::Map`.
+/// The `StackItem` enum also provides several utility methods for converting between different types and formats.
+use crate::{address::Address, script_hash::ScriptHashExtension};
 use p256::PublicKey;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// The `StackItem` enum represents an item on the Neo virtual machine stack.
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StackItem {
+	/// Represents any type of value.
 	#[serde(rename = "Any")]
 	Any,
 
+	/// Represents a pointer to another stack item.
 	#[serde(rename = "Pointer")]
 	Pointer { value: i64 },
 
+	/// Represents a boolean value.
 	#[serde(rename = "Boolean")]
 	Boolean { value: bool },
 
+	/// Represents an integer value.
 	#[serde(rename = "Integer")]
 	Integer { value: i64 },
 
+	/// Represents a byte string value.
 	#[serde(rename = "ByteString")]
 	ByteString {
 		value: String, // hex encoded
 	},
 
+	/// Represents a buffer value.
 	#[serde(rename = "Buffer")]
 	Buffer {
 		value: String, // hex encoded
 	},
 
+	/// Represents an array of stack items.
 	#[serde(rename = "Array")]
 	Array { value: Vec<StackItem> },
 
+	/// Represents a struct of stack items.
 	#[serde(rename = "Struct")]
 	Struct { value: Vec<StackItem> },
 
+	/// Represents a map of stack items.
 	#[serde(rename = "Map")]
 	Map { value: Vec<MapEntry> },
 
+	/// Represents an interop interface.
 	#[serde(rename = "InteropInterface")]
 	InteropInterface { id: String, interface: String },
 }
 
+/// The `MapEntry` struct represents a key-value pair in a `StackItem::Map`.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct MapEntry {
 	key: StackItem,
@@ -49,46 +65,67 @@ pub struct MapEntry {
 }
 
 impl StackItem {
+	/// The string value for `StackItem::Any`.
 	pub const ANY_VALUE: &'static str = "Any";
 
+	/// The string value for `StackItem::Pointer`.
 	pub const POINTER_VALUE: &'static str = "Pointer";
 
+	/// The string value for `StackItem::Boolean`.
 	pub const BOOLEAN_VALUE: &'static str = "Boolean";
 
+	/// The string value for `StackItem::Integer`.
 	pub const INTEGER_VALUE: &'static str = "Integer";
 
+	/// The string value for `StackItem::ByteString`.
 	pub const BYTE_STRING_VALUE: &'static str = "ByteString";
 
+	/// The string value for `StackItem::Buffer`.
 	pub const BUFFER_VALUE: &'static str = "Buffer";
 
+	/// The string value for `StackItem::Array`.
 	pub const ARRAY_VALUE: &'static str = "Array";
 
+	/// The string value for `StackItem::Struct`.
 	pub const STRUCT_VALUE: &'static str = "Struct";
 
+	/// The string value for `StackItem::Map`.
 	pub const MAP_VALUE: &'static str = "Map";
 
+	/// The string value for `StackItem::InteropInterface`.
 	pub const INTEROP_INTERFACE_VALUE: &'static str = "InteropInterface";
 
+	/// The byte value for `StackItem::Any`.
 	pub const ANY_BYTE: u8 = 0x00;
 
+	/// The byte value for `StackItem::Pointer`.
 	pub const POINTER_BYTE: u8 = 0x10;
 
+	/// The byte value for `StackItem::Boolean`.
 	pub const BOOLEAN_BYTE: u8 = 0x20;
 
+	/// The byte value for `StackItem::Integer`.
 	pub const INTEGER_BYTE: u8 = 0x21;
 
+	/// The byte value for `StackItem::ByteString`.
 	pub const BYTE_STRING_BYTE: u8 = 0x28;
 
+	/// The byte value for `StackItem::Buffer`.
 	pub const BUFFER_BYTE: u8 = 0x30;
 
+	/// The byte value for `StackItem::Array`.
 	pub const ARRAY_BYTE: u8 = 0x40;
 
+	/// The byte value for `StackItem::Struct`.
 	pub const STRUCT_BYTE: u8 = 0x41;
 
+	/// The byte value for `StackItem::Map`.
 	pub const MAP_BYTE: u8 = 0x48;
 
+	/// The byte value for `StackItem::InteropInterface`.
 	pub const INTEROP_INTERFACE_BYTE: u8 = 0x60;
 
+	/// Returns the boolean value of a `StackItem::Boolean` or `StackItem::Integer`.
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			StackItem::Boolean { value } => Some(*value),
@@ -97,6 +134,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the string value of a `StackItem::ByteString`, `StackItem::Buffer`, `StackItem::Integer`, or `StackItem::Boolean`.
 	pub fn as_string(&self) -> Option<String> {
 		match self {
 			StackItem::ByteString { value } | StackItem::Buffer { value } =>
@@ -107,6 +145,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the string representation of a `StackItem`.
 	pub fn to_string(&self) -> String {
 		match self {
 			StackItem::Any => format!("Any"),
@@ -142,6 +181,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the byte representation of a `StackItem::ByteString`, `StackItem::Buffer`, or `StackItem::Integer`.
 	pub fn as_bytes(&self) -> Option<Vec<u8>> {
 		match self {
 			StackItem::ByteString { value } | StackItem::Buffer { value } =>
@@ -155,6 +195,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the array value of a `StackItem::Array` or `StackItem::Struct`.
 	pub fn as_array(&self) -> Option<Vec<StackItem>> {
 		match self {
 			StackItem::Array { value } | StackItem::Struct { value } => Some(value.clone()),
@@ -162,6 +203,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the integer value of a `StackItem::Integer` or `StackItem::Boolean`.
 	pub fn as_int(&self) -> Option<i64> {
 		match self {
 			StackItem::Integer { value } => Some(*value),
@@ -170,6 +212,7 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the map value of a `StackItem::Map`.
 	pub fn as_map(&self) -> Option<HashMap<StackItem, StackItem>> {
 		match self {
 			StackItem::Map { value } => {
@@ -183,21 +226,29 @@ impl StackItem {
 		}
 	}
 
+	/// Returns the `Address` value of a `StackItem::ByteString` or `StackItem::Buffer`.
 	pub fn as_address(&self) -> Option<Address> {
-		self.as_bytes().and_then(|bytes| Some(Address::from_slice(&bytes)))
+		self.as_bytes().and_then(|mut bytes| {
+			bytes.reverse();
+			Some(H160::from_slice(&bytes).to_address())
+		})
 	}
 
+	/// Returns the `PublicKey` value of a `StackItem::ByteString` or `StackItem::Buffer`.
 	pub fn as_public_key(&self) -> Option<PublicKey> {
 		self.as_bytes().and_then(|bytes| PublicKey::from_sec1_bytes(&bytes).ok())
 	}
 
+	/// Returns the `H160` value of a `StackItem::ByteString` or `StackItem::Buffer`.
 	pub fn as_hash160(&self) -> Option<H160> {
 		self.as_bytes().and_then(|bytes| Some(H160::from_slice(&bytes)))
 	}
 
+	/// Returns the `H256` value of a `StackItem::ByteString` or `StackItem::Buffer`.
 	pub fn as_hash256(&self) -> Option<H256> {
 		self.as_bytes().and_then(|bytes| Some(H256::from_slice(&bytes)))
 	}
+
 	pub fn as_interop(&self, interface_name: &str) -> Option<StackItem> {
 		match self {
 			StackItem::Integer { value } => Some(StackItem::InteropInterface {
@@ -234,14 +285,6 @@ impl StackItem {
 	pub fn get(&self, index: usize) -> Option<StackItem> {
 		self.as_array().and_then(|arr| arr.get(index).cloned())
 	}
-
-	pub fn to_json(&self) -> Option<String> {
-		serde_json::to_string(self).ok()
-	}
-
-	pub fn from_json(json: &str) -> Option<Self> {
-		serde_json::from_str(json).ok()
-	}
 }
 
 impl From<String> for StackItem {
@@ -252,7 +295,7 @@ impl From<String> for StackItem {
 
 impl From<H160> for StackItem {
 	fn from(value: H160) -> Self {
-		StackItem::ByteString { value: value.to_string() }
+		StackItem::ByteString { value: ToString::to_string(&value) }
 	}
 }
 

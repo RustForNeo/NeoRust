@@ -72,7 +72,7 @@ impl NefFile {
 			Ok(nef)
 		} else {
 			Err(ContractError::UnexpectedReturnType(
-				item.to_json().unwrap() + StackItem::BYTE_STRING_VALUE,
+				serde_json::to_string(&item).unwrap() + StackItem::BYTE_STRING_VALUE,
 			))
 		}
 	}

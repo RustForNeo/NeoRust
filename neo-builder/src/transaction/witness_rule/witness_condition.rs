@@ -3,10 +3,6 @@ use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::hash::{Hash, Hasher};
 
-use crate::{
-	deserialize_public_key, deserialize_script_hash, serialize_public_key, serialize_script_hash,
-};
-
 /// Enum representing the different types of witness conditions that can be used in a smart contract.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WitnessCondition {

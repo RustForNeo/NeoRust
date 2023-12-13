@@ -7,7 +7,7 @@
 /// # Example
 ///
 /// ```
-/// use neo_builder::transaction::TransactionBuilder;
+/// use neo_builder::transaction::transaction_builder::TransactionBuilder;
 ///
 /// let mut tx_builder = TransactionBuilder::new();
 /// tx_builder.version(0)
@@ -27,6 +27,11 @@ use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
+use neo_types::Bytes;
+use crate::transaction::serializable_transaction::SerializableTransaction;
+use crate::transaction::signers::signer::Signer;
+use crate::transaction::transaction_attribute::TransactionAttribute;
+use crate::transaction::transaction_error::TransactionError;
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {

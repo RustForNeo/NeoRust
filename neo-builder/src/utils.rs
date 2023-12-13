@@ -1,6 +1,9 @@
-use crate::script::script_builder::ScriptBuilder;
+use crate::{script::script_builder::ScriptBuilder, transaction::{transaction_attribute::TransactionAttribute, transaction_send_token::TransactionSendToken, signers::{signer::Signer, transaction_signer::TransactionSigner}}};
 use hex::FromHexError;
+use neo_types::{serde_value::ValueExtension, contract_parameter::ContractParameter};
+use p256::PublicKey;
 use primitive_types::H160;
+use serde_json::Value;
 
 pub type ScriptHash = H160;
 
@@ -17,7 +20,7 @@ pub type ScriptHash = H160;
 pub fn public_keys_to_scripthash(public_keys: &mut [PublicKey], threshold: usize) -> ScriptHash {
 	let mut script = ScriptBuilder::build_multisig_script(public_keys, threshold as u8).unwrap();
 	// Self::from_script(&script)
-	ScriptHash::from_slice(script)
+	ScriptHash::from_slice(&script)
 }
 
 /// Converts a public key to a script hash.
@@ -29,9 +32,9 @@ pub fn public_keys_to_scripthash(public_keys: &mut [PublicKey], threshold: usize
 /// # Returns
 ///
 /// A `ScriptHash` instance representing the script hash of the verification script.
-pub fn pubkey_to_scripthash(public_key: &PublicKey) -> Self {
+pub fn pubkey_to_scripthash(public_key: &PublicKey) -> ScriptHash {
 	let script = ScriptBuilder::build_verification_script(public_key);
-	Self::from_script(&script)
+	ScriptHash::from_script(&script)
 }
 
 impl ValueExtension for TransactionAttribute {

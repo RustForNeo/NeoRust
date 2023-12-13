@@ -2,11 +2,11 @@
 #![deny(unsafe_code, rustdoc::broken_intra_doc_links)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub use neo_types::Address;
-
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::HashMap;
+use neo_config::NeoNetwork;
+use neo_types::address::Address;
 
 const CONTRACTS_JSON: &str = include_str!("./contracts/contracts.json");
 
@@ -47,6 +47,6 @@ mod tests {
 
 	#[test]
 	fn test_addrs() {
-		assert!(contract("dai").unwrap().address(NeoNetwork::Mainnet).is_some());
+		assert!(contract("dai").unwrap().address(NeoNetwork::MainNet).is_some());
 	}
 }

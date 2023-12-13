@@ -1,6 +1,8 @@
 use crate::error::CryptoError;
-use p256::{elliptic_curve::sec1::FromEncodedPoint, EncodedPoint, PublicKey, SecretKey};
-use primitive_types::H160;
+use p256::{
+	elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint},
+	EncodedPoint, PublicKey, SecretKey,
+};
 
 pub trait PrivateKeyExtension
 where

@@ -12,3 +12,4 @@ pub mod verification_script;
 pub mod witness;
 pub mod witness_rule;
 pub mod witness_scope;
+pub mod transaction_builder;

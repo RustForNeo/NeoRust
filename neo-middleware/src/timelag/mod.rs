@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use neo_types::{
-	Block, BlockId, BlockNumber, Bytes, FilterBlockOption, NameOrAddress, Transaction,
-	TransactionReceipt, TxHash, U256,
-};
 use std::sync::Arc;
 use thiserror::Error;
 
 use neo_providers::{Middleware, MiddlewareError};
+use neo_types::block::{Block, BlockId};
+use neo_types::Bytes;
+use neo_types::filter::{Filter, FilterBlockOption};
+use neo_types::log::Log;
 
 type TimeLagResult<T, M> = Result<T, TimeLagError<M>>;
 
@@ -71,20 +71,21 @@ where
 
 	async fn normalize_block_number(
 		&self,
-		number: Option<BlockNumber>,
-	) -> TimeLagResult<Option<BlockNumber>, M> {
+		number: Option<u64>,
+	) -> TimeLagResult<Option<u64>, M> {
 		let lag_tip = self.get_block_number().await?;
-		match number {
-			Some(BlockNumber::Latest) => Ok(Some(BlockNumber::Number(lag_tip))),
-			Some(BlockNumber::Number(n)) =>
-				if n < lag_tip {
-					Ok(Some(BlockNumber::Number(n)))
-				} else {
-					Ok(Some(BlockNumber::Number(lag_tip)))
-				},
-			None => Ok(Some(BlockNumber::Number(lag_tip))),
-			_ => Ok(number),
-		}
+	
+		// match number {
+		// 	Some(u64::Latest) => Ok(Some(lag_tip)),
+		// 	Some(u64::Number(n)) =>
+		// 		if n < lag_tip {
+		// 			Ok(Some(u64::Number(n)))
+		// 		} else {
+		// 			Ok(Some(u64::Number(lag_tip)))
+		// 		},
+		// 	None => Ok(Some(u64::Number(lag_tip))),
+		// 	_ => Ok(number),
+		// }
 	}
 
 	async fn normalize_filter_range(
@@ -115,7 +116,7 @@ where
 		&self.inner
 	}
 
-	async fn get_block_number(&self) -> Result<neo_types::U64, Self::Error> {
+	async fn get_block_number(&self) -> Result<u64, Self::Error> {
 		self.inner()
 			.get_block_number()
 			.await
@@ -123,7 +124,7 @@ where
 			.map_err(neo_providers::MiddlewareError::from_err)
 	}
 
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,
@@ -182,7 +183,7 @@ where
 	async fn get_uncle<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-		idx: neo_types::U64,
+		idx: u64,
 	) -> Result<Option<Block<TxHash>>, Self::Error> {
 		let block_hash_or_number = self
 			.normalize_block_id(Some(block_hash_or_number.into()))
@@ -210,7 +211,7 @@ where
 
 	async fn call(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<Bytes, Self::Error> {
 		let block = self.normalize_block_id(block).await?;
@@ -298,11 +299,11 @@ where
 			.map_err(neo_providers::MiddlewareError::from_err)
 	}
 
-	async fn get_block_receipts<T: Into<BlockNumber> + Send + Sync>(
+	async fn get_block_receipts<T: Into<u64> + Send + Sync>(
 		&self,
 		block: T,
 	) -> Result<Vec<TransactionReceipt>, Self::Error> {
-		let block: BlockNumber = block.into();
+		let block: u64 = block.into();
 		let block = self
 			.normalize_block_number(Some(block))
 			.await?
@@ -316,8 +317,8 @@ where
 
 	async fn get_logs(
 		&self,
-		filter: &neo_types::Filter,
-	) -> Result<Vec<neo_types::Log>, Self::Error> {
+		filter: &Filter,
+	) -> Result<Vec<Log>, Self::Error> {
 		let mut filter = filter.clone();
 		filter.block_option = self.normalize_filter_range(filter.block_option).await?;
 
@@ -397,8 +398,8 @@ where
 
 	async fn subscribe_logs<'a>(
 		&'a self,
-		_filter: &neo_types::Filter,
-	) -> Result<neo_providers::SubscriptionStream<'a, Self::Provider, neo_types::Log>, Self::Error>
+		_filter: &Filter,
+	) -> Result<neo_providers::SubscriptionStream<'a, Self::Provider, Log>, Self::Error>
 	where
 		Self::Provider: neo_providers::PubsubClient,
 	{

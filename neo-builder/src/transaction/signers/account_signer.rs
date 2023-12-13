@@ -1,12 +1,3 @@
-use crate::{
-	deserialize_script_hash, deserialize_vec_address, deserialize_vec_public_key,
-	script_hash::ScriptHashExtension,
-	serialize_script_hash, serialize_vec_address, serialize_vec_public_key,
-	signers::signer::{SignerTrait, SignerType},
-	transaction_error::TransactionError,
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
-};
 use getset::{Getters, Setters};
 use p256::PublicKey;
 use primitive_types::H160;
