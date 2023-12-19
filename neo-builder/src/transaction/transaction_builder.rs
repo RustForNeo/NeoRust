@@ -1,3 +1,7 @@
+use crate::transaction::{
+	serializable_transaction::SerializableTransaction, signers::signer::Signer,
+	transaction_attribute::TransactionAttribute, transaction_error::TransactionError,
+};
 /// This module contains the implementation of the `TransactionBuilder` struct, which is used to build and configure transactions.
 ///
 /// The `TransactionBuilder` struct has various fields that can be set using its methods. Once the fields are set, the `get_unsigned_tx` method can be called to obtain an unsigned transaction.
@@ -17,6 +21,7 @@
 ///           .get_unsigned_tx();
 /// ```
 use getset::{CopyGetters, Getters, MutGetters, Setters};
+use neo_types::Bytes;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use serde::Serialize;
@@ -27,11 +32,6 @@ use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
-use neo_types::Bytes;
-use crate::transaction::serializable_transaction::SerializableTransaction;
-use crate::transaction::signers::signer::Signer;
-use crate::transaction::transaction_attribute::TransactionAttribute;
-use crate::transaction::transaction_error::TransactionError;
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder {
@@ -416,13 +416,13 @@ impl TransactionBuilder {
 			.iter()
 			.map(|s| s.get_signer_hash())
 			.any(|hash| committee.contains(&hash))
-			|| self.signers_contain_multisig_with_committee_member(&committee))
+			|| self.signers_contain_MultiSig_with_committee_member(&committee))
 	}
 
-	fn signers_contain_multisig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
+	fn signers_contain_MultiSig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
 		for signer in &self.signers {
 			if let Some(account_signer) = signer.as_account_signer() {
-				if account_signer.is_multisig() {
+				if account_signer.is_MultiSig() {
 					if let Some(script) = &account_signer.account().verification_script {
 						for pubkey in script.get_public_keys().unwrap() {
 							let hash = pubkey.to_script_hash();

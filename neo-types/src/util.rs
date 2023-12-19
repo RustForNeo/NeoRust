@@ -9,7 +9,7 @@ use rand::{
 	SeedableRng,
 };
 
-use crate::{script_hash::ScriptHash};
+use crate::script_hash::ScriptHash;
 use futures::AsyncWriteExt;
 use neo_crypto::hash::HashableForVec;
 use primitive_types::{H160, H256, U256};

@@ -1,6 +1,6 @@
 [workspace.package]
 version = "0.0.1"
-authors = ["Jinghui Liao <jimmy@r3e.network>"]
+authors = ["R3E Network <contact@r3e.network>"]
 edition = "2021"
 rust-version = "1.74"
 license = "MIT OR Apache-2.0"

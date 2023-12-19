@@ -1,4 +1,3 @@
-
 use neo_config::NeoConstants;
 use p256::PublicKey;
 use primitive_types::H160;

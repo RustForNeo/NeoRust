@@ -11,3 +11,4 @@ pub mod nft_contract;
 pub mod policy_contract;
 pub mod role_management;
 pub mod traits;
+mod error;

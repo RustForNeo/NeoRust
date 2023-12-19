@@ -1,8 +1,17 @@
 use crate::transaction_builder::TransactionBuilder;
 use async_trait::async_trait;
+use p256::PublicKey;
 use neo_types::{contract_error::ContractError, script_hash::ScriptHash};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use neo_builder::transaction::transaction_builder::TransactionBuilder;
+use neo_providers::core::responses::neo_account_state::AccountState;
+use neo_types::contract_parameter::ContractParameter;
+use neo_types::contract_parameter_type::ContractParameterType;
+use neo_types::stack_item::StackItem;
+use crate::traits::fungible_token::FungibleTokenTrait;
+use crate::traits::smart_contract::SmartContractTrait;
+use crate::traits::token::TokenTrait;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NeoToken {

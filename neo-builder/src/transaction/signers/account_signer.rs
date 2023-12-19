@@ -1,4 +1,12 @@
+use crate::transaction::{
+	signers::signer::{SignerTrait, SignerType},
+	transaction_error::TransactionError,
+	witness_rule::witness_rule::WitnessRule,
+	witness_scope::WitnessScope,
+};
 use getset::{Getters, Setters};
+use neo_crypto::keys::PublicKeyExtension;
+use neo_types::script_hash::ScriptHashExtension;
 use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -145,7 +153,7 @@ impl AccountSigner {
 		Ok(Self::new(&account, WitnessScope::Global))
 	}
 
-	pub fn is_multisig(&self) -> bool {
-		matches!(&self.account.verification_script, Some(script) if script.is_multisig())
+	pub fn is_multi_sig(&self) -> bool {
+		matches!(&self.account.verification_script, Some(script) if script.is_MultiSig())
 	}
 }

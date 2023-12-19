@@ -16,6 +16,10 @@ use num_bigint::BigInt;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use std::sync::Arc;
+use neo_builder::script::script_builder::ScriptBuilder;
+use neo_builder::transaction::call_flags::CallFlags;
+use neo_builder::transaction::signers::signer::Signer;
+use neo_builder::transaction::transaction_builder::TransactionBuilder;
 
 #[async_trait]
 pub trait SmartContractTrait: Send + Sync {

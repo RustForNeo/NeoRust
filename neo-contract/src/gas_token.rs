@@ -1,5 +1,5 @@
 use crate::traits::{
-	fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+	fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 };
 use async_trait::async_trait;
 use neo_types::script_hash::ScriptHash;

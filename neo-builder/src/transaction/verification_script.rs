@@ -33,7 +33,7 @@ impl VerificationScript {
 		Self::from(builder.to_bytes())
 	}
 
-	pub fn from_multisig(public_keys: &[PublicKey], threshold: u8) -> Self {
+	pub fn from_MultiSig(public_keys: &[PublicKey], threshold: u8) -> Self {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
 		builder
@@ -46,7 +46,7 @@ impl VerificationScript {
 			.push_integer(BigInt::from(public_keys.len()))
 			.unwrap()
 			.op_code(vec![OpCode::Syscall].as_slice())
-			.push_data(InteropService::SystemCryptoCheckMultisig.hash().into_bytes())
+			.push_data(InteropService::SystemCryptoCheckMultiSig.hash().into_bytes())
 			.unwrap();
 		Self::from(builder.to_bytes())
 	}
@@ -57,7 +57,7 @@ impl VerificationScript {
 			&& self.script[34] == OpCode::Syscall as u8
 	}
 
-	pub fn is_multisig(&self) -> bool {
+	pub fn is_MultiSig(&self) -> bool {
 		if self.script.len() < 37 {
 			return false
 		}
@@ -85,7 +85,7 @@ impl VerificationScript {
 
 		// additional checks
 		let service_bytes = &self.script[self.script.len() - 4..];
-		if service_bytes != &InteropService::SystemCryptoCheckMultisig.hash().into_bytes() {
+		if service_bytes != &InteropService::SystemCryptoCheckMultiSig.hash().into_bytes() {
 			return false
 		}
 
@@ -132,7 +132,7 @@ impl VerificationScript {
 			return Ok(vec![key])
 		}
 
-		if self.is_multisig() {
+		if self.is_MultiSig() {
 			let mut reader = Decoder::new(&self.script);
 			reader.by_ref().read_var_int().unwrap(); // skip threshold
 
@@ -153,7 +153,7 @@ impl VerificationScript {
 	pub fn get_signing_threshold(&self) -> Result<usize, TypeError> {
 		if self.is_single_sig() {
 			Ok(1)
-		} else if self.is_multisig() {
+		} else if self.is_MultiSig() {
 			let reader = &mut Decoder::new(&self.script);
 			Ok(reader.by_ref().read_var_int()? as usize)
 		} else {

@@ -3,10 +3,12 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use neo_providers::{Middleware, MiddlewareError};
-use neo_types::block::{Block, BlockId};
-use neo_types::Bytes;
-use neo_types::filter::{Filter, FilterBlockOption};
-use neo_types::log::Log;
+use neo_types::{
+	block::{Block, BlockId},
+	filter::{Filter, FilterBlockOption},
+	log::Log,
+	Bytes,
+};
 
 type TimeLagResult<T, M> = Result<T, TimeLagError<M>>;
 
@@ -69,12 +71,9 @@ where
 		}
 	}
 
-	async fn normalize_block_number(
-		&self,
-		number: Option<u64>,
-	) -> TimeLagResult<Option<u64>, M> {
+	async fn normalize_block_number(&self, number: Option<u64>) -> TimeLagResult<Option<u64>, M> {
 		let lag_tip = self.get_block_number().await?;
-	
+
 		// match number {
 		// 	Some(u64::Latest) => Ok(Some(lag_tip)),
 		// 	Some(u64::Number(n)) =>
@@ -209,11 +208,7 @@ where
 			.map_err(neo_providers::MiddlewareError::from_err)
 	}
 
-	async fn call(
-		&self,
-		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<Bytes, Self::Error> {
+	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, Self::Error> {
 		let block = self.normalize_block_id(block).await?;
 
 		self.inner()
@@ -315,10 +310,7 @@ where
 			.map_err(neo_providers::MiddlewareError::from_err)
 	}
 
-	async fn get_logs(
-		&self,
-		filter: &Filter,
-	) -> Result<Vec<Log>, Self::Error> {
+	async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>, Self::Error> {
 		let mut filter = filter.clone();
 		filter.block_option = self.normalize_filter_range(filter.block_option).await?;
 

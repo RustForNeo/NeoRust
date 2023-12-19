@@ -3,7 +3,7 @@ use crate::{
 	gas_token::GasToken,
 	neo_token::NeoToken,
 	traits::{
-		fungible_token::FungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+		fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 	},
 	transaction_builder::TransactionBuilder,
 };
@@ -20,6 +20,8 @@ use std::{
 	error::Error,
 	str::FromStr,
 };
+use getset::{Getters, Setters};
+use neo_builder::transaction::transaction_builder::TransactionBuilder;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI {
@@ -123,23 +125,23 @@ impl NeoURI {
 			.amount
 			.ok_or(ContractError::InvalidStateError("Amount not set".to_string()))
 			.unwrap();
-		let tokenHash = self
+		let token_hash = self
 			.token
 			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))
 			.unwrap();
 
-		let mut token = &mut FungibleTokenContract::new(&tokenHash);
+		let mut token = &mut FungibleTokenContract::new(&token_hash);
 
 		// Validate amount precision
 		let amount_scale = amount.scale() as u8; //.scale();
 
-		if Self::is_neo_token(&tokenHash) && amount_scale > 0 {
+		if Self::is_neo_token(&token_hash) && amount_scale > 0 {
 			return Err(ContractError::from(ContractError::InvalidArgError(
 				"NEO does not support decimals".to_string(),
 			)))
 		}
 
-		if Self::is_gas_token(&tokenHash) && amount_scale > GasToken::new().decimals().unwrap() {
+		if Self::is_gas_token(&token_hash) && amount_scale > GasToken::new().decimals().unwrap() {
 			return Err(ContractError::from(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
 			)))

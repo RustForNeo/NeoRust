@@ -1,4 +1,4 @@
-use crate::{traits::smartcontract::SmartContractTrait, transaction_builder::TransactionBuilder};
+use crate::{traits::smart_contract::SmartContractTrait, transaction_builder::TransactionBuilder};
 use async_trait::async_trait;
 use neo_types::{
 	contract_error::ContractError,
@@ -6,6 +6,7 @@ use neo_types::{
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use neo_builder::transaction::transaction_builder::TransactionBuilder;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyContract {

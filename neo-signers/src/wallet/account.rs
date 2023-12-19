@@ -1,4 +1,17 @@
-use crate::Wallet;
+use crate::wallet::{
+	nep6account::NEP6Account,
+	nep6contract::{NEP6Contract, NEP6Parameter},
+	wallet::Wallet,
+	wallet_error::WalletError,
+};
+use neo_builder::transaction::verification_script::VerificationScript;
+use neo_crypto::{key_pair::KeyPair, nep2::NEP2};
+use neo_types::{
+	address::Address,
+	contract_parameter_type::ContractParameterType,
+	script_hash::{ScriptHash, ScriptHashExtension},
+};
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -48,6 +61,8 @@ impl Hash for Account {
 		self.nr_of_participants.hash(state);
 	}
 }
+
+struct PrivateKey(&str);
 
 impl Account {
 	// Constructors
@@ -128,12 +143,12 @@ impl Account {
 				Some(ref contract) if contract.script.is_some() => {
 					let script = contract.script.clone().unwrap();
 					let verification_script = VerificationScript::from(script.as_bytes().to_vec());
-					let signing_threshold = if verification_script.is_multisig() {
+					let signing_threshold = if verification_script.is_MultiSig() {
 						Some(verification_script.get_signing_threshold().unwrap())
 					} else {
 						None
 					};
-					let nr_of_participants = if verification_script.is_multisig() {
+					let nr_of_participants = if verification_script.is_MultiSig() {
 						Some(verification_script.get_nr_of_accounts().unwrap())
 					} else {
 						None
@@ -184,7 +199,7 @@ impl Account {
 			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))
 			.unwrap();
 		let key_pair = NEP2::decrypt(password, encrypted_private_key).unwrap();
-		self.key_pair = Some(KeyPair::from_private_key(key_pair.private_key().clone()));
+		self.key_pair = Some(KeyPair::from_private_key(key_pair.private_key().clone()).unwrap());
 		Ok(())
 	}
 
@@ -206,12 +221,12 @@ impl Account {
 
 	pub fn get_signing_threshold(&self) -> Result<u32, WalletError> {
 		self.signing_threshold
-			.ok_or_else(|| WalletError::AccountState("Account is not multisig".to_string()))
+			.ok_or_else(|| WalletError::AccountState("Account is not MultiSig".to_string()))
 	}
 
 	pub fn get_nr_of_participants(&self) -> Result<u32, WalletError> {
 		self.nr_of_participants
-			.ok_or_else(|| WalletError::AccountState("Account is not multisig".to_string()))
+			.ok_or_else(|| WalletError::AccountState("Account is not MultiSig".to_string()))
 	}
 
 	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
@@ -238,7 +253,7 @@ impl Account {
 
 		let contract = match &self.verification_script {
 			Some(script) => {
-				let parameters = if script.is_multisig() {
+				let parameters = if script.is_MultiSig() {
 					let threshold = script.get_signing_threshold().unwrap();
 					let nr_accounts = script.get_nr_of_accounts().unwrap();
 					(0..nr_accounts)
@@ -281,7 +296,7 @@ impl Account {
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
 		let address = ScriptHash::from_script(&script.script());
 
-		let (signing_threshold, nr_of_participants) = if script.is_multisig() {
+		let (signing_threshold, nr_of_participants) = if script.is_MultiSig() {
 			(
 				Some(script.get_signing_threshold().unwrap()),
 				Some(script.get_nr_of_accounts().unwrap()),
@@ -312,11 +327,11 @@ impl Account {
 		})
 	}
 
-	pub fn create_multisig(
+	pub fn create_MultiSig(
 		public_keys: &[PublicKey],
 		signing_threshold: u32,
 	) -> Result<Self, WalletError> {
-		let script = VerificationScript::from_multisig(public_keys, signing_threshold as u8);
+		let script = VerificationScript::from_MultiSig(public_keys, signing_threshold as u8);
 
 		Ok(Self {
 			label: Some(script.script().to_base64()),

@@ -3,10 +3,10 @@
 use futures_timer::Delay;
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use instant::{Duration, Instant};
-use neo_types::{Bytes};
+use neo_types::Bytes;
 use pin_project::pin_project;
-use std::{future::Future, pin::Pin, task::Poll};
 use primitive_types::H256;
+use std::{future::Future, pin::Pin, task::Poll};
 
 use crate::{
 	utils::PinBoxFut, JsonRpcClient, Middleware, PendingTransaction, Provider, ProviderError,

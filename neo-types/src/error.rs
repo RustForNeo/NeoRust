@@ -1,4 +1,3 @@
-use crate::contract_error::ContractError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
@@ -27,10 +26,10 @@ pub enum TypeError {
 	InvalidFormat,
 	#[error("NeoRust not initialized")]
 	NeoRustNotInitialized,
-	#[error("Contract error: {0}")]
-	ContractError(#[from] ContractError),
-	#[error("Unexpected returned type")]
-	UnexpectedReturnType,
+	// #[error("Contract error: {0}")]
+	// ContractError(#[from] ContractError),
+	#[error("Unexpected returned type: {0}")]
+	UnexpectedReturnType(String),
 	#[error("Invalid private key")]
 	InvalidPrivateKey,
 	#[error("Invalid public key")]
@@ -43,6 +42,8 @@ pub enum TypeError {
 	InvalidEncoding(String),
 	#[error("Invalid op code")]
 	InvalidOpCode,
+	#[error("Invalid argument {0}")]
+	InvalidArgError(String),
 	#[error("Numeric overflow")]
 	NumericOverflow,
 	#[error("Wif error {0}")]

@@ -1,16 +1,14 @@
-
+use crate::transaction::{
+	signers::signer::Signer, transaction_attribute::TransactionAttribute,
+	transaction_error::TransactionError, witness::Witness,
+};
 use getset::{Getters, Setters};
 use impl_serde::serialize::serialize;
 use neo_codec::{Decoder, Encoder};
+use neo_types::{nef_file::HEADER_SIZE, Bytes};
 use serde::Serialize;
 use std::hash::Hash;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use neo_types::Bytes;
-use neo_types::nef_file::HEADER_SIZE;
-use crate::transaction::signers::signer::Signer;
-use crate::transaction::transaction_attribute::TransactionAttribute;
-use crate::transaction::transaction_error::TransactionError;
-use crate::transaction::witness::Witness;
 
 #[derive(Debug, Clone, Setters, Getters)]
 pub struct SerializableTransaction {

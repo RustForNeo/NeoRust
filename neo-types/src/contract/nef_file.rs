@@ -1,7 +1,7 @@
 use crate::{
-	contract_error::ContractError, contract_parameter::ContractParameter, deserialize_script_hash,
-	deserialize_vec_methodtoken, serialize_script_hash, serialize_vec_methodtoken,
-	stack_item::StackItem, Bytes,
+	contract_parameter::ContractParameter, deserialize_script_hash, deserialize_vec_methodtoken,
+	error::TypeError, serialize_script_hash, serialize_vec_methodtoken, stack_item::StackItem,
+	Bytes,
 };
 use neo_codec::Decoder;
 use neo_crypto::hash::HashableForVec;
@@ -54,10 +54,10 @@ impl NefFile {
 		file_bytes.hash256()[..CHECKSUM_SIZE].try_into().unwrap()
 	}
 
-	fn read_from_file(file: &str) -> Result<Self, ContractError> {
+	fn read_from_file(file: &str) -> Result<Self, TypeError> {
 		let file_bytes = std::fs::read(file).unwrap();
 		if file_bytes.len() > 0x100000 {
-			return Err(ContractError::InvalidArgError("NEF file is too large".to_string()))
+			return Err(TypeError::InvalidArgError("NEF file is too large".to_string()))
 		}
 
 		let mut reader = Decoder::new(&file_bytes);
@@ -65,13 +65,13 @@ impl NefFile {
 		Ok(nef)
 	}
 
-	fn read_from_stack_item(item: StackItem) -> Result<Self, ContractError> {
+	fn read_from_stack_item(item: StackItem) -> Result<Self, TypeError> {
 		if let StackItem::ByteString { value: bytes } = item {
 			let mut reader = Decoder::new(&bytes.as_bytes());
 			let nef = reader.read_serializable().unwrap();
 			Ok(nef)
 		} else {
-			Err(ContractError::UnexpectedReturnType(
+			Err(TypeError::UnexpectedReturnType(
 				serde_json::to_string(&item).unwrap() + StackItem::BYTE_STRING_VALUE,
 			))
 		}

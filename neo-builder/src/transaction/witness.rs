@@ -40,17 +40,17 @@ impl Witness {
 		Ok(Self { invocation: invocation_script, verification: verification_script })
 	}
 
-	pub fn create_multisig_witness(
+	pub fn create_MultiSig_witness(
 		signing_threshold: u8,
 		signatures: Vec<Signature>,
 		public_keys: Vec<PublicKey>,
 	) -> Result<Self, TransactionError> {
 		let verification_script =
-			VerificationScript::from_multisig(&public_keys, signing_threshold);
-		Self::create_multisig_witness_script(signatures, verification_script)
+			VerificationScript::from_MultiSig(&public_keys, signing_threshold);
+		Self::create_MultiSig_witness_script(signatures, verification_script)
 	}
 
-	pub fn create_multisig_witness_script(
+	pub fn create_MultiSig_witness_script(
 		signatures: Vec<Signature>,
 		verification_script: VerificationScript,
 	) -> Result<Self, TransactionError> {

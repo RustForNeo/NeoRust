@@ -1,4 +1,5 @@
 use lazy_static::lazy_static;
+use neo_crypto::hash::HashableForVec;
 use std::{
 	collections::HashMap,
 	hash::Hash,
@@ -16,8 +17,8 @@ lazy_static! {
 pub enum InteropService {
 	#[strum(serialize = "System.Crypto.CheckSig")]
 	SystemCryptoCheckSig,
-	#[strum(serialize = "System.Crypto.CheckMultisig")]
-	SystemCryptoCheckMultisig,
+	#[strum(serialize = "System.Crypto.CheckMultiSig")]
+	SystemCryptoCheckMultiSig,
 	#[strum(serialize = "System.Contract.Call")]
 	SystemContractCall,
 	#[strum(serialize = "System.Contract.CallNative")]
@@ -26,7 +27,7 @@ pub enum InteropService {
 	SystemContractGetCallFlags,
 	#[strum(serialize = "System.Contract.CreateStandardAccount")]
 	SystemContractCreateStandardAccount,
-	#[strum(serialize = "System.Contract.CreateMultisigAccount")]
+	#[strum(serialize = "System.Contract.CreateMultiSigAccount")]
 	SystemContractCreateMultiSigAccount,
 	#[strum(serialize = "System.Contract.NativeOnPersist")]
 	SystemContractNativeOnPersist,

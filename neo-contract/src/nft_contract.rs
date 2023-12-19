@@ -1,5 +1,5 @@
 use crate::traits::{
-	nft::NonFungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait,
+	nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 };
 use async_trait::async_trait;
 use primitive_types::H160;

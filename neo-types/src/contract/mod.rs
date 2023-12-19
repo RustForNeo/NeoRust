@@ -1,4 +1,3 @@
-pub mod contract_error;
 pub mod contract_manifest;
 pub mod contract_method_token;
 pub mod contract_nef;

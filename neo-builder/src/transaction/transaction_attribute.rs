@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::oracle_response_code::OracleResponseCode;

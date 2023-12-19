@@ -6,7 +6,9 @@ use getset::{Getters, Setters};
 use neo_codec::Encoder;
 use neo_types::{
 	contract_parameter::{ContractParameter, ParameterValue},
+	contract_parameter_type::ContractParameterType,
 	op_code::OpCode,
+	script_hash::ScriptHashExtension,
 	Bytes,
 };
 use num_bigint::{BigInt, Sign};
@@ -240,7 +242,7 @@ impl ScriptBuilder {
 			sb.push_data(pk.to_encoded_point(true).as_bytes().to_vec()).unwrap();
 		}
 		sb.push_integer(BigInt::from(pubkeys.len())).unwrap();
-		sb.sys_call(InteropService::SystemCryptoCheckMultisig);
+		sb.sys_call(InteropService::SystemCryptoCheckMultiSig);
 		Ok(sb.to_bytes())
 	}
 

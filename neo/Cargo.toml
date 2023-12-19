@@ -1,6 +1,6 @@
 [package]
 name = "neo"
-authors = ["R3E Network <jimmy@r3e.network>"]
+authors = ["R3E Network <contact@r3e.network>"]
 readme = "../README.md"
 description = "A complete neo Rust library"
 

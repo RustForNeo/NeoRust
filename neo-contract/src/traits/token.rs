@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use num_traits::real::Real;
 use rust_decimal::Decimal;
 
-use crate::{name_service::NeoNameService, traits::smartcontract::SmartContractTrait};
+use crate::{name_service::NeoNameService, traits::smart_contract::SmartContractTrait};
 use neo_types::{
 	contract_error::ContractError, contract_parameter::ContractParameter, nns_name::NNSName,
 	record_type::RecordType,

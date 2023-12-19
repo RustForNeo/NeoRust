@@ -8,6 +8,8 @@ use neo_types::{
 	nns_name::NNSName, signers::account_signer::AccountSigner, Bytes,
 };
 use primitive_types::H160;
+use neo_builder::transaction::signers::account_signer::AccountSigner;
+use neo_builder::transaction::transaction_builder::TransactionBuilder;
 
 #[async_trait]
 pub trait FungibleTokenTrait: TokenTrait {

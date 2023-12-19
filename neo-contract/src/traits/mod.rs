@@ -1,4 +1,4 @@
 pub mod fungible_token;
 pub mod nft;
-pub mod smartcontract;
+pub mod smart_contract;
 pub mod token;

@@ -1,7 +1,7 @@
 pub struct NeoConstants {}
 impl NeoConstants {
 	// Accounts, Addresses, Keys
-	pub const MAX_PUBLIC_KEYS_PER_MULTISIG: u32 = 1024;
+	pub const MAX_PUBLIC_KEYS_PER_MultiSig: u32 = 1024;
 	pub const HASH160_SIZE: u32 = 20;
 	pub const HASH256_SIZE: u32 = 32;
 	pub const PRIVATE_KEY_SIZE: u32 = 32;

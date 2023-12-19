@@ -2,11 +2,11 @@
 #![deny(unsafe_code, rustdoc::broken_intra_doc_links)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+use neo_config::NeoNetwork;
+use neo_types::address::Address;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::collections::HashMap;
-use neo_config::NeoNetwork;
-use neo_types::address::Address;
 
 const CONTRACTS_JSON: &str = include_str!("./contracts/contracts.json");
 
