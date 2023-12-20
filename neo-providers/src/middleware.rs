@@ -21,7 +21,6 @@ use crate::{
 ///
 /// ```
 /// use neo_providers::{Middleware, MiddlewareError};
-/// use neo_types::{U64, TransactionRequest, U256, transaction::eip2718::TypedTransaction, BlockId};
 /// use thiserror::Error;
 /// use async_trait::async_trait;
 ///
@@ -71,7 +70,7 @@ use crate::{
 ///
 ///     /// Overrides the default `estimate_gas` method to log that it was called,
 ///     /// before forwarding the call to the next layer.
-///     async fn estimate_gas(&self, tx: &TypedTransaction, block: Option<BlockId>) -> Result<U256, Self::Error> {
+///     async fn estimate_gas(&self, tx: &Transaction, block: Option<BlockId>) -> Result<U256, Self::Error> {
 ///         println!("Estimating gas...");
 ///         self.inner().estimate_gas(tx, block).await.map_err(MiddlewareError::from_err)
 ///     }
@@ -133,7 +132,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// _after_ delegating and allowing the default implementation to poll gas.
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		self.inner()
@@ -151,7 +150,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// transaction's hash. This will consume gas from the account that signed
 	/// the transaction. This call will fail if no signer is available, and the
 	/// RPC node does  not have an unlocked accounts
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,
@@ -171,7 +170,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// 1000.pow(escalations))`
 	async fn send_escalating<'a>(
 		&'a self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		escalations: usize,
 		policy: EscalationPolicy,
 	) -> Result<EscalatingPending<'a, Self::Provider>, Self::Error> {
@@ -357,7 +356,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// gas).
 	async fn estimate_gas(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<U256, Self::Error> {
 		self.inner().estimate_gas(tx, block).await.map_err(MiddlewareError::from_err)
@@ -366,11 +365,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// Sends the read-only (constant) transaction to a single Neo node and return the result
 	/// (as bytes) of executing it. This is free, since it does not change any state on the
 	/// blockchain.
-	async fn call(
-		&self,
-		tx: &TypedTransaction,
-		block: Option<BlockId>,
-	) -> Result<Bytes, Self::Error> {
+	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, Self::Error> {
 		self.inner().call(tx, block).await.map_err(MiddlewareError::from_err)
 	}
 
@@ -495,7 +490,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// Sign a transaction via RPC call
 	async fn sign_transaction(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		from: Address,
 	) -> Result<Signature, Self::Error> {
 		self.inner().sign_transaction(tx, from).await.map_err(MiddlewareError::from_err)
@@ -773,7 +768,7 @@ pub trait Middleware: Sync + Send + Debug {
 	}
 
 	/// Executes the given call and returns a number of possible traces for it
-	async fn debug_trace_call<T: Into<TypedTransaction> + Send + Sync>(
+	async fn debug_trace_call<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: T,
 		block: Option<BlockId>,
@@ -818,7 +813,7 @@ pub trait Middleware: Sync + Send + Debug {
 	// Parity `trace` support
 
 	/// Executes the given call and returns a number of possible traces for it
-	async fn trace_call<T: Into<TypedTransaction> + Send + Sync>(
+	async fn trace_call<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: T,
 		trace_type: Vec<TraceType>,
@@ -832,7 +827,7 @@ pub trait Middleware: Sync + Send + Debug {
 
 	/// Executes given calls and returns a number of possible traces for each
 	/// call
-	async fn trace_call_many<T: Into<TypedTransaction> + Send + Sync>(
+	async fn trace_call_many<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: Vec<(T, Vec<TraceType>)>,
 		block: Option<BlockNumber>,
@@ -1038,7 +1033,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// details
 	async fn create_access_list(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<AccessListWithGasUsed, Self::Error> {
 		self.inner()

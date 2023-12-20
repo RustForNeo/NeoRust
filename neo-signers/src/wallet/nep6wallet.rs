@@ -1,5 +1,4 @@
 use crate::wallet::nep6account::NEP6Account;
-use crypto::scrypt::ScryptParams;
 use getset::{CopyGetters, Getters};
 use neo_types::ScryptParamsDef;
 use serde::{Deserialize, Serialize};

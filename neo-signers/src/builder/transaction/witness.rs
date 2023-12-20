@@ -1,5 +1,5 @@
 use crate::{
-	error::BuilderError,
+	builder::error::BuilderError,
 	script::script_builder::ScriptBuilder,
 	transaction::{invocation_script::InvocationScript, verification_script::VerificationScript},
 };
@@ -42,17 +42,17 @@ impl Witness {
 		Ok(Self { invocation: invocation_script, verification: verification_script })
 	}
 
-	pub fn create_MultiSig_witness(
+	pub fn create_multi_sig_witness(
 		signing_threshold: u8,
 		signatures: Vec<Signature>,
 		public_keys: Vec<PublicKey>,
 	) -> Result<Self, BuilderError> {
 		let verification_script =
 			VerificationScript::from_MultiSig(&public_keys, signing_threshold);
-		Self::create_MultiSig_witness_script(signatures, verification_script)
+		Self::create_multi_sig_witness_script(signatures, verification_script)
 	}
 
-	pub fn create_MultiSig_witness_script(
+	pub fn create_multi_sig_witness_script(
 		signatures: Vec<Signature>,
 		verification_script: VerificationScript,
 	) -> Result<Self, BuilderError> {

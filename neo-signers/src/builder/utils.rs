@@ -47,6 +47,10 @@ pub fn pubkey_to_scripthash(public_key: &PublicKey) -> ScriptHash {
 	ScriptHash::from_script(&script)
 }
 
+pub trait VecValueExtension {
+	fn to_value(&self) -> Value;
+}
+
 impl ValueExtension for TransactionAttribute {
 	fn to_value(&self) -> Value {
 		Value::String(self.to_json())
@@ -59,12 +63,13 @@ impl ValueExtension for TransactionSendToken {
 	}
 }
 
-impl ValueExtension for Vec<TransactionSendToken> {
+impl VecValueExtension for Vec<TransactionSendToken> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}
 }
-impl ValueExtension for Vec<TransactionAttribute> {
+
+impl VecValueExtension for Vec<TransactionAttribute> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}
@@ -75,7 +80,7 @@ impl ValueExtension for Signer {
 	}
 }
 
-impl ValueExtension for Vec<Signer> {
+impl VecValueExtension for Vec<Signer> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}
@@ -87,19 +92,7 @@ impl ValueExtension for TransactionSigner {
 	}
 }
 
-impl ValueExtension for Vec<TransactionSigner> {
-	fn to_value(&self) -> Value {
-		self.iter().map(|x| x.to_value()).collect()
-	}
-}
-
-impl ValueExtension for ContractParameter {
-	fn to_value(&self) -> Value {
-		Value::String(serde_json::to_string(self).unwrap())
-	}
-}
-
-impl ValueExtension for Vec<ContractParameter> {
+impl VecValueExtension for Vec<TransactionSigner> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}

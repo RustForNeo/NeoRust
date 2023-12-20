@@ -52,7 +52,7 @@ impl<P: fmt::Debug> fmt::Debug for CallBuilder<'_, P> {
 
 impl<'a, P> CallBuilder<'a, P> {
 	/// Instantiate a new call builder based on `tx`
-	pub fn new(provider: &'a Provider<P>, tx: &'a TypedTransaction) -> Self {
+	pub fn new(provider: &'a Provider<P>, tx: &'a Transaction) -> Self {
 		Self::Build(Caller::new(provider, tx))
 	}
 
@@ -119,7 +119,7 @@ pub struct Caller<'a, P> {
 
 impl<'a, P> Caller<'a, P> {
 	/// Instantiate a new `Caller` based on `tx`
-	pub fn new(provider: &'a Provider<P>, tx: &'a TypedTransaction) -> Self {
+	pub fn new(provider: &'a Provider<P>, tx: &'a Transaction) -> Self {
 		Self { provider, input: CallInput::new(tx) }
 	}
 }
@@ -134,13 +134,13 @@ impl<'a, P: JsonRpcClient> Caller<'a, P> {
 /// The input parameters to the `neo_call` rpc method
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CallInput<'a> {
-	tx: &'a TypedTransaction,
+	tx: &'a Transaction,
 	block: Option<BlockId>,
 	state: Option<&'a spoof::State>,
 }
 
 impl<'a> CallInput<'a> {
-	fn new(tx: &'a TypedTransaction) -> Self {
+	fn new(tx: &'a Transaction) -> Self {
 		Self { tx, block: None, state: None }
 	}
 }
@@ -231,11 +231,7 @@ mod tests {
 
 	// Deserializes neo_call parameters as owned data for testing serialization
 	#[derive(Debug, Deserialize)]
-	struct CallInputOwned(
-		TypedTransaction,
-		Option<BlockId>,
-		#[serde(default)] Option<spoof::State>,
-	);
+	struct CallInputOwned(Transaction, Option<BlockId>, #[serde(default)] Option<spoof::State>);
 	impl<'a> From<&'a CallInputOwned> for CallInput<'a> {
 		fn from(src: &'a CallInputOwned) -> Self {
 			Self { tx: &src.0, block: src.1, state: src.2.as_ref() }
@@ -265,7 +261,7 @@ mod tests {
 		let k2 = utils::keccak256("bar").into();
 		let v2 = H256::from_low_u64_be(8675309);
 
-		let tx = TypedTransaction::default();
+		let tx = Transaction::default();
 		let (provider, _) = Provider::mocked();
 
 		let call = provider.call_raw(&tx);

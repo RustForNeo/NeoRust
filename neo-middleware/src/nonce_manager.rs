@@ -123,7 +123,7 @@ where
 
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		if tx.nonce().is_none() {
@@ -140,7 +140,7 @@ where
 	/// Signs and broadcasts the transaction. The optional parameter `block` can be passed so that
 	/// gas cost and nonce calculations take it into account. For simple transactions this can be
 	/// left to `None`.
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,

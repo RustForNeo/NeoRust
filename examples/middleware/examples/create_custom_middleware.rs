@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use neo::{
 	core::{
-		types::{transaction::eip2718::TypedTransaction, BlockId, TransactionRequest, U256},
+		types::{ BlockId, TransactionRequest, U256},
 		utils::{parse_units, Anvil},
 	},
 	middleware::MiddlewareBuilder,
@@ -79,12 +79,12 @@ where
 	/// In this function we bump the transaction gas value by the specified percentage
 	/// This can raise a custom middleware error if a gas amount was not set for
 	/// the transaction.
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, Self::Provider>, Self::Error> {
-		let mut tx: TypedTransaction = tx.into();
+		let mut tx: Transaction = tx.into();
 
 		let curr_gas: U256 = match tx.gas() {
 			Some(gas) => gas.to_owned(),

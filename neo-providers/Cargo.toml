@@ -57,7 +57,6 @@ tracing = { workspace = true, features = ["attributes"] }
 tracing-futures = { workspace = true, features = ["std-future"] }
 neo-types.workspace = true
 neo-crypto.workspace = true
-neo-builder.workspace = true
 primitive-types.workspace = true
 
 [target.'cfg(target_family = "windows")'.dependencies]

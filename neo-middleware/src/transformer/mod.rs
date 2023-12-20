@@ -28,5 +28,5 @@ pub trait Transformer: Send + Sync + std::fmt::Debug {
 	/// proxy contract.
 	///
 	/// [`transaction request`]: struct@neo_types::TransactionRequest
-	fn transform(&self, tx: &mut TypedTransaction) -> Result<(), TransformerError>;
+	fn transform(&self, tx: &mut Transaction) -> Result<(), TransformerError>;
 }

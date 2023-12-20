@@ -57,7 +57,6 @@ neo-addressbook.workspace = true
 neo-contract = { workspace = true, features = ["providers"] }
 neo-codec.workspace=true
 neo-crypto.workspace=true
-neo-builder.workspace=true
 neo-config.workspace=true
 neo-types.workspace=true
 neo-middleware.workspace = true

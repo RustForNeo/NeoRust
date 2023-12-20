@@ -1,19 +1,22 @@
-use crate::wallet::{
-	nep6account::NEP6Account,
-	nep6contract::{NEP6Contract, NEP6Parameter},
-	wallet::Wallet,
-	wallet_error::WalletError,
+use crate::{
+	transaction::verification_script::VerificationScript,
+	wallet::{
+		nep6account::NEP6Account,
+		nep6contract::{NEP6Contract, NEP6Parameter},
+		wallet::Wallet,
+		wallet_error::WalletError,
+	},
 };
-use neo_builder::transaction::verification_script::VerificationScript;
 use neo_crypto::{key_pair::KeyPair, nep2::NEP2};
 use neo_types::{
 	address::Address,
 	contract_parameter_type::ContractParameterType,
 	script_hash::{ScriptHash, ScriptHashExtension},
-	Base64Encode,
+	Base64Encode, *,
 };
 use p256::PublicKey;
 use primitive_types::H160;
+use rustc_serialize::base64::ToBase64;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashMap,
@@ -62,7 +65,7 @@ impl Hash for Account {
 	}
 }
 
-struct PrivateKey(&str);
+struct PrivateKey<'a>(&'a str);
 
 impl Account {
 	// Constructors

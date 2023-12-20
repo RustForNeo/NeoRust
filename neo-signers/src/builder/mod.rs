@@ -2,6 +2,7 @@ pub mod error;
 pub mod script;
 pub mod transaction;
 pub mod utils;
+
 pub fn add(left: usize, right: usize) -> usize {
 	left + right
 }

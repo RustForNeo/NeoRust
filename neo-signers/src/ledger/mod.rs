@@ -22,7 +22,7 @@ impl Signer for Ledgerneo {
 	}
 
 	/// Signs the transaction
-	async fn sign_transaction(&self, message: &TypedTransaction) -> Result<Signature, Self::Error> {
+	async fn sign_transaction(&self, message: &Transaction) -> Result<Signature, Self::Error> {
 		let mut tx_with_chain = message.clone();
 		if tx_with_chain.network_magic().is_none() {
 			// in the case we don't have a network_magic, let's use the signer network magic instead

@@ -171,7 +171,7 @@ impl DsProxy {
 }
 
 impl Transformer for DsProxy {
-	fn transform(&self, tx: &mut TypedTransaction) -> Result<(), TransformerError> {
+	fn transform(&self, tx: &mut Transaction) -> Result<(), TransformerError> {
 		// the target address cannot be None.
 		let target =
 			*tx.to_addr().ok_or_else(|| TransformerError::MissingField("to".to_string()))?;

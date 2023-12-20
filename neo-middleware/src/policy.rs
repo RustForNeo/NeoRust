@@ -13,7 +13,7 @@ pub trait Policy: Sync + Send + Debug {
 	/// Evaluates the transactions.
 	///
 	/// Returns Ok with the `tx` or an Err otherwise.
-	async fn ensure_can_send(&self, tx: TypedTransaction) -> Result<TypedTransaction, Self::Error>;
+	async fn ensure_can_send(&self, tx: Transaction) -> Result<Transaction, Self::Error>;
 }
 
 /// A policy that does not restrict anything.
@@ -25,7 +25,7 @@ pub struct AllowEverything;
 impl Policy for AllowEverything {
 	type Error = ();
 
-	async fn ensure_can_send(&self, tx: TypedTransaction) -> Result<TypedTransaction, Self::Error> {
+	async fn ensure_can_send(&self, tx: Transaction) -> Result<Transaction, Self::Error> {
 		Ok(tx)
 	}
 }
@@ -39,7 +39,7 @@ pub struct RejectEverything;
 impl Policy for RejectEverything {
 	type Error = ();
 
-	async fn ensure_can_send(&self, _: TypedTransaction) -> Result<TypedTransaction, Self::Error> {
+	async fn ensure_can_send(&self, _: Transaction) -> Result<Transaction, Self::Error> {
 		Err(())
 	}
 }
@@ -105,7 +105,7 @@ where
 
 	/// This ensures the tx complies with the registered policy.
 	/// If so then this simply delegates the transaction to the inner middleware
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,

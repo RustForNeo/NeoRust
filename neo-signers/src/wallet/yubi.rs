@@ -1,6 +1,7 @@
 //! Helpers for creating wallets for YubiHSM2
 use super::Wallet;
 use elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
+use p256::PublicKey;
 use yubihsm::{
 	asymmetric::Algorithm::EcK256, ecdsa::Signer as YubiSigner, object, object::Label, Capability,
 	Client, Connector, Credentials, Domain,

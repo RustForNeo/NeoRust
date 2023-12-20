@@ -9,16 +9,18 @@ mod nep6account;
 mod nep6contract;
 mod nep6wallet;
 mod wallet;
-mod wallet_error;
+pub(crate) mod wallet_error;
 #[cfg(all(feature = "yubihsm", not(target_arch = "wasm32")))]
 mod yubi;
 
 use crate::Signer;
 
+use crate::transaction::transaction::Transaction;
 use async_trait::async_trait;
 use neo_crypto::signature::Signature;
 use neo_types::address::Address;
 use p256::ecdsa::signature::hazmat::PrehashSigner;
+use primitive_types::{H256, U256};
 use std::fmt;
 
 /// A neo private-public key pair which can be used for signing messages.
@@ -89,7 +91,7 @@ impl<D: Sync + Send + PrehashSigner<Signature>> Signer for Wallet<D> {
 		self.sign_hash(message_hash)
 	}
 
-	async fn sign_transaction(&self, tx: &TypedTransaction) -> Result<Signature, Self::Error> {
+	async fn sign_transaction(&self, tx: &Transaction) -> Result<Signature, Self::Error> {
 		let mut tx_with_chain = tx.clone();
 		if tx_with_chain.network_magic().is_none() {
 			// in the case we don't have a network_magic, let's use the signer network magic instead

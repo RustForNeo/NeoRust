@@ -1,4 +1,5 @@
 use crate::{
+	error::ContractError,
 	fungible_token_contract::FungibleTokenContract,
 	gas_token::GasToken,
 	neo_token::NeoToken,
@@ -6,9 +7,8 @@ use crate::{
 		fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 	},
 };
-use neo_types::{
-	script_hash::{ScriptHash, ScriptHashExtension},
-};
+use getset::{Getters, Setters};
+use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
 use primitive_types::H160;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -17,9 +17,6 @@ use std::{
 	error::Error,
 	str::FromStr,
 };
-use getset::{Getters, Setters};
-use neo_builder::transaction::transaction_builder::TransactionBuilder;
-use crate::error::ContractError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI {

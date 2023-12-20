@@ -1,13 +1,15 @@
-use crate::{traits::smartcontract::SmartContractTrait};
+use crate::{error::ContractError, traits::smartcontract::SmartContractTrait};
 use async_trait::async_trait;
 use futures::{FutureExt, TryFutureExt};
 use neo_types::{
-	contract_error::ContractError, contract_parameter::ContractParameter,
-	contract_state::ContractIdentifiers, nef_file::NefFile, script_hash::ScriptHash,
+	contract_error::ContractError,
+	contract_parameter::ContractParameter,
+	contract_state::{ContractIdentifiers, ContractState},
+	nef_file::NefFile,
+	script_hash::ScriptHash,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use neo_types::contract_state::ContractState;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContractManagement {

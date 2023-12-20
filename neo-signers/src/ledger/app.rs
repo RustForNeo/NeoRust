@@ -6,6 +6,7 @@ use coins_ledger::{
 use futures_executor::block_on;
 use futures_util::lock::Mutex;
 
+use neo_types::address::Address;
 use std::convert::TryFrom;
 use thiserror::Error;
 
@@ -126,7 +127,7 @@ impl Ledgerneo {
 	}
 
 	/// Signs a neo transaction (requires confirmation on the ledger)
-	pub async fn sign_tx(&self, tx: &TypedTransaction) -> Result<Signature, LedgerError> {
+	pub async fn sign_tx(&self, tx: &Transaction) -> Result<Signature, LedgerError> {
 		let mut tx_with_chain = tx.clone();
 		if tx_with_chain.network_magic().is_none() {
 			// in the case we don't have a network_magic, let's use the signer network magic instead
@@ -147,9 +148,8 @@ impl Ledgerneo {
 			};
 
 			signature.v = match tx {
-				TypedTransaction::Eip2930(_) | TypedTransaction::Eip1559(_) =>
-					(ecc_parity % 2 != 1) as u64,
-				TypedTransaction::Legacy(_) => eip155_network_magic + ecc_parity,
+				Transaction::Eip2930(_) | Transaction::Eip1559(_) => (ecc_parity % 2 != 1) as u64,
+				Transaction::Legacy(_) => eip155_network_magic + ecc_parity,
 			};
 		}
 

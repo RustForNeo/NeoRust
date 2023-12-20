@@ -1,6 +1,6 @@
 use crate::{
 	contract_parameter_type::ContractParameterType, nef_file::NefFile, nns_name::NNSName,
-	role::Role,
+	role::Role, serde_value::ValueExtension,
 };
 use base64::encode;
 use elliptic_curve::sec1::ToEncodedPoint;
@@ -159,6 +159,18 @@ impl From<Value> for ContractParameter {
 impl From<Vec<Value>> for ContractParameter {
 	fn from(value: Vec<Value>) -> Self {
 		Self::array(value.into_iter().map(|v| ContractParameter::from(v)).collect())
+	}
+}
+
+impl ValueExtension for ContractParameter {
+	fn to_value(&self) -> Value {
+		Value::String(serde_json::to_string(self).unwrap())
+	}
+}
+
+impl ValueExtension for Vec<ContractParameter> {
+	fn to_value(&self) -> Value {
+		self.iter().map(|x| x.to_value()).collect()
 	}
 }
 

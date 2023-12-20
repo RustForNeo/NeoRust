@@ -1,4 +1,4 @@
-use crate::{protocol::core::responses::neo_witness::Witness, utils::*};
+use neo_types::{witness::Witness, *};
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 

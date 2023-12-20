@@ -1,8 +1,11 @@
-use crate::transaction::{
-	signers::signer::{SignerTrait, SignerType},
-	transaction_error::TransactionError,
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
+use crate::{
+	transaction::{
+		signers::signer::{SignerTrait, SignerType},
+		transaction_error::TransactionError,
+		witness_rule::witness_rule::WitnessRule,
+		witness_scope::WitnessScope,
+	},
+	wallet::account::Account,
 };
 use getset::{Getters, Setters};
 use neo_crypto::keys::PublicKeyExtension;

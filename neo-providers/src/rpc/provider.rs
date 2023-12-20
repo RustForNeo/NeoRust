@@ -21,8 +21,11 @@ use futures_util::{lock::Mutex, try_join};
 use neo_types::{
 	address::Address,
 	block::{Block, BlockId},
+	contract_parameter::ContractParameter,
+	filter::Filter,
+	invocation_result::InvocationResult,
 };
-use primitive_types::{H160, U256};
+use primitive_types::{H160, H256 as TxHash, U256};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
 	collections::VecDeque, convert::TryFrom, fmt::Debug, str::FromStr, sync::Arc, time::Duration,
@@ -30,15 +33,6 @@ use std::{
 use tracing::trace;
 use tracing_futures::Instrument;
 use url::{Host, ParseError, Url};
-
-use neo_builder::transaction::{
-	signers::{signer::Signer, transaction_signer::TransactionSigner},
-	transaction::Transaction,
-};
-use neo_types::{
-	contract_parameter::ContractParameter, filter::Filter, invocation_result::InvocationResult,
-};
-use primitive_types::H256 as TxHash;
 
 /// Node Clients
 #[derive(Copy, Clone)]
@@ -253,7 +247,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		if let Some(default_sender) = self.default_sender() {
@@ -426,11 +420,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("net_version", ()).await
 	}
 
-	async fn call(
-		&self,
-		tx: &TypedTransaction,
-		block: Option<BlockId>,
-	) -> Result<Bytes, ProviderError> {
+	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, ProviderError> {
 		let tx = utils::serialize(tx);
 		let block = utils::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
 		self.request("neo_call", [tx, block]).await
@@ -438,7 +428,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	async fn estimate_gas(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<U256, ProviderError> {
 		let tx = utils::serialize(tx);
@@ -454,7 +444,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	async fn create_access_list(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<AccessListWithGasUsed, ProviderError> {
 		let tx = utils::serialize(tx);
@@ -462,7 +452,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("neo_createAccessList", [tx, block]).await
 	}
 
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,
@@ -510,7 +500,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	/// Sign a transaction via RPC call
 	async fn sign_transaction(
 		&self,
-		_tx: &TypedTransaction,
+		_tx: &Transaction,
 		_from: Address,
 	) -> Result<Signature, Self::Error> {
 		Err(MiddlewareError::from_err(ProviderError::SignerUnavailable))
@@ -816,7 +806,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("debug_traceTransaction", [tx_hash, trace_options]).await
 	}
 
-	async fn debug_trace_call<T: Into<TypedTransaction> + Send + Sync>(
+	async fn debug_trace_call<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: T,
 		block: Option<BlockId>,
@@ -849,7 +839,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("debug_traceBlockByHash", [block, trace_options]).await
 	}
 
-	async fn trace_call<T: Into<TypedTransaction> + Send + Sync>(
+	async fn trace_call<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: T,
 		trace_type: Vec<TraceType>,
@@ -862,12 +852,12 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("trace_call", [req, trace_type, block]).await
 	}
 
-	async fn trace_call_many<T: Into<TypedTransaction> + Send + Sync>(
+	async fn trace_call_many<T: Into<Transaction> + Send + Sync>(
 		&self,
 		req: Vec<(T, Vec<TraceType>)>,
 		block: Option<BlockNumber>,
 	) -> Result<Vec<BlockTrace>, ProviderError> {
-		let req: Vec<(TypedTransaction, Vec<TraceType>)> =
+		let req: Vec<(Transaction, Vec<TraceType>)> =
 			req.into_iter().map(|(tx, trace_type)| (tx.into(), trace_type)).collect();
 		let req = utils::serialize(&req);
 		let block = utils::serialize(&block.unwrap_or(BlockNumber::Latest));

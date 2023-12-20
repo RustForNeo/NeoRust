@@ -1,7 +1,6 @@
 use super::{GasOracle, GasOracleError};
 use async_trait::async_trait;
 use neo_providers::{Middleware, MiddlewareError as METrait, PendingTransaction};
-use neo_types::{transaction::eip2718::TypedTransaction, *};
 use thiserror::Error;
 
 /// Middleware used for fetching gas prices over an API instead of `neo_gasPrice`.
@@ -67,11 +66,11 @@ where
 
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		match tx {
-			TypedTransaction::Legacy(ref mut tx) =>
+			Transaction::Legacy(ref mut tx) =>
 				if tx.gas_price.is_none() {
 					tx.gas_price = Some(self.get_gas_price().await?);
 				},
@@ -91,7 +90,7 @@ where
 		Ok(self.gas_oracle.estimate_eip1559_fees().await?)
 	}
 
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,

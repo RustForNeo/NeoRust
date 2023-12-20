@@ -1,15 +1,11 @@
 use crate::{
-	fungible_token_contract::FungibleTokenContract, traits::token::TokenTrait,
+	error::ContractError, fungible_token_contract::FungibleTokenContract, traits::token::TokenTrait,
 };
 use async_trait::async_trait;
 use neo_types::{
-	address::Address, contract_parameter::ContractParameter,
-	nns_name::NNSName, Bytes,
+	address::Address, contract_parameter::ContractParameter, nns_name::NNSName, Bytes,
 };
 use primitive_types::H160;
-use neo_builder::transaction::signers::account_signer::AccountSigner;
-use neo_builder::transaction::transaction_builder::TransactionBuilder;
-use crate::error::ContractError;
 
 #[async_trait]
 pub trait FungibleTokenTrait: TokenTrait {

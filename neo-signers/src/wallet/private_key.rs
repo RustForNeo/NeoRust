@@ -43,6 +43,8 @@ pub enum WalletError {
 	/// Error propagated from the mnemonic builder module.
 	#[error(transparent)]
 	MnemonicBuilderError(#[from] MnemonicBuilderError),
+	// #[error(transparent)]
+	NoDefaultAccount,
 }
 
 impl Wallet<SigningKey> {
@@ -269,11 +271,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn signs_tx() {
-		use crate::TypedTransaction;
+		use crate::Transaction;
 		use neo_types::{TransactionRequest, U64};
 		// retrieved test vector from:
 		// https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
-		let tx: TypedTransaction = TransactionRequest {
+		let tx: Transaction = TransactionRequest {
 			from: None,
 			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
 			value: Some(1_000_000_000.into()),
@@ -297,11 +299,11 @@ mod tests {
 
 	#[tokio::test]
 	async fn signs_tx_empty_network_magic() {
-		use crate::TypedTransaction;
+		use crate::Transaction;
 		use neo_types::TransactionRequest;
 		// retrieved test vector from:
 		// https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
-		let tx: TypedTransaction = TransactionRequest {
+		let tx: Transaction = TransactionRequest {
 			from: None,
 			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
 			value: Some(1_000_000_000.into()),
@@ -331,13 +333,13 @@ mod tests {
 
 	#[test]
 	fn signs_tx_empty_network_magic_sync() {
-		use crate::TypedTransaction;
+		use crate::Transaction;
 		use neo_types::TransactionRequest;
 
 		let network_magic = 1337u64;
 		// retrieved test vector from:
 		// https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
-		let tx: TypedTransaction = TransactionRequest {
+		let tx: Transaction = TransactionRequest {
 			from: None,
 			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
 			value: Some(1_000_000_000u64.into()),

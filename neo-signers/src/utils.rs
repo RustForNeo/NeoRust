@@ -1,4 +1,4 @@
-use neo_builder::script::script_builder::ScriptBuilder;
+use crate::{error::SignerError, script::script_builder::ScriptBuilder};
 use neo_config::DEFAULT_ADDRESS_VERSION;
 use neo_crypto::{
 	hash::HashableForVec,
@@ -57,10 +57,10 @@ pub fn script_hash_to_address(script_hash: &ScriptHash) -> String {
 }
 
 /// Convert an address to a script hash.
-pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, Err> {
+pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, SignerError> {
 	let bytes = match bs58::decode(address).into_vec() {
 		Ok(bytes) => bytes,
-		Err(_) => return Err(Err::InvalidAddress),
+		Err(_) => return Err(SignerError::InvalidAddress),
 	};
 	let salt = bytes[0];
 	let hash = &bytes[1..21];
@@ -68,7 +68,7 @@ pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, Err> {
 	let mut sha = &bytes[..21].hash256().hash256();
 	let check = &sha[..4];
 	if checksum != check {
-		return Err(Err::InvalidAddress)
+		return Err(SignerError::InvalidAddress)
 		// panic!("Invalid address checksum");
 	}
 
@@ -79,7 +79,7 @@ pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, Err> {
 }
 
 /// Convert a private key in WIF format to a SecretKey.
-pub fn private_key_from_wif(wif: &str) -> Result<SecretKey, Err> {
+pub fn private_key_from_wif(wif: &str) -> Result<SecretKey, SignerError> {
 	let secret_key = SecretKey::from_wif(wif)?;
 	Ok(secret_key)
 }
@@ -95,7 +95,7 @@ pub fn private_key_to_hex(private_key: &SecretKey) -> String {
 }
 
 /// Convert a private key in hex format to a SecretKey.
-pub fn private_key_from_hex(hex: &str) -> Result<SecretKey, Err> {
+pub fn private_key_from_hex(hex: &str) -> Result<SecretKey, SignerError> {
 	let bytes = hex::decode(hex)?;
 	let secret_key = SecretKey::from_slice(&bytes)?;
 	Ok(secret_key)
@@ -107,7 +107,7 @@ pub fn public_key_to_hex(public_key: &PublicKey) -> String {
 }
 
 /// Convert a public key in hex format to a PublicKey.
-pub fn public_key_from_hex(hex: &str) -> Result<PublicKey, Err> {
+pub fn public_key_from_hex(hex: &str) -> Result<PublicKey, SignerError> {
 	let bytes = hex::decode(hex)?;
 	let public_key = PublicKey::from_slice(&bytes)?;
 	Ok(public_key)
@@ -119,19 +119,19 @@ pub fn script_hash_to_hex(script_hash: &ScriptHash) -> String {
 }
 
 /// Convert a script hash in hex format to a ScriptHash.
-pub fn script_hash_from_hex(hex: &str) -> Result<ScriptHash, Err> {
+pub fn script_hash_from_hex(hex: &str) -> Result<ScriptHash, SignerError> {
 	let script_hash = H160::from_str(hex)?;
 	Ok(script_hash)
 }
 
 /// Convert an address to hex format.
-pub fn address_to_hex(address: &str) -> Result<String, Err> {
+pub fn address_to_hex(address: &str) -> Result<String, SignerError> {
 	let script_hash = H160::from_address(address)?;
 	Ok(script_hash.to_string())
 }
 
 /// Convert a hex format script hash to an address.
-pub fn hex_to_address(hex: &str) -> Result<String, Err> {
+pub fn hex_to_address(hex: &str) -> Result<String, SignerError> {
 	let script_hash = H160::from_str(hex)?;
 	Ok(script_hash.to_address())
 }

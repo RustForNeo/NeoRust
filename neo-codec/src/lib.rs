@@ -1,5 +1,5 @@
 mod binary_decoder;
-mod binary_encoder;
+pub mod binary_encoder;
 mod error;
 
 pub use binary_decoder::*;

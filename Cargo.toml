@@ -33,7 +33,6 @@ all-features = true
 members = [
     "neo",
     "neo-addressbook",
-    "neo-builder",
     "neo-crypto",
     "neo-config",
     "neo-codec",
@@ -50,7 +49,6 @@ members = [
 default-members = [
     "neo",
     "neo-addressbook",
-    "neo-builder",
     "neo-crypto",
     "neo-config",
     "neo-codec",
@@ -70,7 +68,6 @@ resolver = "2"
 #neo = { version = "0.0.1", path = "neo", default-features = false }
 neo-addressbook = { version = "0.0.1", path = "neo-addressbook", default-features = false }
 neo-contract = { version = "0.0.1", path = "neo-contract", default-features = false }
-neo-builder = { version = "0.0.1", path = "neo-builder", default-features = false }
 neo-types = { version = "0.0.1", path = "neo-types", default-features = false }
 neo-crypto = { version = "0.0.1", path = "neo-crypto", default-features = false }
 neo-middleware = { version = "0.0.1", path = "neo-middleware", default-features = false }

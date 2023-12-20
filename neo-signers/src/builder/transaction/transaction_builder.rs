@@ -1,5 +1,5 @@
 use crate::{
-	error::BuilderError,
+	builder::error::BuilderError,
 	transaction::{
 		serializable_transaction::SerializableTransaction,
 		signers::signer::{Signer, SignerType},
@@ -16,8 +16,8 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use neo_builder::transaction::transaction_builder::TransactionBuilder;
 ///
+/// use neo_signers::transaction::transaction_builder::TransactionBuilder;
 /// let mut tx_builder = TransactionBuilder::new();
 /// tx_builder.version(0)
 ///           .nonce(1)

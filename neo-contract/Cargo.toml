@@ -37,7 +37,6 @@ async-trait = "0.1.73"
 primitive-types.workspace = true
 neo-types.workspace = true
 neo-crypto.workspace = true
-neo-builder.workspace = true
 futures = "0.3.28"
 reqwest = "0.11.22"
 num_enum = "0.7.0"

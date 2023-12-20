@@ -1,12 +1,11 @@
-use neo_types::ScryptParamsDef;
-use primitive_types::H160;
-use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
-
 use crate::{
 	wallet::{account::Account, nep6wallet::NEP6Wallet},
 	WalletError,
 };
+use neo_types::{ScryptParamsDef, *};
+use primitive_types::H160;
+use serde_derive::{Deserialize, Serialize};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Wallet {

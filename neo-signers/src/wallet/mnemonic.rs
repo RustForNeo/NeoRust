@@ -6,6 +6,7 @@ use coins_bip32::path::DerivationPath;
 use coins_bip39::{Mnemonic, Wordlist};
 
 use neo_types::path_or_string::PathOrString;
+use p256::ecdsa::SigningKey;
 use rand::Rng;
 use std::{fs::File, io::Write, marker::PhantomData, path::PathBuf, str::FromStr};
 use thiserror::Error;

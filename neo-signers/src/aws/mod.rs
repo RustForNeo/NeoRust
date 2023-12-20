@@ -227,7 +227,7 @@ impl super::Signer for AwsSigner {
 	}
 
 	#[instrument(err)]
-	async fn sign_transaction(&self, tx: &TypedTransaction) -> Result<EthSig, Self::Error> {
+	async fn sign_transaction(&self, tx: &Transaction) -> Result<EthSig, Self::Error> {
 		let mut tx_with_chain = tx.clone();
 		let network_magic = tx_with_chain
 			.network_magic()

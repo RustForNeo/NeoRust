@@ -38,9 +38,11 @@ async-trait.workspace = true
 hex.workspace = true
 neo-types.workspace=true
 neo-crypto.workspace=true
-neo-builder.workspace=true
 neo-config.workspace=true
+neo-codec.workspace=true
 bs58.workspace=true
+serde_json.workspace=true
+bincode.workspace=true
 
 # futures
 futures-util = { workspace = true, optional = true }
@@ -54,9 +56,19 @@ rusoto_kms = { version = "0.48.0", default-features = false, optional = true }
 spki = { workspace = true, optional = true }
 tokio = "1.32.0"
 serde_derive = "1.0.188"
+educe = "0.5"
+hex-literal = "0.4.1"
 
 primitive-types.workspace = true
 serde = "1.0.188"
+lazy_static = "1.4.0"
+strum_macros = "0.25.2"
+strum = "0.25.0"
+num-bigint = "0.4.4"
+num-traits = "0.2.16"
+num_enum = "0.7.0"
+rustc-serialize = "0.3.24"
+derive_more = "0.99"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eth-keystore = "0.5.0"

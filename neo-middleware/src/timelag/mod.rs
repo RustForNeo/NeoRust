@@ -285,7 +285,7 @@ where
 
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		self.inner()

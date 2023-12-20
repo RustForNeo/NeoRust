@@ -10,8 +10,6 @@ use neo_types::{
 };
 use primitive_types::H160;
 use std::{collections::HashMap, sync::Arc};
-use neo_builder::transaction::signers::account_signer::AccountSigner;
-use neo_builder::transaction::transaction_builder::TransactionBuilder;
 
 #[async_trait]
 pub trait NonFungibleTokenTrait: TokenTrait + Send {

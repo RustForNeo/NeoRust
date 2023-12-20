@@ -3,7 +3,7 @@
 use std::hash::Hash;
 use tokio::io::AsyncReadExt;
 
-use crate::{error::BuilderError, script::interop_service::InteropService};
+use crate::{builder::error::BuilderError, script::interop_service::InteropService};
 use neo_codec::Decoder;
 use neo_types::{
 	op_code::{OpCode, OperandSize},
@@ -22,7 +22,7 @@ impl ScriptReader {
 		let mut result = String::new();
 		while reader.pointer().clone() < script.len() {
 			if let Ok(op_code) = OpCode::try_from(reader.read_u8()) {
-				result.push_str(&format!("{}", op_code).to_uppercase());
+				result.push_str(&format!("{:?}", op_code).to_uppercase());
 				if let Some(size) = op_code.operand_size() {
 					if size.size().clone() > 0 {
 						result.push_str(&format!(
@@ -46,9 +46,9 @@ impl ScriptReader {
 
 	fn get_prefix_size(reader: &mut Decoder, size: OperandSize) -> Result<usize, BuilderError> {
 		match size.prefix_size() {
-			1 => Ok(reader.read_u8() as usize),
-			2 => Ok(reader.read_i16() as usize),
-			4 => Ok(reader.read_i32() as usize),
+			1 => Ok(reader.read_u8().unwrap() as usize),
+			2 => Ok(reader.read_i16().unwrap() as usize),
+			4 => Ok(reader.read_i32().unwrap() as usize),
 			_ => Err(BuilderError::UnsupportedOperation(
 				"Only operand prefix sizes 1, 2, and 4 are supported".to_string(),
 			)),

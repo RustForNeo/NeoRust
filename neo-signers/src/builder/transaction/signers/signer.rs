@@ -1,5 +1,5 @@
 use crate::{
-	error::BuilderError,
+	builder::error::BuilderError,
 	transaction::{
 		signers::{
 			account_signer::AccountSigner, contract_signer::ContractSigner,
@@ -146,7 +146,7 @@ pub trait SignerTrait {
 	}
 	fn validate_subitems(&self, count: usize, name: &str) -> Result<(), BuilderError> {
 		if count > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
-			return Err(BuilderError::TooManySigners)
+			return Err(BuilderError::TooManySigners("".to_string()))
 		}
 		Ok(())
 	}

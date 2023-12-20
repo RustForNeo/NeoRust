@@ -1,7 +1,6 @@
 use super::{Transformer, TransformerError};
 use async_trait::async_trait;
 use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
-use neo_types::{transaction::eip2718::TypedTransaction, *};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -63,7 +62,7 @@ where
 		&self.inner
 	}
 
-	async fn send_transaction<Tx: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<Tx: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: Tx,
 		block: Option<BlockId>,

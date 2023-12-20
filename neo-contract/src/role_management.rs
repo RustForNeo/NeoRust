@@ -1,14 +1,10 @@
+use crate::{error::ContractError, traits::smart_contract::SmartContractTrait};
 use async_trait::async_trait;
-use neo_types::script_hash::ScriptHash;
+use neo_types::{script_hash::ScriptHash, serde_value::ValueExtension, stack_item::StackItem};
 use num_enum::TryFromPrimitive;
-use p256::{PublicKey};
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-use neo_builder::transaction::transaction_builder::TransactionBuilder;
-use neo_types::serde_value::ValueExtension;
-use neo_types::stack_item::StackItem;
-use crate::error::ContractError;
-use crate::traits::smart_contract::SmartContractTrait;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RoleManagement {

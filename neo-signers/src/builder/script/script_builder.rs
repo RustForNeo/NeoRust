@@ -1,8 +1,9 @@
 use crate::{
-	error::BuilderError, script::interop_service::InteropService,
+	builder::error::BuilderError, script::interop_service::InteropService,
 	transaction::call_flags::CallFlags,
 };
 use getset::{Getters, Setters};
+use hex_literal::hex;
 use neo_codec::Encoder;
 use neo_types::{
 	contract_parameter::{ContractParameter, ParameterValue},

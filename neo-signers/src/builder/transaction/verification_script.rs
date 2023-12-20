@@ -1,5 +1,5 @@
 use crate::{
-	error::BuilderError,
+	builder::error::BuilderError,
 	script::{interop_service::InteropService, script_builder::ScriptBuilder},
 };
 use getset::{Getters, Setters};

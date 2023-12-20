@@ -133,7 +133,7 @@ where
 	/// id.
 	async fn sign_transaction(
 		&self,
-		mut tx: TypedTransaction,
+		mut tx: Transaction,
 	) -> Result<Bytes, SignerMiddlewareError<M, S>> {
 		// compare network_magic and use signer's network_magic if the tranasaction's network_magic is None,
 		// return an error if they are not consistent
@@ -200,7 +200,7 @@ where
 		Ok(SignerMiddleware { inner, signer, address })
 	}
 
-	fn set_tx_from_if_none(&self, tx: &TypedTransaction) -> TypedTransaction {
+	fn set_tx_from_if_none(&self, tx: &Transaction) -> Transaction {
 		let mut tx = tx.clone();
 		if tx.from().is_none() {
 			tx.set_from(self.address);
@@ -236,7 +236,7 @@ where
 
 	async fn sign_transaction(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		_: Address,
 	) -> Result<Signature, Self::Error> {
 		Ok(self
@@ -249,7 +249,7 @@ where
 	/// Helper for filling a transaction's nonce using the wallet
 	async fn fill_transaction(
 		&self,
-		tx: &mut TypedTransaction,
+		tx: &mut Transaction,
 		block: Option<BlockId>,
 	) -> Result<(), Self::Error> {
 		// get the `from` field's nonce if it's set, else get the signer's nonce
@@ -271,9 +271,9 @@ where
 		if let Some(network_magic) = tx.network_magic() {
 			let chain = Chain::try_from(network_magic.as_u64());
 			if chain.unwrap_or_default().is_legacy() {
-				if let TypedTransaction::Eip1559(inner) = tx {
+				if let Transaction::Eip1559(inner) = tx {
 					let tx_req: TransactionRequest = inner.clone().into();
-					*tx = TypedTransaction::Legacy(tx_req);
+					*tx = Transaction::Legacy(tx_req);
 				}
 			}
 		}
@@ -290,7 +290,7 @@ where
 	/// Signs and broadcasts the transaction. The optional parameter `block` can be passed so that
 	/// gas cost and nonce calculations take it into account. For simple transactions this can be
 	/// left to `None`.
-	async fn send_transaction<T: Into<TypedTransaction> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
 		block: Option<BlockId>,
@@ -335,7 +335,7 @@ where
 
 	async fn estimate_gas(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<U256, Self::Error> {
 		let tx = self.set_tx_from_if_none(tx);
@@ -347,7 +347,7 @@ where
 
 	async fn create_access_list(
 		&self,
-		tx: &TypedTransaction,
+		tx: &Transaction,
 		block: Option<BlockId>,
 	) -> Result<AccessListWithGasUsed, Self::Error> {
 		let tx = self.set_tx_from_if_none(tx);
@@ -357,11 +357,7 @@ where
 			.map_err(SignerMiddlewareError::MiddlewareError)
 	}
 
-	async fn call(
-		&self,
-		tx: &TypedTransaction,
-		block: Option<BlockId>,
-	) -> Result<Bytes, Self::Error> {
+	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, Self::Error> {
 		let tx = self.set_tx_from_if_none(tx);
 		self.inner()
 			.call(&tx, block)
@@ -557,7 +553,7 @@ mod tests {
 			network_magic: None,
 			max_fee_per_gas: None,
 		};
-		let mut tx = TypedTransaction::Eip1559(eip1559);
+		let mut tx = Transaction::Eip1559(eip1559);
 
 		let network_magic = 324u64; // zksync does not support EIP-1559
 
@@ -576,7 +572,7 @@ mod tests {
 		client.fill_transaction(&mut tx, None).await.unwrap();
 
 		assert!(tx.as_eip1559_ref().is_none());
-		assert_eq!(tx, TypedTransaction::Legacy(tx.as_legacy_ref().unwrap().clone()));
+		assert_eq!(tx, Transaction::Legacy(tx.as_legacy_ref().unwrap().clone()));
 	}
 
 	#[tokio::test]
@@ -593,7 +589,7 @@ mod tests {
 			network_magic: None,
 			max_fee_per_gas: None,
 		};
-		let mut tx = TypedTransaction::Eip1559(eip1559);
+		let mut tx = Transaction::Eip1559(eip1559);
 
 		let network_magic = 1u64; // eth main supports EIP-1559
 
@@ -612,6 +608,6 @@ mod tests {
 		client.fill_transaction(&mut tx, None).await.unwrap();
 
 		assert!(tx.as_legacy_ref().is_none());
-		assert_eq!(tx, TypedTransaction::Eip1559(tx.as_eip1559_ref().unwrap().clone()));
+		assert_eq!(tx, Transaction::Eip1559(tx.as_eip1559_ref().unwrap().clone()));
 	}
 }
