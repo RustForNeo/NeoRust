@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
-use neo_types::{transaction::eip2718::TypedTransaction, *};
+use neo_types::{address::Address, block::BlockId};
+use primitive_types::U256;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use thiserror::Error;
 
@@ -57,7 +58,7 @@ where
 		// initialize the nonce the first time the manager is called
 		let nonce = self
 			.inner
-			.get_transaction_count(self.address, block)
+			.get_transaction_count(&self.address, block)
 			.await
 			.map_err(MiddlewareError::from_err)?;
 		self.nonce.store(nonce.as_u64(), Ordering::SeqCst);
@@ -73,7 +74,7 @@ where
 		if !self.initialized.load(Ordering::SeqCst) {
 			let nonce = self
 				.inner
-				.get_transaction_count(self.address, block)
+				.get_transaction_count(&self.address, block)
 				.await
 				.map_err(MiddlewareError::from_err)?;
 			self.nonce.store(nonce.as_u64(), Ordering::SeqCst);
@@ -153,7 +154,7 @@ where
 		match self.inner.send_transaction(tx.clone(), block).await {
 			Ok(tx_hash) => Ok(tx_hash),
 			Err(err) => {
-				let nonce = self.get_transaction_count(self.address, block).await?;
+				let nonce = self.get_transaction_count(&self.address, block).await?;
 				if nonce != self.nonce.load(Ordering::SeqCst).into() {
 					// try re-submitting the transaction with the correct nonce if there
 					// was a nonce mismatch

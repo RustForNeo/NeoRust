@@ -9,7 +9,7 @@ use std::{collections::BTreeMap, fmt, str::FromStr};
 
 /// Transaction summary as found in the Txpool Inspection property.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TxpoolInspectSummary {
+pub struct TxPoolInspectSummary {
 	/// Recipient (None when contract creation)
 	pub to: Option<Address>,
 	/// Transferred value
@@ -19,12 +19,12 @@ pub struct TxpoolInspectSummary {
 }
 
 /// Visitor struct for TxpoolInspectSummary.
-struct TxpoolInspectSummaryVisitor;
+struct TxPoolInspectSummaryVisitor;
 
 /// Walk through the deserializer to parse a txpool inspection summary into the
 /// `TxpoolInspectSummary` struct.
-impl<'de> Visitor<'de> for TxpoolInspectSummaryVisitor {
-	type Value = TxpoolInspectSummary;
+impl<'de> Visitor<'de> for TxPoolInspectSummaryVisitor {
+	type Value = TxPoolInspectSummary;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
 		formatter.write_str("to: value wei + gasLimit gas × gas_price wei")
@@ -64,23 +64,23 @@ impl<'de> Visitor<'de> for TxpoolInspectSummaryVisitor {
 		let value = U256::from_dec_str(value_split[0]).map_err(de::Error::custom)?;
 		let gas = U256::from_dec_str(gas_split[0]).map_err(de::Error::custom)?;
 
-		Ok(TxpoolInspectSummary { to: addr, value, gas })
+		Ok(TxPoolInspectSummary { to: addr, value, gas })
 	}
 }
 
 /// Implement the `Deserialize` trait for `TxpoolInspectSummary` struct.
-impl<'de> Deserialize<'de> for TxpoolInspectSummary {
-	fn deserialize<D>(deserializer: D) -> Result<TxpoolInspectSummary, D::Error>
+impl<'de> Deserialize<'de> for TxPoolInspectSummary {
+	fn deserialize<D>(deserializer: D) -> Result<TxPoolInspectSummary, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		deserializer.deserialize_str(TxpoolInspectSummaryVisitor)
+		deserializer.deserialize_str(TxPoolInspectSummaryVisitor)
 	}
 }
 
 /// Implement the `Serialize` trait for `TxpoolInspectSummary` struct so that the
 /// format matches the one from geth.
-impl Serialize for TxpoolInspectSummary {
+impl Serialize for TxPoolInspectSummary {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -122,9 +122,9 @@ pub struct TxpoolContent<TX> {
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TxpoolInspect {
 	/// pending tx
-	pub pending: BTreeMap<Address, BTreeMap<String, TxpoolInspectSummary>>,
+	pub pending: BTreeMap<Address, BTreeMap<String, TxPoolInspectSummary>>,
 	/// queued tx
-	pub queued: BTreeMap<Address, BTreeMap<String, TxpoolInspectSummary>>,
+	pub queued: BTreeMap<Address, BTreeMap<String, TxPoolInspectSummary>>,
 }
 
 /// Transaction Pool Status

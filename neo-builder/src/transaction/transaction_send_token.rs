@@ -1,3 +1,4 @@
+use neo_types::*;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};

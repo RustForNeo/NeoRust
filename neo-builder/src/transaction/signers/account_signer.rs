@@ -6,7 +6,7 @@ use crate::transaction::{
 };
 use getset::{Getters, Setters};
 use neo_crypto::keys::PublicKeyExtension;
-use neo_types::script_hash::ScriptHashExtension;
+use neo_types::{script_hash::ScriptHashExtension, *};
 use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};

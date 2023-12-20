@@ -322,7 +322,6 @@ impl ScriptBuilder {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use hex_literal::hex;
 	use num_traits::FromPrimitive;
 	use std::vec;
 

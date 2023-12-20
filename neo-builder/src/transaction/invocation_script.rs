@@ -1,5 +1,7 @@
+use crate::script::script_builder::ScriptBuilder;
 use getset::{Getters, Setters};
-use neo_crypto::{key_pair::KeyPair, signature::Signature};
+use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, signature::Signature};
+use neo_types::Bytes;
 use p256::ecdsa::signature::Signer;
 use serde_derive::{Deserialize, Serialize};
 

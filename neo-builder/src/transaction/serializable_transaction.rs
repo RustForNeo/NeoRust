@@ -3,7 +3,6 @@ use crate::transaction::{
 	transaction_error::TransactionError, witness::Witness,
 };
 use getset::{Getters, Setters};
-use impl_serde::serialize::serialize;
 use neo_codec::{Decoder, Encoder};
 use neo_types::{nef_file::HEADER_SIZE, Bytes};
 use serde::Serialize;
@@ -16,7 +15,7 @@ pub struct SerializableTransaction {
 	nonce: u32,
 	valid_until_block: u32,
 	#[getset(get = "pub")]
-	signers: Vec<Signer>,
+	pub(crate) signers: Vec<Signer>,
 	#[getset(get = "pub", set = "pub")]
 	system_fee: i64,
 	#[getset(get = "pub", set = "pub")]

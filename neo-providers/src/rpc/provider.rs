@@ -22,7 +22,7 @@ use neo_types::{
 	address::Address,
 	block::{Block, BlockId},
 };
-use primitive_types::H160;
+use primitive_types::{H160, U256};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
 	collections::VecDeque, convert::TryFrom, fmt::Debug, str::FromStr, sync::Arc, time::Duration,
@@ -31,6 +31,13 @@ use tracing::trace;
 use tracing_futures::Instrument;
 use url::{Host, ParseError, Url};
 
+use neo_builder::transaction::{
+	signers::{signer::Signer, transaction_signer::TransactionSigner},
+	transaction::Transaction,
+};
+use neo_types::{
+	contract_parameter::ContractParameter, filter::Filter, invocation_result::InvocationResult,
+};
 use primitive_types::H256 as TxHash;
 
 /// Node Clients

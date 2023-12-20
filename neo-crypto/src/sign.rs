@@ -2,10 +2,11 @@ use crate::{error::CryptoError, hash::HashableForVec};
 use p256::{
 	ecdsa::{
 		signature::{Signer, Verifier},
-		Signature, SigningKey, VerifyingKey,
+		Signature, VerifyingKey,
 	},
 	SecretKey,
 };
+use p256::ecdsa::SigningKey;
 
 /// A struct that provides functions for signing and verifying messages using ECDSA with the P-256 curve.
 pub struct Sign2 {}

@@ -1,6 +1,6 @@
 use crate::{utils::PinBoxFut, JsonRpcClient, Middleware, Provider, ProviderError};
 use futures_core::stream::Stream;
-use neo_types::{Filter, Log, U64};
+use neo_types::{filter::Filter, log::Log};
 use std::{
 	collections::VecDeque,
 	pin::Pin,

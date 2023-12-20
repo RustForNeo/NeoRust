@@ -182,17 +182,17 @@ impl open_fastrlp::Decodable for Signature {
 }
 
 impl open_fastrlp::Encodable for Signature {
-	fn length(&self) -> usize {
-		// This assumes U256 and u64 have a length() method
-		32 + 32 + 8 // r's length + s's length + v's length
-	}
-
 	fn encode(&self, out: &mut dyn bytes::BufMut) {
 		let r_bytes: [u8; 32] = self.r.into();
 		let s_bytes: [u8; 32] = self.s.into();
 		out.put_slice(&r_bytes);
 		out.put_slice(&s_bytes);
 		out.put_u64(self.v);
+	}
+
+	fn length(&self) -> usize {
+		// This assumes U256 and u64 have a length() method
+		32 + 32 + 8 // r's length + s's length + v's length
 	}
 }
 

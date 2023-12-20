@@ -181,7 +181,6 @@ impl TryFrom<String> for Wallet<SigningKey> {
 mod tests {
 	use super::*;
 	use crate::{LocalWallet, Signer};
-	use neo_types::Address;
 	use tempfile::tempdir;
 
 	#[test]

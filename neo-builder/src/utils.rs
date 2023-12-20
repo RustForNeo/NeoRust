@@ -7,7 +7,10 @@ use crate::{
 	},
 };
 use hex::FromHexError;
-use neo_types::{contract_parameter::ContractParameter, serde_value::ValueExtension};
+use neo_types::{
+	contract_parameter::ContractParameter, script_hash::ScriptHashExtension,
+	serde_value::ValueExtension,
+};
 use p256::PublicKey;
 use primitive_types::H160;
 use serde_json::Value;

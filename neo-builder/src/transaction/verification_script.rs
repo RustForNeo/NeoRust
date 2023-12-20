@@ -1,12 +1,17 @@
+use crate::{
+	error::BuilderError,
+	script::{interop_service::InteropService, script_builder::ScriptBuilder},
+};
 use getset::{Getters, Setters};
 use neo_codec::Decoder;
+use neo_crypto::keys::PublicKeyExtension;
+use neo_types::{op_code::OpCode, Bytes};
 use num_bigint::BigInt;
-use p256::{ecdsa::Signature, pkcs8::der::Encode, PublicKey};
+use p256::{ecdsa::Signature, elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, vec};
 
-use crate::{error::TypeError, op_code::OpCode, Bytes};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
 pub struct VerificationScript {
 	#[getset(get = "pub", set = "pub")]
@@ -33,7 +38,7 @@ impl VerificationScript {
 		Self::from(builder.to_bytes())
 	}
 
-	pub fn from_MultiSig(public_keys: &[PublicKey], threshold: u8) -> Self {
+	pub fn from_multi_sig(public_keys: &[PublicKey], threshold: u8) -> Self {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
 		builder
@@ -57,7 +62,7 @@ impl VerificationScript {
 			&& self.script[34] == OpCode::Syscall as u8
 	}
 
-	pub fn is_MultiSig(&self) -> bool {
+	pub fn is_multi_sig(&self) -> bool {
 		if self.script.len() < 37 {
 			return false
 		}
@@ -119,7 +124,7 @@ impl VerificationScript {
 		signatures
 	}
 
-	pub fn get_public_keys(&self) -> Result<Vec<PublicKey>, TypeError> {
+	pub fn get_public_keys(&self) -> Result<Vec<PublicKey>, BuilderError> {
 		if self.is_single_sig() {
 			let mut reader = Decoder::new(&self.script);
 			reader.by_ref().read_u8(); // skip pushdata1
@@ -132,7 +137,7 @@ impl VerificationScript {
 			return Ok(vec![key])
 		}
 
-		if self.is_MultiSig() {
+		if self.is_multi_sig() {
 			let mut reader = Decoder::new(&self.script);
 			reader.by_ref().read_var_int().unwrap(); // skip threshold
 
@@ -147,20 +152,20 @@ impl VerificationScript {
 			return Ok(keys)
 		}
 
-		Err(TypeError::InvalidScript("Invalid verification script".to_string()))
+		Err(BuilderError::InvalidScript("Invalid verification script".to_string()))
 	}
 
-	pub fn get_signing_threshold(&self) -> Result<usize, TypeError> {
+	pub fn get_signing_threshold(&self) -> Result<usize, BuilderError> {
 		if self.is_single_sig() {
 			Ok(1)
-		} else if self.is_MultiSig() {
+		} else if self.is_multi_sig() {
 			let reader = &mut Decoder::new(&self.script);
 			Ok(reader.by_ref().read_var_int()? as usize)
 		} else {
-			Err(TypeError::InvalidScript("Invalid verification script".to_string()))
+			Err(BuilderError::InvalidScript("Invalid verification script".to_string()))
 		}
 	}
-	pub fn get_nr_of_accounts(&self) -> Result<usize, TypeError> {
+	pub fn get_nr_of_accounts(&self) -> Result<usize, BuilderError> {
 		match self.get_public_keys() {
 			Ok(keys) => Ok(keys.len()),
 			Err(e) => Err(e),

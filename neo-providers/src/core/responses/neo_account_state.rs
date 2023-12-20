@@ -1,7 +1,4 @@
-use crate::{
-	types::{public_key::PublicKeyExtension, PublicKey},
-	utils::*,
-};
+use crate::utils::*;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 

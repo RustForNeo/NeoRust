@@ -1,9 +1,9 @@
 use neo_providers::{maybe, Middleware, MiddlewareError, PendingTransaction};
 use neo_signers::Signer;
-use neo_types::{Address, BlockId, Bytes, Signature, TransactionRequest, U256};
 use std::convert::TryFrom;
 
 use async_trait::async_trait;
+use neo_types::{address::Address, Bytes};
 use thiserror::Error;
 
 #[derive(Clone, Debug)]

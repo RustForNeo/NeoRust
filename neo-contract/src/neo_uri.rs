@@ -5,15 +5,12 @@ use crate::{
 	traits::{
 		fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 	},
-	transaction_builder::TransactionBuilder,
 };
 use neo_types::{
-	contract_error::ContractError,
 	script_hash::{ScriptHash, ScriptHashExtension},
 };
 use primitive_types::H160;
 use reqwest::Url;
-use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::{
 	borrow::{Borrow, BorrowMut},
@@ -22,6 +19,7 @@ use std::{
 };
 use getset::{Getters, Setters};
 use neo_builder::transaction::transaction_builder::TransactionBuilder;
+use crate::error::ContractError;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI {

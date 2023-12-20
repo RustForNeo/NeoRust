@@ -17,3 +17,19 @@ pub enum CryptoError {
 	#[error("Signing error")]
 	SigningError,
 }
+
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum Nep2Error {
+	#[error("Invalid passphrase: {0}")]
+	InvalidPassphrase(String),
+	#[error("Invalid format: {0}")]
+	InvalidFormat(String),
+}
+
+#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
+pub enum SignError {
+	#[error("Header byte out of range: {0}")]
+	HeaderOutOfRange(u8),
+	#[error("Could not recover public key from signature")]
+	RecoverFailed,
+}

@@ -1,6 +1,11 @@
-use crate::transaction::{
-	serializable_transaction::SerializableTransaction, signers::signer::Signer,
-	transaction_attribute::TransactionAttribute, transaction_error::TransactionError,
+use crate::{
+	error::BuilderError,
+	transaction::{
+		serializable_transaction::SerializableTransaction,
+		signers::signer::{Signer, SignerType},
+		transaction_attribute::TransactionAttribute,
+		transaction_error::TransactionError,
+	},
 };
 /// This module contains the implementation of the `TransactionBuilder` struct, which is used to build and configure transactions.
 ///
@@ -21,7 +26,9 @@ use crate::transaction::{
 ///           .get_unsigned_tx();
 /// ```
 use getset::{CopyGetters, Getters, MutGetters, Setters};
-use neo_types::Bytes;
+use neo_config::NeoConstants;
+use neo_types::{contract_parameter::ContractParameter, witness::Witness, Bytes};
+use p256::elliptic_curve::PublicKey;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use serde::Serialize;
@@ -293,7 +300,7 @@ impl TransactionBuilder {
 	}
 
 	// Sign transaction
-	pub async fn sign(&mut self) -> Result<SerializableTransaction, NeoError> {
+	pub async fn sign(&mut self) -> Result<SerializableTransaction, BuilderError> {
 		let mut transaction = self.get_unsigned_transaction().await.unwrap();
 		let tx_bytes = transaction.get_hash_data().await.unwrap();
 
@@ -304,14 +311,14 @@ impl TransactionBuilder {
 				let account_signer = signer.as_account_signer().unwrap();
 				let acc = &account_signer.account;
 				if acc.is_multi_sig() {
-					return Err(NeoError::IllegalState(
+					return Err(BuilderError::IllegalState(
 						"Transactions with multi-sig signers cannot be signed automatically."
 							.to_string(),
 					))
 				}
 
 				let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
-					NeoError::InvalidConfiguration(
+					BuilderError::InvalidConfiguration(
 						"Cannot create transaction signature because account does not hold a private key.".to_string(),
 					)
 				})?;
@@ -355,7 +362,7 @@ impl TransactionBuilder {
 		}
 
 		if self.signers.is_empty() {
-			return Err(NeoError::IllegalState(
+			return Err(BuilderError::IllegalState(
 				"Cannot create a transaction without signers.".to_string(),
 			)
 			.into())
@@ -364,7 +371,7 @@ impl TransactionBuilder {
 		if self.is_high_priority() {
 			let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
 			if !is_allowed {
-				return Err(NeoError::IllegalState(
+				return Err(BuilderError::IllegalState(
 					"Only committee members can send high priority transactions.".to_string(),
 				)
 				.into())
@@ -399,7 +406,7 @@ impl TransactionBuilder {
 		Ok(transaction)
 	}
 
-	async fn is_allowed_for_high_priority(&self) -> Result<bool, NeoError> {
+	async fn is_allowed_for_high_priority(&self) -> Result<bool, BuilderError> {
 		let committee = NEO_INSTANCE
 			.read()
 			.unwrap()
@@ -470,12 +477,12 @@ impl TransactionBuilder {
 			.any(|attr| matches!(attr, TransactionAttribute::HighPriority))
 	}
 
-	async fn can_send_cover_fees(&self, fees: u64) -> Result<bool, NeoError> {
+	async fn can_send_cover_fees(&self, fees: u64) -> Result<bool, BuilderError> {
 		let balance = self.get_sender_gas_balance().await?;
 		Ok(balance >= fees)
 	}
 
-	async fn get_sender_gas_balance(&self) -> Result<u64, NeoError> {
+	async fn get_sender_gas_balance(&self) -> Result<u64, BuilderError> {
 		let sender_hash = self.signers[0].get_signer_hash();
 		let result = NEO_INSTANCE
 			.read()

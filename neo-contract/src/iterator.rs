@@ -1,6 +1,7 @@
 // iterator
-use neo_types::{contract_error::ContractError, stack_item::StackItem};
+use neo_types::{stack_item::StackItem};
 use std::{fmt, sync::Arc};
+use crate::error::ContractError;
 
 pub struct NeoIterator<T> {
 	session_id: String,

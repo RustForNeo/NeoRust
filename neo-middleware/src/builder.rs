@@ -4,7 +4,7 @@ use crate::{
 };
 use neo_providers::Middleware;
 use neo_signers::Signer;
-use neo_types::Address;
+use neo_types::address::Address;
 
 /// A builder trait to compose different [`Middleware`] layers and then build a composed
 /// [`Provider`](neo_providers::Provider) architecture.

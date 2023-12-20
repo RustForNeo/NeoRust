@@ -1,3 +1,14 @@
+use crate::{
+	error::BuilderError,
+	transaction::{
+		signers::{
+			account_signer::AccountSigner, contract_signer::ContractSigner,
+			transaction_signer::TransactionSigner,
+		},
+		witness_rule::{witness_condition::WitnessCondition, witness_rule::WitnessRule},
+		witness_scope::WitnessScope,
+	},
+};
 use neo_config::NeoConstants;
 use p256::PublicKey;
 use primitive_types::H160;
@@ -36,10 +47,10 @@ pub trait SignerTrait {
 	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule>;
 
 	// Set allowed contracts
-	fn set_allowed_contracts(&mut self, contracts: Vec<H160>) -> Result<(), TransactionError> {
+	fn set_allowed_contracts(&mut self, contracts: Vec<H160>) -> Result<(), BuilderError> {
 		// Validate
 		if self.get_scopes().contains(&WitnessScope::Global) {
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Cannot set contracts for global scope".to_string(),
 			))
 		}
@@ -47,7 +58,7 @@ pub trait SignerTrait {
 		if self.get_allowed_contracts().len() + contracts.len()
 			> NeoConstants::MAX_SIGNER_SUBITEMS as usize
 		{
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Too many allowed contracts".to_string(),
 			))
 		}
@@ -63,9 +74,9 @@ pub trait SignerTrait {
 	}
 
 	// Set allowed groups
-	fn set_allowed_groups(&mut self, groups: Vec<PublicKey>) -> Result<(), TransactionError> {
+	fn set_allowed_groups(&mut self, groups: Vec<PublicKey>) -> Result<(), BuilderError> {
 		if self.get_scopes().contains(&WitnessScope::Global) {
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Cannot set groups for global scope".to_string(),
 			))
 		}
@@ -73,7 +84,7 @@ pub trait SignerTrait {
 		if self.get_allowed_groups().len() + groups.len()
 			> NeoConstants::MAX_SIGNER_SUBITEMS as usize
 		{
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Too many allowed groups".to_string(),
 			))
 		}
@@ -88,15 +99,15 @@ pub trait SignerTrait {
 	}
 
 	// Set rules
-	fn set_rules(&mut self, rules: Vec<WitnessRule>) -> Result<(), TransactionError> {
+	fn set_rules(&mut self, rules: Vec<WitnessRule>) -> Result<(), BuilderError> {
 		if self.get_scopes().contains(&WitnessScope::Global) {
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Cannot set rules for global scope".to_string(),
 			))
 		}
 
 		if self.get_rules().len() + rules.len() > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
-			return Err(TransactionError::TransactionConfiguration("Too many rules".to_string()))
+			return Err(BuilderError::TransactionConfiguration("Too many rules".to_string()))
 		}
 
 		// Validate nesting depth
@@ -114,10 +125,10 @@ pub trait SignerTrait {
 	}
 
 	// Check depth recursively
-	fn validate_depth(&self, rule: &WitnessCondition, depth: u8) -> Result<(), TransactionError> {
+	fn validate_depth(&self, rule: &WitnessCondition, depth: u8) -> Result<(), BuilderError> {
 		// Depth exceeded
 		if depth == 0 {
-			return Err(TransactionError::TransactionConfiguration(
+			return Err(BuilderError::TransactionConfiguration(
 				"Max nesting depth exceeded".to_string(),
 			))
 		}
@@ -133,9 +144,9 @@ pub trait SignerTrait {
 
 		Ok(())
 	}
-	fn validate_subitems(&self, count: usize, name: &str) -> Result<(), TransactionError> {
+	fn validate_subitems(&self, count: usize, name: &str) -> Result<(), BuilderError> {
 		if count > NeoConstants::MAX_SIGNER_SUBITEMS as usize {
-			return Err(TransactionError::TooManySigners)
+			return Err(BuilderError::TooManySigners)
 		}
 		Ok(())
 	}

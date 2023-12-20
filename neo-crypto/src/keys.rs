@@ -38,6 +38,7 @@ where
 	fn to_vec(&self) -> Vec<u8>;
 	fn from_slice(slice: &[u8]) -> Result<Self, CryptoError>;
 }
+
 impl PublicKeyExtension for PublicKey {
 	fn to_vec(&self) -> Vec<u8> {
 		self.to_encoded_point(false).as_bytes().to_vec()

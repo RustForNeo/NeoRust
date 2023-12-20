@@ -1,3 +1,4 @@
+use neo_types::*;
 use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};

@@ -17,3 +17,4 @@ exclude.workspace = true
 
 primitive-types.workspace = true
 tokio.workspace = true
+serde = { version = "1.0.188", features = ["derive"] }

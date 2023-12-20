@@ -1,7 +1,6 @@
-use crate::transaction_builder::TransactionBuilder;
 use async_trait::async_trait;
 use p256::PublicKey;
-use neo_types::{contract_error::ContractError, script_hash::ScriptHash};
+use neo_types::{script_hash::ScriptHash};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use neo_builder::transaction::transaction_builder::TransactionBuilder;
@@ -9,6 +8,7 @@ use neo_providers::core::responses::neo_account_state::AccountState;
 use neo_types::contract_parameter::ContractParameter;
 use neo_types::contract_parameter_type::ContractParameterType;
 use neo_types::stack_item::StackItem;
+use crate::error::ContractError;
 use crate::traits::fungible_token::FungibleTokenTrait;
 use crate::traits::smart_contract::SmartContractTrait;
 use crate::traits::token::TokenTrait;
@@ -215,7 +215,7 @@ impl NeoToken {
 	async fn call_function_returning_list_of_public_keys(
 		&self,
 		function: &str,
-	) -> Result<Vec<PublicKey>, NeoError> {
+	) -> Result<Vec<PublicKey>, ContractError> {
 		let result = self.call_invoke_function(function, vec![], vec![]).await.unwrap();
 		let stack_item = result.stack.first().unwrap();
 
@@ -225,16 +225,16 @@ impl NeoToken {
 				.map(|item| {
 					if let StackItem::ByteString { value: bytes } = item {
 						PublicKey::from_sec1_bytes(bytes.as_bytes())
-							.map_err(|_| NeoError::UnexpectedReturnType)
+							.map_err(|_| ContractError::UnexpectedReturnType)
 					} else {
-						Err(NeoError::UnexpectedReturnType)
+						Err(ContractError::UnexpectedReturnType)
 					}
 				})
-				.collect::<Result<Vec<PublicKey>, NeoError>>()?;
+				.collect::<Result<Vec<PublicKey>, ContractError>>()?;
 
 			Ok(keys)
 		} else {
-			Err(NeoError::UnexpectedReturnType)
+			Err(ContractError::UnexpectedReturnType)
 		}
 	}
 }

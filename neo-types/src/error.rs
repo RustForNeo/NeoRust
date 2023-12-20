@@ -44,6 +44,8 @@ pub enum TypeError {
 	InvalidOpCode,
 	#[error("Invalid argument {0}")]
 	InvalidArgError(String),
+	#[error("Invalid neo name {0}")]
+	InvalidNeoName(String),
 	#[error("Numeric overflow")]
 	NumericOverflow,
 	#[error("Wif error {0}")]

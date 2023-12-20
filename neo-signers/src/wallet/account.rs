@@ -10,6 +10,7 @@ use neo_types::{
 	address::Address,
 	contract_parameter_type::ContractParameterType,
 	script_hash::{ScriptHash, ScriptHashExtension},
+	Base64Encode,
 };
 use p256::PublicKey;
 use primitive_types::H160;
@@ -22,17 +23,16 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Account {
-	pub(crate) key_pair: Option<KeyPair>,
+	pub key_pair: Option<KeyPair>,
 	#[serde(
 		serialize_with = "serialize_script_hash",
 		deserialize_with = "deserialize_script_hash"
 	)]
 	address: Address,
 	label: Option<String>,
-	pub(crate) verification_script: Option<VerificationScript>,
+	pub verification_script: Option<VerificationScript>,
 	is_locked: bool,
 	encrypted_private_key: Option<String>,
-
 	wallet: Option<Wallet>,
 	signing_threshold: Option<u32>,
 	nr_of_participants: Option<u32>,
@@ -143,12 +143,12 @@ impl Account {
 				Some(ref contract) if contract.script.is_some() => {
 					let script = contract.script.clone().unwrap();
 					let verification_script = VerificationScript::from(script.as_bytes().to_vec());
-					let signing_threshold = if verification_script.is_MultiSig() {
+					let signing_threshold = if verification_script.is_multi_sig() {
 						Some(verification_script.get_signing_threshold().unwrap())
 					} else {
 						None
 					};
-					let nr_of_participants = if verification_script.is_MultiSig() {
+					let nr_of_participants = if verification_script.is_multi_sig() {
 						Some(verification_script.get_nr_of_accounts().unwrap())
 					} else {
 						None
@@ -253,7 +253,7 @@ impl Account {
 
 		let contract = match &self.verification_script {
 			Some(script) => {
-				let parameters = if script.is_MultiSig() {
+				let parameters = if script.is_multi_sig() {
 					let threshold = script.get_signing_threshold().unwrap();
 					let nr_accounts = script.get_nr_of_accounts().unwrap();
 					(0..nr_accounts)
@@ -296,7 +296,7 @@ impl Account {
 	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
 		let address = ScriptHash::from_script(&script.script());
 
-		let (signing_threshold, nr_of_participants) = if script.is_MultiSig() {
+		let (signing_threshold, nr_of_participants) = if script.is_multi_sig() {
 			(
 				Some(script.get_signing_threshold().unwrap()),
 				Some(script.get_nr_of_accounts().unwrap()),
@@ -331,7 +331,7 @@ impl Account {
 		public_keys: &[PublicKey],
 		signing_threshold: u32,
 	) -> Result<Self, WalletError> {
-		let script = VerificationScript::from_MultiSig(public_keys, signing_threshold as u8);
+		let script = VerificationScript::from_multi_sig(public_keys, signing_threshold as u8);
 
 		Ok(Self {
 			label: Some(script.script().to_base64()),

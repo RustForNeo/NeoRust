@@ -5,7 +5,7 @@
 use neo_config::NeoNetwork;
 use neo_types::address::Address;
 use once_cell::sync::Lazy;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const CONTRACTS_JSON: &str = include_str!("./contracts/contracts.json");
@@ -14,7 +14,7 @@ static ADDRESSBOOK: Lazy<HashMap<String, Contract>> =
 	Lazy::new(|| serde_json::from_str(CONTRACTS_JSON).unwrap());
 
 /// Wrapper around a hash map that maps a [Chain] to the contract's deployed address on that chain.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Contract {
 	addresses: HashMap<NeoNetwork, Address>,
 }
@@ -28,7 +28,6 @@ impl Contract {
 }
 
 /// Fetch the addressbook for a contract by its name. If the contract name is not a part of
-/// [neo-addressbook](https://github.com/gakonst/neo-rs/tree/master/neo-addressbook) we return None.
 pub fn contract<S: Into<String>>(name: S) -> Option<Contract> {
 	ADDRESSBOOK.get(&name.into()).cloned()
 }

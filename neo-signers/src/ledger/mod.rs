@@ -4,7 +4,8 @@ pub mod types;
 use crate::Signer;
 use app::Ledgerneo;
 use async_trait::async_trait;
-use neo_types::{Address, Signature};
+use neo_crypto::signature::Signature;
+use neo_types::address::Address;
 use types::LedgerError;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]

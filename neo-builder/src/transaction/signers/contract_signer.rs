@@ -1,6 +1,14 @@
+use crate::transaction::{
+	signers::signer::{SignerTrait, SignerType},
+	witness_rule::witness_rule::WitnessRule,
+	witness_scope::WitnessScope,
+};
+use neo_types::{contract_parameter::ContractParameter, *};
+use p256::PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+
 #[derive(Debug, Clone, Serialize, PartialEq, Deserialize)]
 pub struct ContractSigner {
 	#[serde(

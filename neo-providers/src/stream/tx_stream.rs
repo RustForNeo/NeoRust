@@ -10,8 +10,7 @@ use futures_util::{
 	stream::{FuturesUnordered, StreamExt},
 	FutureExt,
 };
-
-use neo_types::{Transaction, TxHash};
+use neo_types::TxHash;
 
 use crate::{
 	FilterWatcher, JsonRpcClient, Middleware, Provider, ProviderError, PubsubClient,

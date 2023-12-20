@@ -1,7 +1,6 @@
-use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
-use neo_types::{transaction::eip2718::TypedTransaction, BlockId};
-
 use async_trait::async_trait;
+use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
+use neo_types::block::BlockId;
 use std::fmt::Debug;
 use thiserror::Error;
 

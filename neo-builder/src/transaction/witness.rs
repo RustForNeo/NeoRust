@@ -1,8 +1,10 @@
 use crate::{
-	contract_parameter::ContractParameter, invocation_script::InvocationScript,
-	transaction_error::TransactionError, verification_script::VerificationScript, Bytes,
+	error::BuilderError,
+	script::script_builder::ScriptBuilder,
+	transaction::{invocation_script::InvocationScript, verification_script::VerificationScript},
 };
 use neo_crypto::{key_pair::KeyPair, signature::Signature};
+use neo_types::{contract_parameter::ContractParameter, Bytes};
 use p256::{elliptic_curve::sec1::ToEncodedPoint, PublicKey};
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +33,7 @@ impl Witness {
 		Self { invocation: invocation_script, verification: verification_script }
 	}
 
-	pub fn create(message_to_sign: Bytes, key_pair: &KeyPair) -> Result<Self, TransactionError> {
+	pub fn create(message_to_sign: Bytes, key_pair: &KeyPair) -> Result<Self, BuilderError> {
 		let invocation_script =
 			InvocationScript::from_message_and_key_pair(message_to_sign, key_pair).unwrap();
 		let verification_script = VerificationScript::from(
@@ -44,7 +46,7 @@ impl Witness {
 		signing_threshold: u8,
 		signatures: Vec<Signature>,
 		public_keys: Vec<PublicKey>,
-	) -> Result<Self, TransactionError> {
+	) -> Result<Self, BuilderError> {
 		let verification_script =
 			VerificationScript::from_MultiSig(&public_keys, signing_threshold);
 		Self::create_MultiSig_witness_script(signatures, verification_script)
@@ -53,10 +55,10 @@ impl Witness {
 	pub fn create_MultiSig_witness_script(
 		signatures: Vec<Signature>,
 		verification_script: VerificationScript,
-	) -> Result<Self, TransactionError> {
+	) -> Result<Self, BuilderError> {
 		let threshold = verification_script.get_signing_threshold().unwrap();
 		if signatures.len() < threshold {
-			return Err(TransactionError::SignerConfiguration(
+			return Err(BuilderError::SignerConfiguration(
 				"Not enough signatures provided for the required signing threshold.".to_string(),
 			))
 		}
@@ -66,9 +68,7 @@ impl Witness {
 		Ok(Self { invocation: invocation_script, verification: verification_script })
 	}
 
-	pub fn create_contract_witness(
-		params: Vec<ContractParameter>,
-	) -> Result<Self, TransactionError> {
+	pub fn create_contract_witness(params: Vec<ContractParameter>) -> Result<Self, BuilderError> {
 		if params.is_empty() {
 			return Ok(Self::new())
 		}

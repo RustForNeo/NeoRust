@@ -27,11 +27,11 @@ all-features = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 
-http = "0.2"
+http = "1.0.0"
 reqwest = { workspace = true, features = ["json"] }
 url.workspace = true
 base64 = "0.21"
-jsonwebtoken = "8"
+jsonwebtoken = "9.2.0"
 
 async-trait.workspace = true
 hex.workspace = true
@@ -50,12 +50,14 @@ futures-channel = { workspace = true, optional = true }
 pin-project.workspace = true
 
 # peer-related admin namespace
-enr = { version = "0.9.0", default-features = false, features = ["k256", "serde"] }
+enr = { version = "0.10.0", default-features = false, features = ["k256", "serde"] }
 
 # tracing
 tracing = { workspace = true, features = ["attributes"] }
 tracing-futures = { workspace = true, features = ["std-future"] }
 neo-types.workspace = true
+neo-crypto.workspace = true
+neo-builder.workspace = true
 primitive-types.workspace = true
 
 [target.'cfg(target_family = "windows")'.dependencies]
