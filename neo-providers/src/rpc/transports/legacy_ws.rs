@@ -11,6 +11,8 @@ use futures_util::{
 	stream::{Fuse, Stream, StreamExt},
 };
 
+use log::{debug, error};
+use primitive_types::U256;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::value::RawValue;
 use std::{
@@ -177,7 +179,7 @@ impl Ws {
 impl JsonRpcClient for Ws {
 	type Error = ClientError;
 
-	async fn request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+	async fn fetch<T: Serialize + Send + Sync, R: DeserializeOwned>(
 		&self,
 		method: &str,
 		params: T,
@@ -523,6 +525,7 @@ impl From<ClientError> for ProviderError {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
 	use super::*;
+	use neo_types::block::Block;
 
 	#[tokio::test]
 	async fn request() {
@@ -537,7 +540,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn subscription() {
-		use neo_types::{Block, TxHash};
+		use neo_types::TxHash;
 
 		let anvil = Anvil::new().block_time(1u64).spawn();
 		let ws = Ws::connect(anvil.ws_endpoint()).await.unwrap();
@@ -551,7 +554,7 @@ mod tests {
 			.take(3)
 			.map(|item| {
 				let block: Block<TxHash> = serde_json::from_str(item.get()).unwrap();
-				block.number.unwrap_or_default().as_u64()
+				block.index
 			})
 			.collect()
 			.await;

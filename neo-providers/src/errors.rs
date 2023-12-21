@@ -175,6 +175,9 @@ pub enum ProviderError {
 	/// Signer is not available to this provider.
 	#[error("Attempted to sign a transaction with no available signer. Hint: did you mean to use a SignerMiddleware?")]
 	SignerUnavailable,
+
+	#[error("Illegal state: {0}")]
+	IllegalState(String),
 }
 
 impl RpcError for ProviderError {

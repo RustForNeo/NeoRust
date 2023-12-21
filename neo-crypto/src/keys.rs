@@ -2,12 +2,7 @@ use crate::error::CryptoError;
 use core::fmt;
 use p256::{
 	ecdsa::{signature::Signer, Signature, SigningKey, VerifyingKey},
-	elliptic_curve::{
-		generic_array::GenericArray,
-		sec1::{FromEncodedPoint, ToEncodedPoint},
-		Field,
-	},
-	EncodedPoint,
+	elliptic_curve::{generic_array::GenericArray, sec1::ToEncodedPoint, Field},
 };
 use primitive_types::U256;
 use rand_core::OsRng;

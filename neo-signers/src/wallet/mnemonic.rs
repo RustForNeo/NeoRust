@@ -6,6 +6,7 @@ use coins_bip32::path::DerivationPath;
 use coins_bip39::{Mnemonic, Wordlist};
 
 use crate::wallet::wallet_error::WalletError;
+use coins_bip32::ecdsa;
 use neo_crypto::keys::Secp256r1PrivateKey;
 use neo_types::{
 	address_or_scripthash::AddressOrScriptHash, path_or_string::PathOrString,
@@ -180,8 +181,10 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 	fn mnemonic_to_wallet(&self, mnemonic: &Mnemonic<W>) -> Result<Wallet, WalletError> {
 		let derived_priv_key =
 			mnemonic.derive_key(&self.derivation_path, self.password.as_deref())?;
-		let key: &Secp256r1PrivateKey = derived_priv_key.as_ref();
-		let signer = Secp256r1PrivateKey::from_bytes(&key.to_raw_bytes().to_vec())?;
+		// let  sign_key:ecdsa::SigningKey = ;
+		let signer: Secp256r1PrivateKey =
+			Secp256r1PrivateKey::from_bytes(derived_priv_key.Key.to_bytes());
+		// let signer = Secp256r1PrivateKey::from_bytes(&key.to_raw_bytes().to_vec())?;
 		let address = secret_key_to_script_hash(&signer);
 
 		Ok(Wallet { signer, address: AddressOrScriptHash::ScriptHash(address), network_magic: 1 })

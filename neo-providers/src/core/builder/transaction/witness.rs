@@ -1,5 +1,5 @@
-use crate::{
-	builder::error::BuilderError,
+use crate::core::{
+	error::BuilderError,
 	script::script_builder::ScriptBuilder,
 	transaction::{invocation_script::InvocationScript, verification_script::VerificationScript},
 };

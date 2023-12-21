@@ -1,13 +1,3 @@
-use crate::{
-	builder::error::BuilderError,
-	public_key_to_script_hash,
-	transaction::{
-		serializable_transaction::SerializableTransaction,
-		signers::signer::{Signer, SignerType},
-		transaction_attribute::TransactionAttribute,
-		transaction_error::TransactionError,
-	},
-};
 /// This module contains the implementation of the `TransactionBuilder` struct, which is used to build and configure transactions.
 ///
 /// The `TransactionBuilder` struct has various fields that can be set using its methods. Once the fields are set, the `get_unsigned_tx` method can be called to obtain an unsigned transaction.
@@ -18,7 +8,7 @@ use crate::{
 ///
 /// ```
 ///
-/// use neo_signers::transaction::transaction_builder::TransactionBuilder;
+/// use neo_providers::core::transaction::transaction_builder::TransactionBuilder;
 /// let mut tx_builder = TransactionBuilder::new();
 /// tx_builder.version(0)
 ///           .nonce(1)
@@ -28,17 +18,28 @@ use crate::{
 /// ```
 use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_config::NeoConstants;
-use neo_crypto::keys::Secp256r1PublicKey;
-use neo_types::{contract_parameter::ContractParameter, witness::Witness, Bytes};
+use neo_types::{public_key_to_script_hash, Bytes};
 use primitive_types::H160;
-use rustc_serialize::hex::ToHex;
 use serde::Serialize;
 use std::{
 	collections::HashSet,
 	convert::Into,
 	fmt::Debug,
 	hash::{Hash, Hasher},
-	str::FromStr,
+};
+
+use crate::core::{
+	builder::{
+		error::BuilderError,
+		transaction::{
+			serializable_transaction::SerializableTransaction, transaction_error::TransactionError,
+			witness::Witness,
+		},
+	},
+	transaction::{
+		signers::signer::{Signer, SignerType},
+		transaction_attribute::TransactionAttribute,
+	},
 };
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
@@ -221,13 +222,14 @@ impl TransactionBuilder {
 			self.clone().script.unwrap(),
 			vec![],
 		);
+
 		// Get fees
-		let system_fee = self.get_system_fee().await.unwrap();
-		let network_fee = self.get_network_fee(&tx).await.unwrap();
+		let system_fee = 0; //self.get_system_fee().await.unwrap();
+		let network_fee = 0; //self.get_network_fee(&tx).await.unwrap();
 
 		// Check sender balance if needed
 		if let Some(fee_consumer) = &self.fee_consumer {
-			let sender_balance = self.get_sender_balance().await.unwrap();
+			let sender_balance = 0; // self.get_sender_balance().await.unwrap();
 			if network_fee + system_fee > sender_balance {
 				fee_consumer(network_fee + system_fee, sender_balance);
 			}
@@ -239,58 +241,58 @@ impl TransactionBuilder {
 		Ok(tx)
 	}
 
-	async fn get_system_fee(&self) -> Result<u64, TransactionError> {
-		let script = self.script.as_ref().unwrap();
+	// async fn get_system_fee(&self) -> Result<u64, TransactionError> {
+	// 	let script = self.script.as_ref().unwrap();
+	//
+	// 	let response = NEO_INSTANCE
+	// 		.read()
+	// 		.unwrap()
+	// 		.invoke_script(script.to_hex(), vec![self.signers[0].clone()])
+	// 		.request()
+	// 		.await
+	// 		.unwrap();
+	// 	Ok(u64::from_str(response.gas_consumed.as_str()).unwrap()) // example
+	// }
 
-		let response = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.invoke_script(script.to_hex(), vec![self.signers[0].clone()])
-			.request()
-			.await
-			.unwrap();
-		Ok(u64::from_str(response.gas_consumed.as_str()).unwrap()) // example
-	}
-
-	async fn get_network_fee(
-		&mut self,
-		tx: &SerializableTransaction,
-	) -> Result<u64, TransactionError> {
-		let fee = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.calculate_network_fee(tx.serialize().to_hex())
-			.request()
-			.await
-			.unwrap()
-			.network_fee;
-		Ok(fee)
-	}
+	// async fn get_network_fee(
+	// 	&mut self,
+	// 	tx: &SerializableTransaction,
+	// ) -> Result<u64, TransactionError> {
+	// 	let fee = NEO_INSTANCE
+	// 		.read()
+	// 		.unwrap()
+	// 		.calculate_network_fee(tx.serialize().to_hex())
+	// 		.request()
+	// 		.await
+	// 		.unwrap()
+	// 		.network_fee;
+	// 	Ok(fee)
+	// }
 
 	// Get sender balance
-	async fn get_sender_balance(&self) -> Result<u64, TransactionError> {
-		// Call network
-		let sender = &self.signers[0];
-
-		if Self::is_account_signer(sender) {
-			let balance = NEO_INSTANCE
-				.read()
-				.unwrap()
-				.invoke_function(
-					&H160::from(Self::GAS_TOKEN_HASH),
-					Self::BALANCE_OF_FUNCTION.to_string(),
-					vec![ContractParameter::hash160(sender.get_signer_hash())],
-					vec![],
-				)
-				.request()
-				.await
-				.unwrap()
-				.stack[0]
-				.clone();
-			return Ok(balance.as_int().unwrap() as u64)
-		}
-		Err(TransactionError::InvalidSender)
-	}
+	// async fn get_sender_balance(&self) -> Result<u64, TransactionError> {
+	// 	// Call network
+	// 	let sender = &self.signers[0];
+	//
+	// 	if Self::is_account_signer(sender) {
+	// 		let balance = NEO_INSTANCE
+	// 			.read()
+	// 			.unwrap()
+	// 			.invoke_function(
+	// 				&H160::from(Self::GAS_TOKEN_HASH),
+	// 				Self::BALANCE_OF_FUNCTION.to_string(),
+	// 				vec![ContractParameter::hash160(sender.get_signer_hash())],
+	// 				vec![],
+	// 			)
+	// 			.request()
+	// 			.await
+	// 			.unwrap()
+	// 			.stack[0]
+	// 			.clone();
+	// 		return Ok(balance.as_int().unwrap() as u64)
+	// 	}
+	// 	Err(TransactionError::InvalidSender)
+	// }
 
 	fn is_account_signer(signer: &Signer) -> bool {
 		// let sig = <T as Signer>::SignerType;
@@ -324,7 +326,7 @@ impl TransactionBuilder {
 					)
 				})?;
 
-				witnesses_to_add.push(Witness::new(tx_bytes.clone(), key_pair));
+				witnesses_to_add.push(Witness::from_scripts(tx_bytes.clone(), key_pair));
 			} else {
 				let contract_signer = signer.as_contract_signer().unwrap();
 				witnesses_to_add.push(
@@ -343,88 +345,88 @@ impl TransactionBuilder {
 
 	// Inside TransactionBuilder impl
 
-	pub async fn get_unsigned_transaction(
-		&mut self,
-	) -> Result<SerializableTransaction, TransactionError> {
-		if self.script.is_none() {
-			return Err(TransactionError::TransactionConfiguration(
-				"Cannot build a transaction without a script.".to_string(),
-			))
-		}
+	// pub async fn get_unsigned_transaction(
+	// 	&mut self,
+	// ) -> Result<SerializableTransaction, TransactionError> {
+	// 	if self.script.is_none() {
+	// 		return Err(TransactionError::TransactionConfiguration(
+	// 			"Cannot build a transaction without a script.".to_string(),
+	// 		))
+	// 	}
+	//
+	// 	if self.valid_until_block.is_none() {
+	// 		let current_block_count =
+	// 			NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
+	// 		self.valid_until_block = Some(
+	// 			(current_block_count
+	// 				+ NEO_INSTANCE.read().unwrap().max_valid_until_block_increment()
+	// 				- 1) as u32,
+	// 		);
+	// 	}
+	//
+	// 	if self.signers.is_empty() {
+	// 		return Err(TransactionError::IllegalState(
+	// 			"Cannot create a transaction without signers.".to_string(),
+	// 		)
+	// 		.into())
+	// 	}
+	//
+	// 	if self.is_high_priority() {
+	// 		let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
+	// 		if !is_allowed {
+	// 			return Err(TransactionError::InvalidTransaction)
+	// 		}
+	// 	}
+	// 	let mut transaction = SerializableTransaction::new(
+	// 		self.version,
+	// 		self.nonce,
+	// 		self.valid_until_block.unwrap(),
+	// 		self.signers.clone(),
+	// 		0,
+	// 		0,
+	// 		self.attributes.clone(),
+	// 		self.script.as_ref().unwrap().clone(),
+	// 		vec![],
+	// 	);
+	//
+	// 	let system_fee = self.get_system_fee().await.unwrap();
+	// 	let network_fee = self.get_network_fee(&transaction).await.unwrap();
+	// 	let fees = system_fee + network_fee;
+	//
+	// 	if let Some(fee_error) = &self.fee_error {
+	// 		if !self.can_send_cover_fees(fees).await.unwrap() {
+	// 			return Err(fee_error.clone())
+	// 		}
+	// 	} else if let Some(consumer) = &mut self.clone().fee_consumer {
+	// 		let gas_balance = self.get_sender_gas_balance().await.unwrap();
+	// 		consumer(fees, gas_balance);
+	// 	}
+	// 	transaction.set_network_fee(network_fee as i64);
+	// 	transaction.set_system_fee(system_fee as i64);
+	// 	Ok(transaction)
+	// }
 
-		if self.valid_until_block.is_none() {
-			let current_block_count =
-				NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
-			self.valid_until_block = Some(
-				(current_block_count
-					+ NEO_INSTANCE.read().unwrap().max_valid_until_block_increment()
-					- 1) as u32,
-			);
-		}
+	// async fn is_allowed_for_high_priority(&self) -> Result<bool, BuilderError> {
+	// 	let committee = NEO_INSTANCE
+	// 		.read()
+	// 		.unwrap()
+	// 		.get_committee()
+	// 		.request()
+	// 		.await?
+	// 		.into_iter()
+	// 		.map(|key| Secp256r1PublicKey::from_hex(&key))
+	// 		.map(|key| key.unwrap().to_script_hash())
+	// 		.collect::<HashSet<_>>();
+	//
+	// 	Ok(self
+	// 		.signers
+	// 		.iter()
+	// 		.map(|s| s.get_signer_hash())
+	// 		.any(|hash| committee.contains(&hash))
+	// 		|| self.signers_contain_multi_sig_with_committee_member(&committee))
+	// }
 
-		if self.signers.is_empty() {
-			return Err(TransactionError::IllegalState(
-				"Cannot create a transaction without signers.".to_string(),
-			)
-			.into())
-		}
-
-		if self.is_high_priority() {
-			let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
-			if !is_allowed {
-				return Err(TransactionError::InvalidTransaction)
-			}
-		}
-		let mut transaction = SerializableTransaction::new(
-			self.version,
-			self.nonce,
-			self.valid_until_block.unwrap(),
-			self.signers.clone(),
-			0,
-			0,
-			self.attributes.clone(),
-			self.script.as_ref().unwrap().clone(),
-			vec![],
-		);
-
-		let system_fee = self.get_system_fee().await.unwrap();
-		let network_fee = self.get_network_fee(&transaction).await.unwrap();
-		let fees = system_fee + network_fee;
-
-		if let Some(fee_error) = &self.fee_error {
-			if !self.can_send_cover_fees(fees).await.unwrap() {
-				return Err(fee_error.clone())
-			}
-		} else if let Some(consumer) = &mut self.clone().fee_consumer {
-			let gas_balance = self.get_sender_gas_balance().await.unwrap();
-			consumer(fees, gas_balance);
-		}
-		transaction.set_network_fee(network_fee as i64);
-		transaction.set_system_fee(system_fee as i64);
-		Ok(transaction)
-	}
-
-	async fn is_allowed_for_high_priority(&self) -> Result<bool, BuilderError> {
-		let committee = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.get_committee()
-			.request()
-			.await?
-			.into_iter()
-			.map(|key| Secp256r1PublicKey::from_hex(&key))
-			.map(|key| key.unwrap().to_script_hash())
-			.collect::<HashSet<_>>();
-
-		Ok(self
-			.signers
-			.iter()
-			.map(|s| s.get_signer_hash())
-			.any(|hash| committee.contains(&hash))
-			|| self.signers_contain_MultiSig_with_committee_member(&committee))
-	}
-
-	fn signers_contain_MultiSig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
+	fn signers_contain_multi_sig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
 		for signer in &self.signers {
 			if let Some(account_signer) = signer.as_account_signer() {
 				if account_signer.is_multi_sig() {
@@ -480,20 +482,20 @@ impl TransactionBuilder {
 		Ok(balance >= fees)
 	}
 
-	async fn get_sender_gas_balance(&self) -> Result<u64, BuilderError> {
-		let sender_hash = self.signers[0].get_signer_hash();
-		let result = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.invoke_function(
-				&H160::from(Self::GAS_TOKEN_HASH),
-				Self::BALANCE_OF_FUNCTION.to_string(),
-				vec![sender_hash.into()],
-				vec![],
-			)
-			.request()
-			.await?;
-
-		Ok(result.stack[0].as_int().unwrap() as u64)
-	}
+	// async fn get_sender_gas_balance(&self) -> Result<u64, BuilderError> {
+	// 	let sender_hash = self.signers[0].get_signer_hash();
+	// 	let result = NEO_INSTANCE
+	// 		.read()
+	// 		.unwrap()
+	// 		.invoke_function(
+	// 			&H160::from(Self::GAS_TOKEN_HASH),
+	// 			Self::BALANCE_OF_FUNCTION.to_string(),
+	// 			vec![sender_hash.into()],
+	// 			vec![],
+	// 		)
+	// 		.request()
+	// 		.await?;
+	//
+	// 	Ok(result.stack[0].as_int().unwrap() as u64)
+	// }
 }

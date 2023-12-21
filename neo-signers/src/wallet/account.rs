@@ -1,6 +1,5 @@
 use crate::{
 	private_key_from_wif, public_key_to_address,
-	transaction::verification_script::VerificationScript,
 	wallet::{
 		nep6account::NEP6Account,
 		nep6contract::{NEP6Contract, NEP6Parameter},
@@ -18,11 +17,10 @@ use neo_types::{
 };
 
 use neo_crypto::keys::Secp256r1PublicKey;
+use neo_providers::core::transaction::verification_script::VerificationScript;
 use primitive_types::H160;
-use rustc_serialize::base64::{ToBase64, STANDARD};
 use serde::{Deserialize, Serialize};
 use std::{
-	collections::HashMap,
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
@@ -233,20 +231,20 @@ impl Account {
 			.ok_or_else(|| WalletError::AccountState("Account is not MultiSig".to_string()))
 	}
 
-	pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
-		let balances = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.get_nep17_balances(self.get_script_hash().clone())
-			.request()
-			.await
-			.unwrap();
-		let mut nep17_balances = HashMap::new();
-		for balance in balances.balances {
-			nep17_balances.insert(balance.asset_hash, u32::from_str(&balance.amount).unwrap());
-		}
-		Ok(nep17_balances)
-	}
+	// pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
+	// 	let balances = HTTP_PROVIDER
+	// 		.read()
+	// 		.unwrap()
+	// 		.get_nep17_balances(self.get_script_hash().clone())
+	// 		.request()
+	// 		.await
+	// 		.unwrap();
+	// 	let mut nep17_balances = HashMap::new();
+	// 	for balance in balances.balances {
+	// 		nep17_balances.insert(balance.asset_hash, u32::from_str(&balance.amount).unwrap());
+	// 	}
+	// 	Ok(nep17_balances)
+	// }
 
 	pub fn to_nep6_account(&self) -> Result<NEP6Account, WalletError> {
 		if self.key_pair.is_some() && self.encrypted_private_key.is_none() {
@@ -324,7 +322,7 @@ impl Account {
 		let address = ScriptHash::from_script(&script.script());
 
 		Ok(Self {
-			address_or_scripthash: AddressOrScriptHash::Address(address),
+			address_or_scripthash: AddressOrScriptHash::ScriptHash(address),
 			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(script),
 			..Default::default()

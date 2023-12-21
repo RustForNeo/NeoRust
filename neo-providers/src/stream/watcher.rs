@@ -6,6 +6,7 @@ use futures_core::stream::Stream;
 use futures_util::StreamExt;
 
 use pin_project::pin_project;
+use primitive_types::U256;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
 	fmt::Debug,

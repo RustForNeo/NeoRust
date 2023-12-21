@@ -1,3 +1,5 @@
+use enr::Enr;
+use neo_crypto::keys::Secp256r1PrivateKey;
 use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -46,7 +48,7 @@ pub struct Ports {
 pub struct ProtocolInfo {
 	/// Details about the node's supported eth protocol. `None` if unsupported
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub eth: Option<EthProtocolInfo>,
+	pub eth: Option<NeoProtocolInfo>,
 
 	/// Details about the node's supported snap protocol. `None` if unsupported
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -59,13 +61,9 @@ pub struct ProtocolInfo {
 /// struct](https://github.com/neo/go-neo/blob/c2e0abce2eedc1ba2a1b32c46fd07ef18a25354a/eth/protocols/eth/handler.go#L129)
 /// for how these fields are determined.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthProtocolInfo {
+pub struct NeoProtocolInfo {
 	/// The eth network version.
 	pub network: u64,
-
-	/// The total difficulty of the host's blockchain.
-	#[serde(deserialize_with = "deserialize_stringified_numeric")]
-	pub difficulty: U256,
 
 	/// The Keccak hash of the host's genesis block.
 	pub genesis: H256,

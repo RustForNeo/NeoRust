@@ -1,10 +1,10 @@
-use crate::transaction::{
+use neo_types::*;
+
+use crate::core::transaction::{
 	signers::signer::{SignerTrait, SignerType},
 	witness_rule::witness_rule::WitnessRule,
 	witness_scope::WitnessScope,
 };
-use neo_types::*;
-
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};

@@ -2,6 +2,8 @@
 
 use base64::{engine::general_purpose, Engine};
 use jsonwebtoken::{encode, errors::Error, get_current_timestamp, Algorithm, EncodingKey, Header};
+use neo_types::Bytes;
+use primitive_types::U256;
 use serde::{
 	de::{self, MapAccess, Unexpected, Visitor},
 	Deserialize, Serialize,
@@ -367,8 +369,6 @@ pub struct Claims {
 
 #[cfg(test)]
 mod tests {
-	use neo_types::U64;
-
 	use super::*;
 
 	#[test]
@@ -411,7 +411,7 @@ mod tests {
 		match response {
 			Response::Success { id, result } => {
 				assert_eq!(id, 0);
-				let result: U64 = serde_json::from_str(result.get()).unwrap();
+				let result: u64 = serde_json::from_str(result.get()).unwrap();
 				assert_eq!(result.as_u64(), 250);
 			},
 			_ => panic!("expected `Success` response"),

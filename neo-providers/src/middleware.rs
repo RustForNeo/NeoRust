@@ -1,16 +1,54 @@
-use async_trait::async_trait;
-use auto_impl::auto_impl;
-use futures_util::future::join_all;
-use primitive_types::H160;
-use serde::{de::DeserializeOwned, Serialize};
-use std::{fmt::Debug, vec};
-use url::Url;
-
 use crate::{
+	core::{
+		responses::{
+			neo_address::NeoAddress,
+			neo_application_log::ApplicationLog,
+			neo_balances::{Nep11Balances, Nep17Balances},
+			neo_block::NeoBlock,
+			neo_find_states::States,
+			neo_get_mem_pool::MemPoolDetails,
+			neo_get_next_block_validators::Validator,
+			neo_get_peers::Peers,
+			neo_get_state_height::StateHeight,
+			neo_get_state_root::StateRoot,
+			neo_get_unclaimed_gas::UnclaimedGas,
+			neo_get_version::NeoVersion,
+			neo_get_wallet_balance::Balance,
+			neo_list_plugins::Plugin,
+			neo_send_raw_transaction::RawTransaction,
+			neo_transaction_result::TransactionResult,
+			neo_transfers::{Nep11Transfers, Nep17Transfers},
+			neo_validate_address::ValidateAddress,
+		},
+		transaction::{
+			signers::signer::Signer, transaction::Transaction,
+			transaction_send_token::TransactionSendToken, witness::Witness,
+		},
+	},
 	EscalatingPending, EscalationPolicy, FilterKind, FilterWatcher, JsonRpcClient, LogQuery,
 	MiddlewareError, NodeInfo, PeerInfo, PendingTransaction, Provider, ProviderError, PubsubClient,
 	SubscriptionStream,
 };
+use async_trait::async_trait;
+use auto_impl::auto_impl;
+use neo_crypto::keys::Secp256r1Signature;
+use neo_types::{
+	address::{Address, NameOrAddress},
+	block::{Block, BlockId},
+	contract_parameter::ContractParameter,
+	contract_state::ContractState,
+	filter::Filter,
+	invocation_result::InvocationResult,
+	log::Log,
+	native_contract_state::NativeContractState,
+	stack_item::StackItem,
+	syncing::SyncingStatus,
+	Bytes, TxHash,
+};
+use primitive_types::{H160, H256, U256};
+use serde::{de::DeserializeOwned, Serialize};
+use std::{collections::HashMap, fmt::Debug, vec};
+use url::Url;
 
 /// A middleware allows customizing requests send and received from a neo node.
 ///
@@ -21,9 +59,13 @@ use crate::{
 /// error type 3. implementing any of the methods you want to override
 ///
 /// ```
-/// use neo_providers::{Middleware, MiddlewareError};
 /// use thiserror::Error;
 /// use async_trait::async_trait;
+/// use num_traits::Zero;
+/// use primitive_types::U256;
+/// use neo_providers::core::transaction::transaction::Transaction;
+/// use neo_providers::{Middleware, MiddlewareError};
+/// use neo_types::block::BlockId;
 ///
 /// #[derive(Debug)]
 /// struct MyMiddleware<M>(M);
@@ -65,8 +107,8 @@ use crate::{
 ///     }
 ///
 ///     /// Overrides the default `get_block_number` method to always return 0
-///     async fn get_block_number(&self) -> Result<U64, Self::Error> {
-///         Ok(U64::zero())
+///     async fn get_block_number(&self) -> Result<u64, Self::Error> {
+///         Ok(u64::zero())
 ///     }
 ///
 ///     /// Overrides the default `estimate_gas` method to log that it was called,
@@ -143,7 +185,7 @@ pub trait Middleware: Sync + Send + Debug {
 	}
 
 	/// Get the block number
-	async fn get_block_number(&self) -> Result<U64, Self::Error> {
+	async fn get_block_number(&self) -> Result<u64, Self::Error> {
 		self.inner().get_block_number().await.map_err(MiddlewareError::from_err)
 	}
 
@@ -236,51 +278,6 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().lookup_address(address).await.map_err(MiddlewareError::from_err)
 	}
 
-	/// Returns the avatar HTTP link of the avatar that the `nns_name` resolves to (or None
-	/// if not configured)
-	///
-	/// # Examples
-	///
-	/// ```no_run
-	/// # use neo_providers::{Provider, Http, Middleware};
-	/// # async fn foo(provider: Provider<Http>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let avatar = provider.resolve_avatar("parishilton.eth").await?;
-	/// assert_eq!(avatar.to_string(), "https://i.imgur.com/YW3Hzph.jpg");
-	/// # Ok(()) }
-	/// ```
-	///
-	/// # Panics
-	///
-	/// If the bytes returned from the NNS registrar/resolver cannot be interpreted as
-	/// a string. This should theoretically never happen.
-	async fn resolve_avatar(&self, nns_name: &str) -> Result<Url, Self::Error> {
-		self.inner().resolve_avatar(nns_name).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns the URL (not necesserily HTTP) of the image behind a token.
-	///
-	/// # Example
-	/// ```no_run
-	/// # use neo_providers::{Provider, Http, Middleware};
-	/// use neo_providers::erc::ERCNFT;
-	/// # async fn foo(provider: Provider<Http>) -> Result<(), Box<dyn std::error::Error>> {
-	/// let token = "erc721:0xc92ceddfb8dd984a89fb494c376f9a48b999aafc/9018".parse()?;
-	/// let token_image = provider.resolve_nft(token).await?;
-	/// assert_eq!(
-	///     token_image.to_string(),
-	///     "https://creature.mypinata.cloud/ipfs/QmNwj3aUzXfG4twV3no7hJRYxLLAWNPk6RrfQaqJ6nVJFa/9018.jpg"
-	/// );
-	/// # Ok(()) }
-	/// ```
-	///
-	/// # Panics
-	///
-	/// If the bytes returned from the NNS registrar/resolver cannot be interpreted as
-	/// a string. This should theoretically never happen.
-	async fn resolve_nft(&self, token: erc::ERCNFT) -> Result<Url, Self::Error> {
-		self.inner().resolve_nft(token).await.map_err(MiddlewareError::from_err)
-	}
-
 	/// Fetch a field for the `nns_name` (no None if not configured).
 	///
 	/// # Panics
@@ -294,22 +291,22 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	/// Gets the block at `block_hash_or_number` (transaction hashes only)
-	async fn get_block<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-	) -> Result<Option<Block<TxHash>>, Self::Error> {
-		self.inner()
-			.get_block(block_hash_or_number)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
+	// /// Gets the block at `block_hash_or_number` (transaction hashes only)
+	// async fn get_block<T: Into<BlockId> + Send + Sync>(
+	// 	&self,
+	// 	block_hash_or_number: T,
+	// ) -> Result<Option<Block<TxHash>>, Self::Error> {
+	// 	self.inner()
+	// 		.get_block(block_hash_or_number)
+	// 		.await
+	// 		.map_err(MiddlewareError::from_err)
+	// }
 
 	/// Gets the block at `block_hash_or_number` (full transactions included)
 	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-	) -> Result<Option<Block<Transaction>>, Self::Error> {
+	) -> Result<Option<Block<TransactionResult, Witness>>, Self::Error> {
 		self.inner()
 			.get_block_with_txs(block_hash_or_number)
 			.await
@@ -331,8 +328,8 @@ pub trait Middleware: Sync + Send + Debug {
 	async fn get_uncle<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-		idx: U64,
-	) -> Result<Option<Block<H256>>, Self::Error> {
+		idx: u64,
+	) -> Result<Option<Block<H256, Witness>>, Self::Error> {
 		self.inner()
 			.get_uncle(block_hash_or_number, idx)
 			.await
@@ -410,8 +407,8 @@ pub trait Middleware: Sync + Send + Debug {
 	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-		idx: U64,
-	) -> Result<Option<Transaction>, ProviderError> {
+		idx: u64,
+	) -> Result<Option<TransactionResult>, Self::Error> {
 		self.inner()
 			.get_transaction_by_block_and_index(block_hash_or_number, idx)
 			.await
@@ -422,7 +419,7 @@ pub trait Middleware: Sync + Send + Debug {
 	async fn get_transaction_receipt<T: Send + Sync + Into<TxHash>>(
 		&self,
 		transaction_hash: T,
-	) -> Result<Option<TransactionReceipt>, Self::Error> {
+	) -> Result<Option<TransactionResult>, Self::Error> {
 		self.inner()
 			.get_transaction_receipt(transaction_hash)
 			.await
@@ -433,10 +430,10 @@ pub trait Middleware: Sync + Send + Debug {
 	///
 	/// Note that this uses the `neo_getBlockReceipts` RPC, which is
 	/// non-standard and currently supported by Erigon.
-	async fn get_block_receipts<T: Into<BlockNumber> + Send + Sync>(
+	async fn get_block_receipts<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block: T,
-	) -> Result<Vec<TransactionReceipt>, Self::Error> {
+	) -> Result<Vec<TransactionResult>, Self::Error> {
 		self.inner().get_block_receipts(block).await.map_err(MiddlewareError::from_err)
 	}
 
@@ -464,12 +461,12 @@ pub trait Middleware: Sync + Send + Debug {
 
 	/// Send the raw RLP encoded transaction to the entire Neo network and returns the
 	/// transaction's hash This will consume gas from the account that signed the transaction.
-	async fn send_raw_transaction<'a>(
-		&'a self,
-		tx: Bytes,
-	) -> Result<PendingTransaction<'a, Self::Provider>, Self::Error> {
-		self.inner().send_raw_transaction(tx).await.map_err(MiddlewareError::from_err)
-	}
+	// async fn send_raw_transaction<'a>(
+	// 	&'a self,
+	// 	tx: Bytes,
+	// ) -> Result<PendingTransaction<'a, Self::Provider>, Self::Error> {
+	// 	self.inner().send_raw_transaction(tx).await.map_err(MiddlewareError::from_err)
+	// }
 
 	/// This returns true if either the middleware stack contains a `SignerMiddleware`, or the
 	/// JSON-RPC provider has an unlocked key that can sign using the `neo_sign` call. If none of
@@ -484,7 +481,7 @@ pub trait Middleware: Sync + Send + Debug {
 		&self,
 		data: T,
 		from: &Address,
-	) -> Result<Signature, Self::Error> {
+	) -> Result<Secp256r1Signature, Self::Error> {
 		self.inner().sign(data, from).await.map_err(MiddlewareError::from_err)
 	}
 
@@ -493,7 +490,7 @@ pub trait Middleware: Sync + Send + Debug {
 		&self,
 		tx: &Transaction,
 		from: Address,
-	) -> Result<Signature, Self::Error> {
+	) -> Result<Secp256r1Signature, Self::Error> {
 		self.inner().sign_transaction(tx, from).await.map_err(MiddlewareError::from_err)
 	}
 
@@ -616,25 +613,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	/// Returns the EIP-1186 proof response
-	/// <https://github.com/neo/EIPs/issues/1186>
-	async fn get_proof<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		locations: Vec<H256>,
-		block: Option<BlockId>,
-	) -> Result<EIP1186ProofResponse, Self::Error> {
-		self.inner()
-			.get_proof(from, locations, block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns an indication if this node is currently mining.
-	async fn mining(&self) -> Result<bool, Self::Error> {
-		self.inner().mining().await.map_err(MiddlewareError::from_err)
-	}
-
 	// Personal namespace
 	// NOTE: This will eventually need to be enabled by users explicitly because the personal
 	// namespace is being deprecated:
@@ -717,201 +695,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	// Miner namespace
-
-	/// Starts the miner.
-	async fn start_mining(&self) -> Result<(), Self::Error> {
-		self.inner().start_mining().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Stop terminates the miner, both at the consensus engine level as well as at
-	/// the block creation level.
-	async fn stop_mining(&self) -> Result<(), Self::Error> {
-		self.inner().stop_mining().await.map_err(MiddlewareError::from_err)
-	}
-
-	// Mempool inspection for Geth's API
-
-	/// Returns the details of all transactions currently pending for inclusion in the next
-	/// block(s), as well as the ones that are being scheduled for future execution only.
-	/// Ref: [Here](https://geth.neo.org/docs/rpc/ns-txpool#txpool_content)
-	async fn txpool_content(&self) -> Result<TxpoolContent, Self::Error> {
-		self.inner().txpool_content().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns a summary of all the transactions currently pending for inclusion in the next
-	/// block(s), as well as the ones that are being scheduled for future execution only.
-	/// Ref: [Here](https://geth.neo.org/docs/rpc/ns-txpool#txpool_inspect)
-	async fn txpool_inspect(&self) -> Result<TxpoolInspect, Self::Error> {
-		self.inner().txpool_inspect().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns the number of transactions currently pending for inclusion in the next block(s), as
-	/// well as the ones that are being scheduled for future execution only.
-	/// Ref: [Here](https://geth.neo.org/docs/rpc/ns-txpool#txpool_status)
-	async fn txpool_status(&self) -> Result<TxpoolStatus, Self::Error> {
-		self.inner().txpool_status().await.map_err(MiddlewareError::from_err)
-	}
-
-	// Geth `trace` support
-
-	/// After replaying any previous transactions in the same block,
-	/// Replays a transaction, returning the traces configured with passed options
-	async fn debug_trace_transaction(
-		&self,
-		tx_hash: TxHash,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<GethTrace, Self::Error> {
-		self.inner()
-			.debug_trace_transaction(tx_hash, trace_options)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Executes the given call and returns a number of possible traces for it
-	async fn debug_trace_call<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: T,
-		block: Option<BlockId>,
-		trace_options: GethDebugTracingCallOptions,
-	) -> Result<GethTrace, Self::Error> {
-		self.inner()
-			.debug_trace_call(req, block, trace_options)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Replays all transactions in a given block (specified by block number) and returns the traces
-	/// configured with passed options
-	/// Ref:
-	/// [Here](https://geth.neo.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbynumber)
-	async fn debug_trace_block_by_number(
-		&self,
-		block: Option<BlockNumber>,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<Vec<GethTrace>, Self::Error> {
-		self.inner()
-			.debug_trace_block_by_number(block, trace_options)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Replays all transactions in a given block (specified by block hash) and returns the traces
-	/// configured with passed options
-	/// Ref:
-	/// [Here](https://geth.neo.org/docs/interacting-with-geth/rpc/ns-debug#debugtraceblockbyhash)
-	async fn debug_trace_block_by_hash(
-		&self,
-		block: H256,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<Vec<GethTrace>, Self::Error> {
-		self.inner()
-			.debug_trace_block_by_hash(block, trace_options)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	// Parity `trace` support
-
-	/// Executes the given call and returns a number of possible traces for it
-	async fn trace_call<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: T,
-		trace_type: Vec<TraceType>,
-		block: Option<BlockNumber>,
-	) -> Result<BlockTrace, Self::Error> {
-		self.inner()
-			.trace_call(req, trace_type, block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Executes given calls and returns a number of possible traces for each
-	/// call
-	async fn trace_call_many<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: Vec<(T, Vec<TraceType>)>,
-		block: Option<BlockNumber>,
-	) -> Result<Vec<BlockTrace>, Self::Error> {
-		self.inner()
-			.trace_call_many(req, block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Traces a call to `neo_sendRawTransaction` without making the call, returning the traces
-	async fn trace_raw_transaction(
-		&self,
-		data: Bytes,
-		trace_type: Vec<TraceType>,
-	) -> Result<BlockTrace, Self::Error> {
-		self.inner()
-			.trace_raw_transaction(data, trace_type)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Replays a transaction, returning the traces
-	async fn trace_replay_transaction(
-		&self,
-		hash: H256,
-		trace_type: Vec<TraceType>,
-	) -> Result<BlockTrace, Self::Error> {
-		self.inner()
-			.trace_replay_transaction(hash, trace_type)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Replays all transactions in a block returning the requested traces for each transaction
-	async fn trace_replay_block_transactions(
-		&self,
-		block: BlockNumber,
-		trace_type: Vec<TraceType>,
-	) -> Result<Vec<BlockTrace>, Self::Error> {
-		self.inner()
-			.trace_replay_block_transactions(block, trace_type)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns traces created at given block
-	async fn trace_block(&self, block: BlockNumber) -> Result<Vec<Trace>, Self::Error> {
-		self.inner().trace_block(block).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Return traces matching the given filter
-	async fn trace_filter(&self, filter: TraceFilter) -> Result<Vec<Trace>, Self::Error> {
-		self.inner().trace_filter(filter).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns trace at the given position
-	async fn trace_get<T: Into<U64> + Send + Sync>(
-		&self,
-		hash: H256,
-		index: Vec<T>,
-	) -> Result<Trace, Self::Error> {
-		self.inner().trace_get(hash, index).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns all traces of a given transaction
-	async fn trace_transaction(&self, hash: H256) -> Result<Vec<Trace>, Self::Error> {
-		self.inner().trace_transaction(hash).await.map_err(MiddlewareError::from_err)
-	}
-
-	// Parity namespace
-
-	/// Returns all receipts for that block. Must be done on a parity node.
-	async fn parity_block_receipts<T: Into<BlockNumber> + Send + Sync>(
-		&self,
-		block: T,
-	) -> Result<Vec<TransactionReceipt>, Self::Error> {
-		self.inner()
-			.parity_block_receipts(block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
 	/// Create a new subscription
 	///
 	/// This method is hidden as subscription lifecycles are intended to be
@@ -950,7 +733,7 @@ pub trait Middleware: Sync + Send + Debug {
 	/// RPC usage drastically.
 	async fn subscribe_blocks(
 		&self,
-	) -> Result<SubscriptionStream<'_, Self::Provider, Block<TxHash>>, Self::Error>
+	) -> Result<SubscriptionStream<'_, Self::Provider, Block<TxHash, Witness>>, Self::Error>
 	where
 		<Self as Middleware>::Provider: PubsubClient,
 	{
@@ -1008,37 +791,570 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().subscribe_logs(filter).await.map_err(MiddlewareError::from_err)
 	}
 
-	/// Query the node for a [`FeeHistory`] object. This objct contains
-	/// information about the EIP-1559 base fee in past blocks, as well as gas
-	/// utilization within those blocks.
-	///
-	/// See the
-	/// [EIP-1559 documentation](https://eips.neo.org/EIPS/eip-1559) for
-	/// details
-	async fn fee_history<T: Into<U256> + serde::Serialize + Send + Sync>(
-		&self,
-		block_count: T,
-		last_block: BlockNumber,
-		reward_percentiles: &[f64],
-	) -> Result<FeeHistory, Self::Error> {
+	fn nns_resolver(&self) -> H160 {
+		H160::from(self.config().nns_resolver.clone())
+	}
+
+	fn block_interval(&self) -> u32 {
+		self.config().block_interval
+	}
+
+	fn polling_interval(&self) -> u32 {
+		self.config().polling_interval
+	}
+
+	fn max_valid_until_block_increment(&self) -> u32 {
+		self.config().max_valid_until_block_increment
+	}
+
+	async fn dump_private_key(&self, script_hash: H160) -> Result<String, Self::Error> {
 		self.inner()
-			.fee_history(block_count, last_block, reward_percentiles)
+			.dump_private_key(script_hash)
 			.await
 			.map_err(MiddlewareError::from_err)
 	}
 
-	/// Querty the node for an EIP-2930 Access List.
-	///
-	/// See the
-	/// [EIP-2930 documentation](https://eips.neo.org/EIPS/eip-2930) for
-	/// details
-	async fn create_access_list(
-		&self,
-		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<AccessListWithGasUsed, Self::Error> {
+	async fn get_network_magic_number(&self) -> Result<u32, Self::Error> {
+		self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
 		self.inner()
-			.create_access_list(tx, block)
+			.get_network_magic_number_bytes()
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// Blockchain methods
+	async fn get_best_block_hash(&self) -> Result<H256, Self::Error> {
+		self.inner().get_best_block_hash().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_hash(&self, block_index: u32) -> Result<H256, Self::Error> {
+		self.inner()
+			.get_block_hash(block_index)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block(&self, block_hash: H256, full_tx: bool) -> Result<NeoBlock, Self::Error> {
+		self.inner()
+			.get_block(block_hash, full_tx)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_raw_block(&self, block_hash: H256) -> Result<String, Self::Error> {
+		self.inner().get_raw_block(block_hash).await.map_err(MiddlewareError::from_err)
+	}
+
+	// Node methods
+
+	async fn get_block_header_count(&self) -> Result<u32, Self::Error> {
+		self.inner().get_block_count().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_count(&self) -> Result<u32, Self::Error> {
+		self.inner().get_block_count().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_header(&self, block_hash: H256) -> Result<NeoBlock, Self::Error> {
+		self.inner()
+			.get_block_header(block_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_header_by_index(&self, index: u32) -> Result<NeoBlock, Self::Error> {
+		self.inner()
+			.get_block_header_by_index(index)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// Smart contract methods
+
+	async fn get_raw_block_header(&self, block_hash: H256) -> Result<String, Self::Error> {
+		self.inner()
+			.get_raw_block_header(block_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_raw_block_header_by_index(&self, index: u32) -> Result<String, Self::Error> {
+		self.inner()
+			.get_raw_block_header_by_index(index)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// Utility methods
+
+	async fn get_native_contracts(&self) -> Result<Vec<NativeContractState>, Self::Error> {
+		self.inner().get_native_contracts().await.map_err(MiddlewareError::from_err)
+	}
+
+	// Wallet methods
+
+	async fn get_contract_state(&self, hash: H160) -> Result<ContractState, Self::Error> {
+		self.inner().get_contract_state(hash).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_native_contract_state(&self, name: &str) -> Result<ContractState, Self::Error> {
+		self.inner()
+			.get_native_contract_state(name)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_mem_pool(&self) -> Result<MemPoolDetails, Self::Error> {
+		self.inner().get_mem_pool().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_raw_mem_pool(&self) -> Result<Vec<H256>, Self::Error> {
+		self.inner().get_raw_mem_pool().await.map_err(MiddlewareError::from_err)
+	}
+
+	// Application logs
+
+	// async fn get_transaction(&self, hash: H256) -> Result<Transaction, Self::Error>{
+	// 	self.inner().get_transaction(hash).await.map_err(MiddlewareError::from_err)
+	// }
+
+	// State service
+
+	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<String, Self::Error> {
+		self.inner()
+			.get_raw_transaction(tx_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_storage(&self, contract_hash: H160, key: &str) -> Result<String, Self::Error> {
+		self.inner()
+			.get_storage(contract_hash, key)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+	// Blockchain methods
+
+	async fn get_transaction_height(&self, tx_hash: H256) -> Result<u32, Self::Error> {
+		self.inner()
+			.get_transaction_height(tx_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_next_block_validators(&self) -> Result<Vec<Validator>, Self::Error> {
+		self.inner()
+			.get_next_block_validators()
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_committee(&self) -> Result<Vec<String>, Self::Error> {
+		self.inner().get_committee().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_connection_count(&self) -> Result<u32, Self::Error> {
+		self.inner().get_connection_count().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_peers(&self) -> Result<Peers, Self::Error> {
+		self.inner().get_peers().await.map_err(MiddlewareError::from_err)
+	}
+
+	// Smart contract method
+	async fn get_version(&self) -> Result<NeoVersion, Self::Error> {
+		self.inner().get_version().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn send_raw_transaction(&self, hex: String) -> Result<RawTransaction, Self::Error> {
+		self.inner().send_raw_transaction(hex).await.map_err(MiddlewareError::from_err)
+	}
+	// More node methods
+
+	async fn submit_block(&self, hex: String) -> Result<bool, Self::Error> {
+		self.inner().submit_block(hex).await.map_err(MiddlewareError::from_err)
+	}
+
+	// More blockchain methods
+
+	async fn invoke_function(
+		&self,
+		contract_hash: &H160,
+		method: String,
+		params: Vec<ContractParameter>,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, Self::Error> {
+		self.inner()
+			.invoke_function(contract_hash, method, params, signers)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn invoke_script(
+		&self,
+		hex: String,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, Self::Error> {
+		self.inner()
+			.invoke_script(hex, signers)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// More smart contract methods
+
+	async fn get_unclaimed_gas(&self, hash: H160) -> Result<UnclaimedGas, Self::Error> {
+		self.inner().get_unclaimed_gas(hash).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn list_plugins(&self) -> Result<Vec<Plugin>, Self::Error> {
+		self.inner().list_plugins().await.map_err(MiddlewareError::from_err)
+	}
+
+	// More utility methods
+
+	async fn validate_address(&self, address: &str) -> Result<ValidateAddress, Self::Error> {
+		self.inner().validate_address(address).await.map_err(MiddlewareError::from_err)
+	}
+
+	// More wallet methods
+
+	async fn close_wallet(&self) -> Result<bool, Self::Error> {
+		self.inner().close_wallet().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn dump_priv_key(&self, script_hash: H160) -> Result<String, Self::Error> {
+		self.inner().dump_priv_key(script_hash).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_wallet_balance(&self, token_hash: H160) -> Result<Balance, Self::Error> {
+		self.inner()
+			.get_wallet_balance(token_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_new_address(&self) -> Result<String, Self::Error> {
+		self.inner().get_new_address().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_wallet_unclaimed_gas(&self) -> Result<String, Self::Error> {
+		self.inner().get_wallet_unclaimed_gas().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn import_priv_key(&self, priv_key: String) -> Result<NeoAddress, Self::Error> {
+		self.inner().import_priv_key(priv_key).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn calculate_network_fee(&self, hex: String) -> Result<u64, Self::Error> {
+		self.inner().calculate_network_fee(hex).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn list_address(&self) -> Result<Vec<NeoAddress>, Self::Error> {
+		self.inner().list_address().await.map_err(MiddlewareError::from_err)
+	}
+	async fn open_wallet(&self, path: String, password: String) -> Result<bool, Self::Error> {
+		self.inner()
+			.open_wallet(path, password)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn send_from(
+		&self,
+		token_hash: H160,
+		from: Address,
+		to: Address,
+		amount: u32,
+	) -> Result<Transaction, Self::Error> {
+		self.inner()
+			.send_from(token_hash, from, to, amount)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// Transaction methods
+
+	async fn send_many(
+		&self,
+		from: Option<H160>,
+		send_tokens: Vec<TransactionSendToken>,
+	) -> Result<Transaction, Self::Error> {
+		self.inner()
+			.send_many(from, send_tokens)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn send_to_address(
+		&self,
+		token_hash: H160,
+		to: Address,
+		amount: u32,
+	) -> Result<Transaction, Self::Error> {
+		self.inner()
+			.send_to_address(token_hash, to, amount)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_application_log(&self, tx_hash: H256) -> Result<ApplicationLog, Self::Error> {
+		self.inner()
+			.get_application_log(tx_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep17_balances(&self, script_hash: H160) -> Result<Nep17Balances, Self::Error> {
+		self.inner()
+			.get_nep17_balances(script_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep17_transfers(&self, script_hash: H160) -> Result<Nep17Transfers, Self::Error> {
+		self.inner()
+			.get_nep17_transfers(script_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// NEP-17 methods
+
+	async fn get_nep17_transfers_from(
+		&self,
+		script_hash: H160,
+		from: u64,
+	) -> Result<Nep17Transfers, Self::Error> {
+		self.inner()
+			.get_nep17_transfers_from(script_hash, from)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep17_transfers_range(
+		&self,
+		script_hash: H160,
+		from: u64,
+		to: u64,
+	) -> Result<Nep17Transfers, Self::Error> {
+		self.inner()
+			.get_nep17_transfers_range(script_hash, from, to)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep11_balances(&self, script_hash: H160) -> Result<Nep11Balances, Self::Error> {
+		self.inner()
+			.get_nep11_balances(script_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// NEP-11 methods
+
+	async fn get_nep11_transfers(&self, script_hash: H160) -> Result<Nep11Transfers, Self::Error> {
+		self.inner()
+			.get_nep11_transfers(script_hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep11_transfers_from(
+		&self,
+		script_hash: H160,
+		from: u64,
+	) -> Result<Nep11Transfers, Self::Error> {
+		self.inner()
+			.get_nep11_transfers_from(script_hash, from)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep11_transfers_range(
+		&self,
+		script_hash: H160,
+		from: u64,
+		to: u64,
+	) -> Result<Nep11Transfers, Self::Error> {
+		self.inner()
+			.get_nep11_transfers_range(script_hash, from, to)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_nep11_properties(
+		&self,
+		script_hash: H160,
+		token_id: &str,
+	) -> Result<HashMap<String, String>, Self::Error> {
+		self.inner()
+			.get_nep11_properties(script_hash, token_id)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_state_root(&self, block_index: u32) -> Result<StateRoot, Self::Error> {
+		self.inner()
+			.get_state_root(block_index)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	// State service methods
+	async fn get_proof(
+		&self,
+		root_hash: H256,
+		contract_hash: H160,
+		key: &str,
+	) -> Result<String, Self::Error> {
+		self.inner()
+			.get_proof(root_hash, contract_hash, key)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn verify_proof(&self, root_hash: H256, proof: &str) -> Result<bool, Self::Error> {
+		self.inner()
+			.verify_proof(root_hash, proof)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_state_height(&self) -> Result<StateHeight, Self::Error> {
+		self.inner().get_state_height().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_state(
+		&self,
+		root_hash: H256,
+		contract_hash: H160,
+		key: &str,
+	) -> Result<String, Self::Error> {
+		self.inner()
+			.get_state(root_hash, contract_hash, key)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn find_states(
+		&self,
+		root_hash: H256,
+		contract_hash: H160,
+		key_prefix: &str,
+		start_key: Option<&str>,
+		count: Option<u32>,
+	) -> Result<States, Self::Error> {
+		self.inner()
+			.find_states(root_hash, contract_hash, key_prefix, start_key, count)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_by_index(&self, index: u32, full_tx: bool) -> Result<NeoBlock, Self::Error> {
+		self.inner()
+			.get_block_by_index(index, full_tx)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_raw_block_by_index(&self, index: u32) -> Result<String, Self::Error> {
+		self.inner()
+			.get_raw_block_by_index(index)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn invoke_function_diagnostics(
+		&self,
+		contract_hash: H160,
+		name: String,
+		params: Vec<ContractParameter>,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, Self::Error> {
+		self.inner()
+			.invoke_function_diagnostics(contract_hash, name, params, signers)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn invoke_script_diagnostics(
+		&self,
+		hex: String,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, Self::Error> {
+		self.inner()
+			.invoke_script_diagnostics(hex, signers)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn traverse_iterator(
+		&self,
+		session_id: String,
+		iterator_id: String,
+		count: u32,
+	) -> Result<Vec<StackItem>, Self::Error> {
+		self.inner()
+			.traverse_iterator(session_id, iterator_id, count)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn terminate_session(&self, session_id: &str) -> Result<bool, Self::Error> {
+		self.inner()
+			.terminate_session(session_id)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn invoke_contract_verify(
+		&self,
+		hash: H160,
+		params: Vec<ContractParameter>,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, Self::Error> {
+		self.inner()
+			.invoke_contract_verify(hash, params, signers)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_raw_mempool(&self) -> Result<MemPoolDetails, Self::Error> {
+		self.inner().get_raw_mempool().await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn import_private_key(&self, wif: String) -> Result<Address, Self::Error> {
+		self.inner().import_private_key(wif).await.map_err(MiddlewareError::from_err)
+	}
+
+	async fn get_block_header_hash(&self, hash: H256) -> Result<NeoBlock, Self::Error> {
+		self.inner()
+			.get_block_header_hash(hash)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn send_to_address_send_token(
+		&self,
+		send_token: &TransactionSendToken,
+	) -> Result<Transaction, Self::Error> {
+		self.inner()
+			.send_to_address_send_token(send_token)
+			.await
+			.map_err(MiddlewareError::from_err)
+	}
+
+	async fn send_from_send_token(
+		&self,
+		send_token: &TransactionSendToken,
+		from: Address,
+	) -> Result<Transaction, Self::Error> {
+		self.inner()
+			.send_from_send_token(send_token, from)
 			.await
 			.map_err(MiddlewareError::from_err)
 	}

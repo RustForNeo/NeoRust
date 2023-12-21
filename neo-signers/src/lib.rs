@@ -8,10 +8,6 @@ pub use utils::*;
 mod wallet;
 pub use wallet::{MnemonicBuilder, Wallet};
 
-mod builder;
-
-pub use builder::*;
-
 /// Re-export the BIP-32 crate so that wordlists can be accessed conveniently.
 pub use coins_bip39;
 

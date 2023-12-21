@@ -255,7 +255,7 @@ where
 {
 	type Error = RetryClientError;
 
-	async fn request<A, R>(&self, method: &str, params: A) -> Result<R, Self::Error>
+	async fn fetch<A, R>(&self, method: &str, params: A) -> Result<R, Self::Error>
 	where
 		A: Debug + Serialize + Send + Sync,
 		R: DeserializeOwned + Send,

@@ -1,4 +1,4 @@
-use crate::{builder::error::BuilderError, script::script_builder::ScriptBuilder};
+use crate::core::{error::BuilderError, script::script_builder::ScriptBuilder};
 use getset::{Getters, Setters};
 use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, keys::Secp256r1Signature};
 use neo_types::Bytes;

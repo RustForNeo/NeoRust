@@ -1,7 +1,3 @@
-use neo_contract::contract_error::ContractError;
-use neo_crypto::sign_error::SignError;
-use neo_signers::WalletError;
-use neo_types::transaction_error::TransactionError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]

@@ -1,15 +1,14 @@
 // script_reader
 
-use std::hash::Hash;
-use tokio::io::AsyncReadExt;
-
-use crate::{builder::error::BuilderError, script::interop_service::InteropService};
+use crate::core::{error::BuilderError, script::interop_service::InteropService};
 use neo_codec::Decoder;
 use neo_types::{
 	op_code::{OpCode, OperandSize},
 	Bytes,
 };
 use rustc_serialize::hex::ToHex;
+use std::hash::Hash;
+use tokio::io::AsyncReadExt;
 
 pub struct ScriptReader;
 

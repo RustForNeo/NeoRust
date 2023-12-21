@@ -2,6 +2,7 @@ use crate::{JsonRpcClient, Middleware, Provider};
 
 use futures_util::stream::Stream;
 use pin_project::{pin_project, pinned_drop};
+use primitive_types::U256;
 use serde::de::DeserializeOwned;
 use serde_json::value::RawValue;
 use std::{

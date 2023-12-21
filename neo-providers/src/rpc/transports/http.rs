@@ -17,13 +17,12 @@ use url::Url;
 /// # Example
 ///
 /// ```no_run
-/// use neo_types::U64;
 /// use neo_providers::{JsonRpcClient, Http};
 /// use std::str::FromStr;
 ///
 /// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 /// let provider = Http::from_str("http://localhost:8545")?;
-/// let block_number: U64 = provider.request("neo_blockNumber", ()).await?;
+/// let block_number: u64 = provider.request("neo_blockNumber", ()).await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -85,7 +84,7 @@ impl crate::RpcError for ClientError {
 impl JsonRpcClient for Provider {
 	type Error = ClientError;
 
-	async fn request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+	async fn fetch<T: Serialize + Send + Sync, R: DeserializeOwned>(
 		&self,
 		method: &str,
 		params: T,

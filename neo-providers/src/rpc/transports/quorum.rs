@@ -22,7 +22,6 @@ use thiserror::Error;
 /// `Quorum::Majority` of the weighted providers return the same value.
 ///
 /// ```
-/// use neo_types::U64;
 /// use neo_providers::{JsonRpcClient, QuorumProvider, Quorum, WeightedProvider, Http};
 /// use std::str::FromStr;
 ///
@@ -36,7 +35,7 @@ use thiserror::Error;
 ///     .build();
 /// // the weight at which a quorum is reached,
 /// assert_eq!(provider.quorum_weight(), 4 / 2); // majority >=50%
-/// let block_number: U64 = provider.request("neo_blockNumber", ()).await?;
+/// let block_number: u64 = provider.fetch("neo_blockNumber", ()).await?;
 ///
 /// # Ok(())
 /// # }
@@ -47,7 +46,6 @@ use thiserror::Error;
 /// Create a `QuorumProvider` consisting of different `Provider` types
 ///
 /// ```
-/// use neo_types::U64;
 /// use neo_providers::{JsonRpcClient, QuorumProvider, Quorum, WeightedProvider, Http, Ws};
 /// use std::str::FromStr;
 ///
@@ -166,10 +164,10 @@ impl<T: JsonRpcClientWrapper> QuorumProvider<T> {
 	/// Returns the block height that _all_ providers have surpassed.
 	///
 	/// This is the minimum of all provider's block numbers
-	async fn get_minimum_block_number(&self) -> Result<U64, ProviderError> {
+	async fn get_minimum_block_number(&self) -> Result<u64, ProviderError> {
 		let mut numbers = join_all(self.providers.iter().map(|provider| async move {
 			let block = provider.inner.request("neo_blockNumber", QuorumParams::Zst).await?;
-			serde_json::from_value::<U64>(block).map_err(ProviderError::from)
+			serde_json::from_value::<u64>(block).map_err(ProviderError::from)
 		}))
 		.await
 		.into_iter()
@@ -460,7 +458,7 @@ where
 {
 	type Error = ProviderError;
 
-	async fn request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+	async fn fetch<T: Serialize + Send + Sync, R: DeserializeOwned>(
 		&self,
 		method: &str,
 		params: T,
@@ -603,11 +601,10 @@ pub enum QuorumParams {
 mod tests {
 	use super::{Quorum, QuorumProvider, WeightedProvider};
 	use crate::{Middleware, MockProvider, Provider};
-	use neo_types::U64;
 
 	async fn test_quorum(q: Quorum) {
 		let num = 5u64;
-		let value = U64::from(42);
+		let value = u64::from(42);
 		let mut providers = Vec::new();
 		let mut mocked = Vec::new();
 		for _ in 0..num {

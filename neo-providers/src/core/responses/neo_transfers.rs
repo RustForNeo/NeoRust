@@ -1,5 +1,5 @@
 use crate::utils::*;
-use neo_types::script_hash::ScriptHash;
+use neo_types::{script_hash::ScriptHash, *};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 

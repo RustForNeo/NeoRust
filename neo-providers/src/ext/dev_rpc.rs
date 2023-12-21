@@ -4,8 +4,6 @@
 //!
 //! ```no_run
 //! use neo_providers::{Provider, Http, Middleware, DevRpcMiddleware};
-//! use neo_types::TransactionRequest;
-//! use neo_core::utils::Anvil;
 //!
 //! # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 //! let anvil = Anvil::new().spawn();

@@ -127,15 +127,15 @@ where
 
 	/// Sends a POST request with the provided method and the params serialized as JSON
 	/// over HTTP
-	async fn request<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
+	async fn fetch<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
 	where
 		T: std::fmt::Debug + Serialize + Send + Sync,
 		R: DeserializeOwned + Send,
 	{
 		match method {
 			"neo_sendTransaction" | "neo_sendRawTransaction" =>
-				self.w.request(method, params).await.map_err(RwClientError::Write),
-			_ => self.r.request(method, params).await.map_err(RwClientError::Read),
+				self.w.fetch(method, params).await.map_err(RwClientError::Write),
+			_ => self.r.fetch(method, params).await.map_err(RwClientError::Read),
 		}
 	}
 }

@@ -1,4 +1,5 @@
 use crate::utils::*;
+use neo_types::*;
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 

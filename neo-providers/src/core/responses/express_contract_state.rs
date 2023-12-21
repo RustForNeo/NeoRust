@@ -1,4 +1,4 @@
-use neo_types::{contract_manifest::ContractManifest, script_hash::ScriptHash};
+use neo_types::{contract_manifest::ContractManifest, script_hash::ScriptHash, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 

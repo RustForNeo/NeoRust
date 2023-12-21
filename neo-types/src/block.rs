@@ -11,10 +11,7 @@ use std::{
 	str::FromStr,
 };
 
-use crate::{
-	deserialize_h256, deserialize_h256_option, serialize_h256, serialize_h256_option,
-	witness::Witness,
-};
+use crate::{deserialize_h256, deserialize_h256_option, serialize_h256, serialize_h256_option};
 
 pub trait TXTrait {
 	fn hash(&self) -> H256;
@@ -22,7 +19,7 @@ pub trait TXTrait {
 
 /// A struct representing a block in the NEO blockchain.
 #[derive(Serialize, Deserialize, Clone, Hash, Debug)]
-pub struct Block<TX> {
+pub struct Block<TX, W> {
 	/// The hash of the block.
 	#[serde(serialize_with = "serialize_h256")]
 	#[serde(deserialize_with = "deserialize_h256")]
@@ -51,7 +48,7 @@ pub struct Block<TX> {
 	#[serde(rename = "nextconsensus")]
 	pub next_consensus: String,
 	/// The list of witnesses for the block.
-	pub witnesses: Option<Vec<Witness>>,
+	pub witnesses: Option<Vec<W>>,
 	/// The list of transactions in the block.
 	#[serde(rename = "tx")]
 	pub transactions: Option<Vec<TX>>,
@@ -64,7 +61,7 @@ pub struct Block<TX> {
 	pub next_block_hash: Option<H256>,
 }
 
-impl<TX> PartialEq for Block<TX>
+impl<TX, W> PartialEq for Block<TX, W>
 where
 	TX: TXTrait,
 {

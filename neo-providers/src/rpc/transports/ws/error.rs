@@ -1,6 +1,10 @@
-use crate::{JsonRpcError, ProviderError};
-
 use super::WsError;
+use crate::{JsonRpcError, ProviderError};
+use primitive_types::U256;
+use std::{
+	error::Error,
+	fmt::{Display, Formatter},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum WsClientError {
@@ -35,6 +39,12 @@ pub enum WsClientError {
 	/// Too Many Reconnects
 	#[error("Reconnect limit reached")]
 	TooManyReconnects,
+}
+
+impl Display for WsClientError {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		todo!()
+	}
 }
 
 impl crate::RpcError for WsClientError {

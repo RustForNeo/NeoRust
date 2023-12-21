@@ -1,4 +1,4 @@
-use crate::transaction::witness_rule::{
+use crate::core::transaction::witness_rule::{
 	witness_action::WitnessAction, witness_condition::WitnessCondition,
 };
 use serde::{ser::SerializeTuple, Deserialize, Deserializer, Serialize, Serializer};

@@ -7,11 +7,9 @@
 //! and converting them to various formats.
 
 use crate::error::CryptoError;
-use p256::{elliptic_curve::sec1::ToEncodedPoint, NonZeroScalar};
 
 use crate::keys::{PublicKeyExtension, Secp256r1PrivateKey, Secp256r1PublicKey};
 use rand::rngs::OsRng;
-use serde_derive::{Deserialize, Serialize};
 
 /// Represents an Elliptic Curve Key Pair containing both a private and a public key.
 
@@ -96,7 +94,7 @@ impl KeyPair {
 	/// * `public_key` - A 65-byte slice representing the uncompressed public key.
 	pub fn from_public_key(public_key: &[u8; 65]) -> Result<Self, CryptoError> {
 		let public_key = Secp256r1PublicKey::from_slice(public_key)?;
-		let secret_key = Secp256r1PrivateKey::from_bytes((&[0u8; 32])).unwrap(); // dummy private key
+		let secret_key = Secp256r1PrivateKey::from_bytes(&[0u8; 32]).unwrap(); // dummy private key
 		Ok(Self::new(secret_key, public_key))
 	}
 }

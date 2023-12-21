@@ -94,7 +94,7 @@ impl WsOrIpc {
 impl JsonRpcClient for WsOrIpc {
 	type Error = WsOrIpcError;
 
-	async fn request<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
+	async fn fetch<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
 	where
 		T: Debug + Serialize + Send + Sync,
 		R: DeserializeOwned + Send,

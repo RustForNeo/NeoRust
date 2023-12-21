@@ -1,4 +1,4 @@
-use crate::{
+use crate::core::{
 	script::script_builder::ScriptBuilder,
 	transaction::{
 		signers::{signer::Signer, transaction_signer::TransactionSigner},
@@ -6,15 +6,11 @@ use crate::{
 		transaction_send_token::TransactionSendToken,
 	},
 };
-use hex::FromHexError;
+use neo_crypto::keys::Secp256r1PublicKey;
 use neo_types::{
-	contract_parameter::ContractParameter, script_hash::ScriptHashExtension,
+	script_hash::{ScriptHash, ScriptHashExtension},
 	serde_value::ValueExtension,
 };
-
-use neo_crypto::keys::Secp256r1PublicKey;
-use neo_types::script_hash::ScriptHash;
-use primitive_types::H160;
 use serde_json::Value;
 
 // pub type ScriptHash = H160;

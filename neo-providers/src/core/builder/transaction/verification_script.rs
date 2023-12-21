@@ -1,13 +1,12 @@
-use crate::{
-	builder::error::BuilderError,
+use crate::core::{
+	error::BuilderError,
 	script::{interop_service::InteropService, script_builder::ScriptBuilder},
 };
 use getset::{Getters, Setters};
 use neo_codec::Decoder;
-use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey};
+use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey, Secp256r1Signature};
 use neo_types::{op_code::OpCode, Bytes};
 use num_bigint::BigInt;
-use p256::ecdsa::Signature;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, vec};
@@ -110,14 +109,15 @@ impl VerificationScript {
 		H160::from_slice(&self.script)
 	}
 
-	pub fn get_signatures(&self) -> Vec<Signature> {
+	pub fn get_signatures(&self) -> Vec<Secp256r1Signature> {
 		let mut reader = Decoder::new(&self.script);
 		let mut signatures = vec![];
 
 		while reader.by_ref().read_u8() == OpCode::PushData1 as u8 {
 			let len = reader.by_ref().read_u8();
 			let sig =
-				Signature::from_der(&reader.by_ref().read_bytes(len as usize).unwrap()).unwrap();
+				Secp256r1Signature::from_der(&reader.by_ref().read_bytes(len as usize).unwrap())
+					.unwrap();
 			signatures.push(sig);
 		}
 

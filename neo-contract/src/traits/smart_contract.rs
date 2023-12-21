@@ -1,5 +1,6 @@
-use crate::{iterator::NeoIterator, transaction_builder::TransactionBuilder};
+use crate::{error::ContractError, iterator::NeoIterator, transaction_builder::TransactionBuilder};
 use async_trait::async_trait;
+use neo_providers::core::transaction::transaction_builder::TransactionBuilder;
 use neo_types::{
 	call_flags::CallFlags,
 	contract_error::ContractError,

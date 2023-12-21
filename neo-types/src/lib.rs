@@ -36,7 +36,6 @@ pub mod tx_pool;
 pub mod url_session;
 pub mod util;
 pub mod vm_state;
-pub mod witness;
 
 pub type Byte = u8;
 pub type Bytes = Vec<u8>;

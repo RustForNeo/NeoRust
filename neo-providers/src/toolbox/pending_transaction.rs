@@ -1,4 +1,7 @@
 use crate::{
+	core::{
+		responses::neo_transaction_result::TransactionResult, transaction::transaction::Transaction,
+	},
 	utils::{interval, PinBoxFut},
 	JsonRpcClient, Middleware, Provider, ProviderError,
 };
@@ -6,6 +9,7 @@ use futures_core::stream::Stream;
 use futures_timer::Delay;
 use futures_util::stream::StreamExt;
 use instant::Duration;
+use neo_types::TxHash;
 use pin_project::pin_project;
 use std::{
 	fmt,
@@ -31,7 +35,7 @@ use std::{
 ///     .send_transaction(tx, None)
 ///     .await?                           // PendingTransaction<_>
 ///     .log_msg("Pending transfer hash") // print pending tx hash with message
-///     .await?;                          // Result<Option<TransactionReceipt>, _>
+///     .await?;                          // Result<Option<TransactionResult>, _>
 /// ```
 #[pin_project]
 pub struct PendingTransaction<'a, P> {
@@ -144,7 +148,7 @@ macro_rules! rewake_with_new_state_if {
 }
 
 impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
-	type Output = Result<Option<TransactionReceipt>, ProviderError>;
+	type Output = Result<Option<TransactionResult>, ProviderError>;
 
 	#[cfg_attr(target_arch = "wasm32", allow(unused_must_use))]
 	fn poll(self: Pin<&mut Self>, ctx: &mut Context) -> Poll<Self::Output> {
@@ -265,11 +269,11 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 
 				// Wait for the interval
 				let inclusion_block = receipt
-					.block_number
+					.confirmations
 					.expect("Receipt did not have a block number. This should never happen");
 				// if the transaction has at least K confirmations, return the receipt
 				// (subtract 1 since the tx already has 1 conf when it's mined)
-				if current_block > inclusion_block + *this.confirmations - 1 {
+				if current_block > (inclusion_block + *this.confirmations - 1) as u64 {
 					let receipt = Some(receipt);
 					*this.state = PendingTxState::Completed;
 					return Poll::Ready(Ok(receipt))
@@ -320,7 +324,7 @@ impl<'a, P> Deref for PendingTransaction<'a, P> {
 	}
 }
 
-// We box the TransactionReceipts to keep the enum small.
+// We box the TransactionResults to keep the enum small.
 enum PendingTxState<'a> {
 	/// Initial delay to ensure the GettingTx loop doesn't immediately fail
 	InitialDelay(Pin<Box<Delay>>),
@@ -335,18 +339,18 @@ enum PendingTxState<'a> {
 	PausedGettingReceipt,
 
 	/// Polling the blockchain for the receipt
-	GettingReceipt(PinBoxFut<'a, Option<TransactionReceipt>>),
+	GettingReceipt(PinBoxFut<'a, Option<TransactionResult>>),
 
 	/// If the pending tx required only 1 conf, it will return early. Otherwise it will
 	/// proceed to the next state which will poll the block number until there have been
 	/// enough confirmations
-	CheckingReceipt(Option<TransactionReceipt>),
+	CheckingReceipt(Option<TransactionResult>),
 
 	/// Waiting for interval to elapse before calling API again
-	PausedGettingBlockNumber(Option<TransactionReceipt>),
+	PausedGettingBlockNumber(Option<TransactionResult>),
 
 	/// Polling the blockchain for the current block number
-	GettingBlockNumber(PinBoxFut<'a, U64>, Option<TransactionReceipt>),
+	GettingBlockNumber(PinBoxFut<'a, u64>, Option<TransactionResult>),
 
 	/// Future has completed and should panic if polled again
 	Completed,

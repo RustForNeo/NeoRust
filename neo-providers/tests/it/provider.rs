@@ -1,7 +1,7 @@
 mod neo_tests {
 	use crate::spawn_anvil;
 	use neo_providers::{Middleware, StreamExt, GOERLI};
-	use neo_types::{Address, BlockId, BlockNumber, TransactionRequest, H256};
+	use neo_types::{block::BlockId, Address, BlockId, BlockNumber, TransactionRequest, H256};
 
 	#[tokio::test]
 	async fn non_existing_data_works() {

@@ -5,7 +5,13 @@ mod backend;
 mod manager;
 
 use manager::{RequestManager, SharedChannelMap};
-use std::fmt;
+use primitive_types::U256;
+use std::{
+	fmt,
+	fmt::{Debug, Formatter},
+	future::Future,
+	pin::Pin,
+};
 
 mod types;
 pub use types::ConnectionDetails;
@@ -36,7 +42,7 @@ impl WsClient {
 	/// Establishes a new websocket connection
 	pub async fn connect(conn: impl Into<ConnectionDetails>) -> Result<Self, WsClientError> {
 		let (man, this) = RequestManager::connect(conn.into()).await?;
-		man.spawn();
+		man.spawn(());
 		Ok(this)
 	}
 
@@ -110,7 +116,7 @@ impl fmt::Debug for WsClient {
 impl JsonRpcClient for WsClient {
 	type Error = WsClientError;
 
-	async fn request<T, R>(&self, method: &str, params: T) -> Result<R, WsClientError>
+	async fn fetch<T, R>(&self, method: &str, params: T) -> Result<R, WsClientError>
 	where
 		T: Serialize + Send + Sync,
 		R: DeserializeOwned,

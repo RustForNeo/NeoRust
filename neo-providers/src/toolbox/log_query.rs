@@ -14,16 +14,16 @@ use thiserror::Error;
 pub struct LogQuery<'a, P> {
 	provider: &'a Provider<P>,
 	filter: Filter,
-	from_block: Option<U64>,
+	from_block: Option<u64>,
 	page_size: u64,
 	current_logs: VecDeque<Log>,
-	last_block: Option<U64>,
+	last_block: Option<u64>,
 	state: LogQueryState<'a>,
 }
 
 enum LogQueryState<'a> {
 	Initial,
-	LoadLastBlock(PinBoxFut<'a, U64>),
+	LoadLastBlock(PinBoxFut<'a, u64>),
 	LoadLogs(PinBoxFut<'a, Vec<Log>>),
 	Consume,
 }

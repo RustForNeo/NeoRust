@@ -1,4 +1,6 @@
 mod provider;
+
+use lazy_static::lazy_static;
 pub use provider::*;
 
 mod transports;

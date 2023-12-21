@@ -1,5 +1,5 @@
-use crate::{
-	builder::error::BuilderError,
+use crate::core::{
+	error::BuilderError,
 	transaction::{
 		signers::{
 			account_signer::AccountSigner, contract_signer::ContractSigner,
@@ -10,7 +10,6 @@ use crate::{
 	},
 };
 use neo_config::NeoConstants;
-
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize, Serializer};

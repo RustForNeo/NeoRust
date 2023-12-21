@@ -1,4 +1,6 @@
 use crate::utils::*;
+use neo_crypto::keys::Secp256r1PublicKey;
+use neo_types::*;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 

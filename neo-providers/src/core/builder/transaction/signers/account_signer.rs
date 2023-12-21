@@ -1,16 +1,13 @@
-use crate::{
-	transaction::{
-		signers::signer::{SignerTrait, SignerType},
-		transaction_error::TransactionError,
-		witness_rule::witness_rule::WitnessRule,
-		witness_scope::WitnessScope,
-	},
-	wallet::account::Account,
-};
 use getset::{Getters, Setters};
 use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey};
 use neo_types::{script_hash::ScriptHashExtension, *};
 
+use crate::core::transaction::{
+	signers::signer::{SignerTrait, SignerType},
+	transaction_error::TransactionError,
+	witness_rule::witness_rule::WitnessRule,
+	witness_scope::WitnessScope,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};

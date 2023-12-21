@@ -1,11 +1,9 @@
-use std::fmt;
-
+use crate::{common::Request, JsonRpcError};
 use futures_channel::{mpsc, oneshot};
-
+use primitive_types::U256;
 use serde::{de, Deserialize};
 use serde_json::value::{to_raw_value, RawValue};
-
-use crate::{common::Request, JsonRpcError};
+use std::fmt;
 
 // Normal JSON-RPC response
 pub type Response = Result<Box<RawValue>, JsonRpcError>;

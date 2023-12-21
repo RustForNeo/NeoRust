@@ -26,6 +26,7 @@ pub use errors::{MiddlewareError, ProviderError, RpcError};
 
 mod stream;
 pub use futures_util::StreamExt;
+use lazy_static::lazy_static;
 pub use stream::{
 	tx_stream::TransactionStream, FilterWatcher, DEFAULT_LOCAL_POLL_INTERVAL, DEFAULT_POLL_INTERVAL,
 };
@@ -35,6 +36,11 @@ pub use middleware::Middleware;
 
 #[allow(deprecated)]
 pub use test_provider::{GOERLI, MAINNET, ROPSTEN, SEPOLIA};
+
+lazy_static! {
+	pub static ref HTTP_PROVIDER: Provider<Http> =
+		Provider::<Http>::try_from(std::env::var("ENDPOINT").unwrap().as_str()).unwrap();
+}
 
 #[allow(missing_docs)]
 /// Pre-instantiated Infura HTTP clients which rotate through multiple API keys

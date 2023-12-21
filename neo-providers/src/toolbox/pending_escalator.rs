@@ -9,7 +9,8 @@ use primitive_types::H256;
 use std::{future::Future, pin::Pin, task::Poll};
 
 use crate::{
-	utils::PinBoxFut, JsonRpcClient, Middleware, PendingTransaction, Provider, ProviderError,
+	core::responses::neo_transaction_result::TransactionResult, utils::PinBoxFut, JsonRpcClient,
+	Middleware, PendingTransaction, Provider, ProviderError,
 };
 
 /// States for the EscalatingPending future
@@ -17,7 +18,7 @@ enum EscalatorStates<'a, P> {
 	Initial(PinBoxFut<'a, PendingTransaction<'a, P>>),
 	Sleeping(Pin<Box<Delay>>),
 	BroadcastingNew(PinBoxFut<'a, PendingTransaction<'a, P>>),
-	CheckingReceipts(FuturesUnordered<PinBoxFut<'a, Option<TransactionReceipt>>>),
+	CheckingReceipts(FuturesUnordered<PinBoxFut<'a, Option<TransactionResult>>>),
 	Completed,
 }
 
@@ -168,7 +169,7 @@ impl<'a, P> Future for EscalatingPending<'a, P>
 where
 	P: JsonRpcClient,
 {
-	type Output = Result<TransactionReceipt, ProviderError>;
+	type Output = Result<TransactionResult, ProviderError>;
 
 	#[cfg_attr(target_arch = "wasm32", allow(unused_must_use))]
 	fn poll(

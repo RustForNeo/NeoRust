@@ -5,6 +5,7 @@ use futures_channel::mpsc;
 use futures_util::stream::StreamExt;
 use hashers::fx_hash::FxHasher64;
 
+use primitive_types::U256;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{value::RawValue, Deserializer};
 use std::{
@@ -253,7 +254,7 @@ impl Ipc {
 impl JsonRpcClient for Ipc {
 	type Error = IpcError;
 
-	async fn request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+	async fn fetch<T: Serialize + Send + Sync, R: DeserializeOwned>(
 		&self,
 		method: &str,
 		params: T,
@@ -510,6 +511,7 @@ impl crate::RpcError for IpcError {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use neo_types::{block::Block, TxHash};
 	use std::time::Duration;
 	use tempfile::NamedTempFile;
 
@@ -539,8 +541,6 @@ mod tests {
 
 	#[tokio::test]
 	async fn subscription() {
-		use neo_types::{Block, TxHash};
-
 		let (ipc, _geth) = connect().await;
 
 		// Subscribing requires sending the sub request and then subscribing to
@@ -552,7 +552,7 @@ mod tests {
 			.take(3)
 			.map(|item| {
 				let block: Block<TxHash> = serde_json::from_str(item.get()).unwrap();
-				block.number.unwrap_or_default().as_u64()
+				block.index
 			})
 			.collect()
 			.await;

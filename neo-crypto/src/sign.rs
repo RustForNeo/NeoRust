@@ -3,7 +3,7 @@ use crate::{
 	hash::HashableForVec,
 	keys::{Secp256r1PrivateKey, Secp256r1PublicKey, Secp256r1Signature},
 };
-use p256::ecdsa::signature::{Signer, Verifier};
+use p256::ecdsa::signature::Verifier;
 
 /// A struct that provides functions for signing and verifying messages using ECDSA with the P-256 curve.
 pub struct Sign2 {}

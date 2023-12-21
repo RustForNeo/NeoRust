@@ -1,4 +1,4 @@
-use neo_types::{invocation_result::Notification, stack_item::StackItem, vm_state::VMState};
+use neo_types::{invocation_result::Notification, stack_item::StackItem, vm_state::VMState, *};
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 

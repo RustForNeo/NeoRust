@@ -8,6 +8,7 @@ use super::{
 use crate::JsonRpcError;
 use futures_channel::{mpsc, oneshot};
 use futures_util::{select_biased, StreamExt};
+use primitive_types::U256;
 use serde_json::value::{to_raw_value, RawValue};
 use std::{
 	collections::{BTreeMap, HashMap},

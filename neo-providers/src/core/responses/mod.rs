@@ -10,6 +10,7 @@ pub mod neo_get_claimable;
 pub mod neo_get_mem_pool;
 pub mod neo_transfers;
 
+pub mod neo_block;
 pub mod neo_get_next_block_validators;
 pub mod neo_get_peers;
 pub mod neo_get_state_height;
@@ -22,7 +23,9 @@ pub mod neo_get_version;
 pub mod neo_get_wallet_balance;
 pub mod neo_list_plugins;
 pub mod neo_send_raw_transaction;
+pub mod neo_transaction_result;
 pub mod neo_validate_address;
+pub mod neo_witness;
 pub mod notification;
 pub mod oracle_request;
 pub mod populated_blocks;

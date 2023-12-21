@@ -1,4 +1,4 @@
-use crate::transaction::{
+use crate::core::transaction::{
 	signers::transaction_signer::TransactionSigner, transaction_attribute::TransactionAttribute,
 	witness::Witness,
 };

@@ -1,4 +1,4 @@
-use crate::utils::*;
+use neo_types::*;
 use primitive_types::H256;
 
 #[derive(Debug, Hash, PartialEq, Eq, serde::Serialize, serde::Deserialize, Clone)]

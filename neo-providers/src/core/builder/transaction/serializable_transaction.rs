@@ -1,11 +1,9 @@
-use crate::transaction::{
+use crate::core::transaction::{
 	signers::signer::Signer, transaction_attribute::TransactionAttribute,
 	transaction_error::TransactionError, witness::Witness,
 };
 use getset::{Getters, Setters};
 use neo_codec::{Decoder, Encoder};
-use neo_config::NeoConstants;
-use neo_crypto::hash;
 use neo_types::{nef_file::HEADER_SIZE, Bytes};
 use serde::Serialize;
 use std::hash::Hash;
@@ -45,7 +43,6 @@ impl PartialEq for SerializableTransaction {
 
 impl SerializableTransaction {
 	// Constructor
-
 	pub fn new(
 		version: u8,
 		nonce: u32,
@@ -77,42 +74,42 @@ impl SerializableTransaction {
 	}
 
 	// Send transaction
-	pub async fn send(&mut self) -> Result<(), TransactionError> {
-		// Validate transaction
-		if self.signers.len() != self.witnesses.len() {
-			return Err(TransactionError::InvalidTransaction)
-		}
-
-		if self.size() > NeoConstants::MAX_TRANSACTION_SIZE as usize {
-			return Err(TransactionError::TxTooLarge)
-		}
-
-		// Get hex encoding
-		let hex = hex::encode(self.serialize());
-
-		NEO_INSTANCE.read().unwrap().send_raw_transaction(hex).request().await.ok();
-
-		self.block_count_when_sent =
-			Some(NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap());
-
-		Ok(())
-	}
+	// pub async fn send(&mut self) -> Result<(), TransactionError> {
+	// 	// Validate transaction
+	// 	if self.signers.len() != self.witnesses.len() {
+	// 		return Err(TransactionError::InvalidTransaction)
+	// 	}
+	//
+	// 	if self.size() > NeoConstants::MAX_TRANSACTION_SIZE as usize {
+	// 		return Err(TransactionError::TxTooLarge)
+	// 	}
+	//
+	// 	// Get hex encoding
+	// 	let hex = hex::encode(self.serialize());
+	//
+	// 	NEO_INSTANCE.read().unwrap().send_raw_transaction(hex).request().await.ok();
+	//
+	// 	self.block_count_when_sent =
+	// 		Some(NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap());
+	//
+	// 	Ok(())
+	// }
 
 	// Get hash data
-	pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-		let network_magic = NEO_INSTANCE
-			.write()
-			.unwrap()
-			.get_network_magic_number()
-			.await
-			.unwrap()
-			.to_le_bytes();
-		let mut data = self.serialize_without_witnesses().hash256();
-
-		data.splice(0..0, network_magic.iter().cloned());
-
-		Ok(data)
-	}
+	// pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
+	// 	let network_magic = NEO_INSTANCE
+	// 		.write()
+	// 		.unwrap()
+	// 		.get_network_magic_number()
+	// 		.await
+	// 		.unwrap()
+	// 		.to_le_bytes();
+	// 	let mut data = self.serialize_without_witnesses().hash256();
+	//
+	// 	data.splice(0..0, network_magic.iter().cloned());
+	//
+	// 	Ok(data)
+	// }
 
 	// Serialization
 	pub fn serialize(&self) -> Bytes {

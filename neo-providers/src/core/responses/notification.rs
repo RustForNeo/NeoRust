@@ -1,5 +1,4 @@
-use crate::{protocol::core::stack_item::StackItem, utils::*};
-use neo_types::script_hash::ScriptHash;
+use neo_types::{script_hash::ScriptHash, stack_item::StackItem, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};

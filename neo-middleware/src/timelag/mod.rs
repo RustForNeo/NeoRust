@@ -232,7 +232,7 @@ where
 	async fn get_transaction_receipt<T: Send + Sync + Into<TxHash>>(
 		&self,
 		transaction_hash: T,
-	) -> Result<Option<TransactionReceipt>, Self::Error> {
+	) -> Result<Option<TransactionResult>, Self::Error> {
 		let receipt = self
 			.inner()
 			.get_transaction_receipt(transaction_hash)
@@ -297,7 +297,7 @@ where
 	async fn get_block_receipts<T: Into<u64> + Send + Sync>(
 		&self,
 		block: T,
-	) -> Result<Vec<TransactionReceipt>, Self::Error> {
+	) -> Result<Vec<TransactionResult>, Self::Error> {
 		let block: u64 = block.into();
 		let block = self
 			.normalize_block_number(Some(block))

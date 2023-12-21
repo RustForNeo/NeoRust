@@ -49,7 +49,7 @@ impl JsonRpcClient for MockProvider {
 
 	/// Pushes the `(method, params)` to the back of the `requests` queue,
 	/// pops the responses from the back of the `responses` queue
-	async fn request<T: Serialize + Send + Sync, R: DeserializeOwned>(
+	async fn fetch<T: Serialize + Send + Sync, R: DeserializeOwned>(
 		&self,
 		method: &str,
 		params: T,
@@ -161,13 +161,12 @@ impl From<MockError> for ProviderError {
 mod tests {
 	use super::*;
 	use crate::{JsonRpcError, Middleware};
-	use neo_types::U64;
 
 	#[tokio::test]
 	async fn pushes_request_and_response() {
 		let mock = MockProvider::new();
-		mock.push(U64::from(12)).unwrap();
-		let block: U64 = mock.request("neo_blockNumber", ()).await.unwrap();
+		mock.push(u64::from(12)).unwrap();
+		let block: u64 = mock.fetch("neo_blockNumber", ()).await.unwrap();
 		mock.assert_request("neo_blockNumber", ()).unwrap();
 		assert_eq!(block.as_u64(), 12);
 	}
@@ -176,7 +175,7 @@ mod tests {
 	async fn empty_responses() {
 		let mock = MockProvider::new();
 		// tries to get a response without pushing a response
-		let err = mock.request::<_, ()>("neo_blockNumber", ()).await.unwrap_err();
+		let err = mock.fetch("neo_blockNumber", ()).await.unwrap_err();
 		match err {
 			MockError::EmptyResponses => {},
 			_ => panic!("expected empty responses"),
@@ -193,7 +192,7 @@ mod tests {
 		};
 		mock.push_response(MockResponse::Error(error.clone()));
 
-		let result: Result<U64, MockError> = mock.request("neo_blockNumber", ()).await;
+		let result: Result<u64, MockError> = mock.fetch("neo_blockNumber", ()).await;
 		match result {
 			Err(MockError::JsonRpcError(e)) => {
 				assert_eq!(e.code, error.code);
@@ -219,7 +218,7 @@ mod tests {
 	async fn composes_with_provider() {
 		let (provider, mock) = crate::Provider::mocked();
 
-		mock.push(U64::from(12)).unwrap();
+		mock.push(u64::from(12)).unwrap();
 		let block = provider.get_block_number().await.unwrap();
 		assert_eq!(block.as_u64(), 12);
 	}

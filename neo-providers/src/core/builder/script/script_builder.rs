@@ -1,9 +1,8 @@
-use crate::{
-	builder::error::BuilderError, script::interop_service::InteropService,
+use crate::core::{
+	error::BuilderError, script::interop_service::InteropService,
 	transaction::call_flags::CallFlags,
 };
 use getset::{Getters, Setters};
-use hex_literal::hex;
 use neo_codec::Encoder;
 use neo_crypto::keys::Secp256r1PublicKey;
 use neo_types::{
@@ -14,8 +13,7 @@ use neo_types::{
 	Bytes,
 };
 use num_bigint::{BigInt, Sign};
-use num_traits::{ToBytes, ToPrimitive};
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
+use num_traits::ToPrimitive;
 use primitive_types::H160;
 use std::collections::HashMap;
 use tokio::io::AsyncWriteExt;
@@ -324,6 +322,8 @@ impl ScriptBuilder {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use hex_literal::hex;
+	use num_bigint::BigInt;
 	use num_traits::FromPrimitive;
 	use std::vec;
 

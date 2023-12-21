@@ -1,6 +1,5 @@
-use crate::utils::*;
-use neo_types::script_hash::ScriptHash;
-use primitive_types::H160;
+use getset::Getters;
+use neo_types::{script_hash::ScriptHash, *};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
