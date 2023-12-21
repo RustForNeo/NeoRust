@@ -1,18 +1,17 @@
-use crate::{error::CryptoError, hash::HashableForVec};
-use p256::SecretKey;
+use crate::{error::CryptoError, hash::HashableForVec, keys::Secp256r1PrivateKey};
 use sha2::{Digest, Sha256};
 
 /// Converts a given secret key to a Wallet Import Format (WIF) string.
 ///
 /// # Arguments
 ///
-/// * `secretkey` - A reference to a `SecretKey` object.
+/// * `secretkey` - A reference to a `Secp256r1PrivateKey` object.
 ///
 /// # Returns
 ///
 /// A `String` object containing the WIF representation of the given secret key.
-fn prikey_to_wif(secretkey: &SecretKey) -> String {
-	let bytes = secretkey.to_bytes();
+fn prikey_to_wif(secretkey: &Secp256r1PrivateKey) -> String {
+	let bytes = secretkey.to_raw_bytes();
 	if bytes.len() != 32 {
 		return String::new()
 	}

@@ -2,7 +2,7 @@ use crate::{error::ContractError, traits::smart_contract::SmartContractTrait};
 use async_trait::async_trait;
 use neo_types::{script_hash::ScriptHash, serde_value::ValueExtension, stack_item::StackItem};
 use num_enum::TryFromPrimitive;
-use p256::PublicKey;
+
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +25,7 @@ impl RoleManagement {
 		&self,
 		role: Role,
 		block_index: i32,
-	) -> Result<Vec<PublicKey>, ContractError> {
+	) -> Result<Vec<Secp256r1PublicKey>, ContractError> {
 		self.check_block_index_validity(block_index).await.unwrap();
 
 		let invocation = self
@@ -41,7 +41,9 @@ impl RoleManagement {
 			.as_array()
 			.unwrap()
 			.into_iter()
-			.map(|item| PublicKey::from_sec1_bytes(item.as_bytes().unwrap().as_slice()).unwrap())
+			.map(|item| {
+				Secp256r1PublicKey::from_bytes(item.as_bytes().unwrap().as_slice()).unwrap()
+			})
 			.collect();
 
 		Ok(designated)
@@ -68,7 +70,7 @@ impl RoleManagement {
 	pub async fn designate_as_role(
 		&self,
 		role: Role,
-		pub_keys: Vec<PublicKey>,
+		pub_keys: Vec<Secp256r1PublicKey>,
 	) -> Result<TransactionBuilder, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(

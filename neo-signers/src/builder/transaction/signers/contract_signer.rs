@@ -4,7 +4,8 @@ use crate::transaction::{
 	witness_scope::WitnessScope,
 };
 use neo_types::{contract_parameter::ContractParameter, *};
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -18,15 +19,15 @@ pub struct ContractSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
 	#[serde(
-		serialize_with = "serialize_vec_address",
-		deserialize_with = "deserialize_vec_address"
+		serialize_with = "serialize_vec_script_hash",
+		deserialize_with = "deserialize_vec_script_hash"
 	)]
 	allowed_contracts: Vec<H160>,
 	#[serde(
 		serialize_with = "serialize_vec_public_key",
 		deserialize_with = "deserialize_vec_public_key"
 	)]
-	allowed_groups: Vec<PublicKey>,
+	allowed_groups: Vec<Secp256r1PublicKey>,
 	rules: Vec<WitnessRule>,
 	pub verify_params: Vec<ContractParameter>,
 	#[serde(
@@ -84,11 +85,11 @@ impl SignerTrait for ContractSigner {
 		&mut self.allowed_contracts
 	}
 
-	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
+	fn get_allowed_groups(&self) -> &Vec<Secp256r1PublicKey> {
 		&self.allowed_groups
 	}
 
-	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<Secp256r1PublicKey> {
 		&mut self.allowed_groups
 	}
 

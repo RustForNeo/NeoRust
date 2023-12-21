@@ -1,6 +1,6 @@
 use crate::wallet::nep6contract::NEP6Contract;
 use getset::{Getters, Setters};
-use neo_types::address::Address;
+use neo_types::{address::Address, address_or_scripthash::AddressOrScriptHash};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

@@ -3,6 +3,7 @@ use futures_timer::Delay;
 use futures_util::{stream, FutureExt, StreamExt};
 
 use primitive_types::U256;
+use serde::Serialize;
 use std::{future::Future, pin::Pin};
 
 /// A simple gas escalation policy
@@ -27,10 +28,14 @@ where
 	}
 }
 
-// https://github.com/tomusdrw/rust-web3/blob/befcb2fb8f3ca0a43e3081f68886fa327e64c8e6/src/api/neo_filter.rs#L20
 /// Create a stream that emits items at a fixed interval. Used for rate control
 pub fn interval(
 	duration: instant::Duration,
 ) -> impl futures_core::stream::Stream<Item = ()> + Send + Unpin {
 	stream::unfold((), move |_| Delay::new(duration).map(|_| Some(((), ())))).map(drop)
+}
+
+// A generic function to serialize any data structure that implements Serialize trait
+pub fn serialize<T: serde::Serialize>(t: &T) -> serde_json::Value {
+	serde_json::to_value(t).expect("Failed to serialize value")
 }

@@ -10,7 +10,7 @@ use neo_types::{
 	contract_parameter::ContractParameter, contract_parameter_type::ContractParameterType,
 	script_hash::ScriptHash, stack_item::StackItem,
 };
-use p256::PublicKey;
+
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
@@ -70,21 +70,21 @@ impl NeoToken {
 
 	async fn register_candidate(
 		&self,
-		candidate_key: &PublicKey,
+		candidate_key: &Secp256r1PublicKey,
 	) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("registerCandidate", vec![candidate_key.into()]).await
 	}
 
 	async fn unregister_candidate(
 		&self,
-		candidate_key: &PublicKey,
+		candidate_key: &Secp256r1PublicKey,
 	) -> Result<TransactionBuilder, ContractError> {
 		self.invoke_function("unregisterCandidate", vec![candidate_key.into()]).await
 	}
 
 	// Committee and Candidates Information
 
-	async fn get_committee(&self) -> Result<Vec<PublicKey>, ContractError> {
+	async fn get_committee(&self) -> Result<Vec<Secp256r1PublicKey>, ContractError> {
 		self.call_function_returning_list_of_public_keys("getCommittee")
 			.await
 			.map_err(|e| ContractError::UnexpectedReturnType(e.to_string()))
@@ -110,7 +110,7 @@ impl NeoToken {
 		}
 	}
 
-	async fn is_candidate(&self, public_key: &PublicKey) -> Result<bool, ContractError> {
+	async fn is_candidate(&self, public_key: &Secp256r1PublicKey) -> Result<bool, ContractError> {
 		Ok(self
 			.get_candidates()
 			.await
@@ -124,7 +124,7 @@ impl NeoToken {
 	async fn vote(
 		&self,
 		voter: &H160,
-		candidate: Option<&PublicKey>,
+		candidate: Option<&Secp256r1PublicKey>,
 	) -> Result<TransactionBuilder, ContractError> {
 		let params = match candidate {
 			Some(key) => vec![voter.into(), key.into()],
@@ -141,7 +141,7 @@ impl NeoToken {
 	async fn build_vote_script(
 		&self,
 		voter: &H160,
-		candidate: Option<&PublicKey>,
+		candidate: Option<&Secp256r1PublicKey>,
 	) -> Result<Vec<u8>, ContractError> {
 		let params = match candidate {
 			Some(key) => vec![voter.into(), key.into()],
@@ -200,7 +200,7 @@ impl NeoToken {
 					})
 				} else {
 					let pubkey =
-						PublicKey::from_sec1_bytes(public_key.as_bytes().unwrap().as_slice())
+						Secp256r1PublicKey::from_bytes(public_key.as_bytes().unwrap().as_slice())
 							.unwrap();
 					Ok(AccountState {
 						balance,
@@ -216,7 +216,7 @@ impl NeoToken {
 	async fn call_function_returning_list_of_public_keys(
 		&self,
 		function: &str,
-	) -> Result<Vec<PublicKey>, ContractError> {
+	) -> Result<Vec<Secp256r1PublicKey>, ContractError> {
 		let result = self.call_invoke_function(function, vec![], vec![]).await.unwrap();
 		let stack_item = result.stack.first().unwrap();
 
@@ -225,13 +225,13 @@ impl NeoToken {
 				.iter()
 				.map(|item| {
 					if let StackItem::ByteString { value: bytes } = item {
-						PublicKey::from_sec1_bytes(bytes.as_bytes())
+						Secp256r1PublicKey::from_bytes(bytes.as_bytes())
 							.map_err(|_| ContractError::UnexpectedReturnType)
 					} else {
 						Err(ContractError::UnexpectedReturnType)
 					}
 				})
-				.collect::<Result<Vec<PublicKey>, ContractError>>()?;
+				.collect::<Result<Vec<Secp256r1PublicKey>, ContractError>>()?;
 
 			Ok(keys)
 		} else {
@@ -282,7 +282,7 @@ impl SmartContractTrait for NeoToken {
 impl FungibleTokenTrait for NeoToken {}
 
 pub struct Candidate {
-	pub public_key: PublicKey,
+	pub public_key: Secp256r1PublicKey,
 	pub votes: i32,
 }
 

@@ -5,6 +5,7 @@ use crate::{
 use getset::{Getters, Setters};
 use hex_literal::hex;
 use neo_codec::Encoder;
+use neo_crypto::keys::Secp256r1PublicKey;
 use neo_types::{
 	contract_parameter::{ContractParameter, ParameterValue},
 	contract_parameter_type::ContractParameterType,
@@ -14,7 +15,7 @@ use neo_types::{
 };
 use num_bigint::{BigInt, Sign};
 use num_traits::{ToBytes, ToPrimitive};
-use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
+use p256::{elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode};
 use primitive_types::H160;
 use std::collections::HashMap;
 use tokio::io::AsyncWriteExt;
@@ -224,23 +225,23 @@ impl ScriptBuilder {
 		self.script.to_bytes()
 	}
 
-	pub fn build_verification_script(pub_key: &PublicKey) -> Bytes {
+	pub fn build_verification_script(pub_key: &Secp256r1PublicKey) -> Bytes {
 		let mut sb = ScriptBuilder::new();
-		sb.push_data(pub_key.to_encoded_point(true).as_bytes().to_vec())
+		sb.push_data(pub_key.to_raw_bytes().to_vec())
 			.unwrap()
 			.sys_call(InteropService::SystemCryptoCheckSig);
 		sb.to_bytes()
 	}
 
-	pub fn build_multisig_script(
-		pubkeys: &mut [PublicKey],
+	pub fn build_multi_sig_script(
+		pubkeys: &mut [Secp256r1PublicKey],
 		threshold: u8,
 	) -> Result<Bytes, BuilderError> {
 		let mut sb = ScriptBuilder::new();
 		sb.push_integer(BigInt::from(threshold)).unwrap();
-		pubkeys.sort_by(|a, b| a.to_encoded_point(true).cmp(&b.to_encoded_point(true)));
+		pubkeys.sort_by(|a, b| a.to_raw_bytes().cmp(&b.to_raw_bytes()));
 		for pk in pubkeys.iter() {
-			sb.push_data(pk.to_encoded_point(true).as_bytes().to_vec()).unwrap();
+			sb.push_data(pk.to_raw_bytes().to_vec()).unwrap();
 		}
 		sb.push_integer(BigInt::from(pubkeys.len())).unwrap();
 		sb.sys_call(InteropService::SystemCryptoCheckMultiSig);

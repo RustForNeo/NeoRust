@@ -1,28 +1,41 @@
+use crate::{error::TypeError, script_hash::ScriptHash};
 use neo_crypto::hash::HashableForVec;
+use primitive_types::H160;
 use rand::Rng;
+use serde_derive::{Deserialize, Serialize};
 
 pub type Address = String;
 
+// NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
+// NameOrAddress::Address(addr) => addr,
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NameOrAddress {
+	Name(String),
+	Address(Address),
+}
+
 pub trait AddressExtension {
-	fn to_script_hash(&self) -> Result<Vec<u8>, &'static str>;
+	fn to_script_hash(&self) -> Result<ScriptHash, TypeError>;
 
 	fn random() -> Self;
 }
 
 impl AddressExtension for String {
-	fn to_script_hash(&self) -> Result<Vec<u8>, &'static str> {
+	fn to_script_hash(&self) -> Result<ScriptHash, TypeError> {
 		// Base58-decode the address
-		let decoded_data = match bs58::decode(self).into_vec() {
-			Ok(data) => data,
-			Err(_) => return Err("Failed to decode Base58"),
+		let binding = match bs58::decode(self).into_vec() {
+			Ok(data) => H160::from_slice(data.as_slice()),
+			Err(_) => return Err(TypeError::InvalidAddress),
 		};
+		let decoded_data = binding.as_bytes();
 
 		// Extract the data payload
 		let data_payload = decoded_data[1..decoded_data.len() - 4].to_vec();
 
 		let script_hash = data_payload.sha256_ripemd160(); //  ripemd160.finalize();
 
-		Ok(script_hash)
+		Ok(H160::from_slice(script_hash.as_slice()))
 	}
 
 	fn random() -> Self {

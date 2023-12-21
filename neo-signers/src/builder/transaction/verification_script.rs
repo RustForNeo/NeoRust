@@ -4,10 +4,10 @@ use crate::{
 };
 use getset::{Getters, Setters};
 use neo_codec::Decoder;
-use neo_crypto::keys::PublicKeyExtension;
+use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey};
 use neo_types::{op_code::OpCode, Bytes};
 use num_bigint::BigInt;
-use p256::{ecdsa::Signature, elliptic_curve::sec1::ToEncodedPoint, pkcs8::der::Encode, PublicKey};
+use p256::ecdsa::Signature;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, vec};
@@ -27,10 +27,10 @@ impl VerificationScript {
 		Self { script: script.to_vec() }
 	}
 
-	pub fn from_public_key(public_key: &PublicKey) -> Self {
+	pub fn from_public_key(public_key: &Secp256r1PublicKey) -> Self {
 		let mut builder = ScriptBuilder::new();
 		builder
-			.push_data(public_key.to_encoded_point(false).as_bytes().to_vec())
+			.push_data(public_key.to_raw_bytes().to_vec())
 			.unwrap()
 			.op_code(&vec![OpCode::Syscall])
 			.push_data(InteropService::SystemCryptoCheckSig.hash().into_bytes())
@@ -38,7 +38,7 @@ impl VerificationScript {
 		Self::from(builder.to_bytes())
 	}
 
-	pub fn from_multi_sig(public_keys: &[PublicKey], threshold: u8) -> Self {
+	pub fn from_multi_sig(public_keys: &[Secp256r1PublicKey], threshold: u8) -> Self {
 		// Build multi-sig script
 		let mut builder = ScriptBuilder::new();
 		builder
@@ -124,7 +124,7 @@ impl VerificationScript {
 		signatures
 	}
 
-	pub fn get_public_keys(&self) -> Result<Vec<PublicKey>, BuilderError> {
+	pub fn get_public_keys(&self) -> Result<Vec<Secp256r1PublicKey>, BuilderError> {
 		if self.is_single_sig() {
 			let mut reader = Decoder::new(&self.script);
 			reader.by_ref().read_u8(); // skip pushdata1
@@ -133,7 +133,7 @@ impl VerificationScript {
 			let mut point = [0; 33];
 			point.copy_from_slice(&reader.by_ref().read_bytes(33).unwrap());
 
-			let key = PublicKey::from_sec1_bytes(&point).unwrap();
+			let key = Secp256r1PublicKey::from_bytes(&point).unwrap();
 			return Ok(vec![key])
 		}
 
@@ -146,7 +146,7 @@ impl VerificationScript {
 				reader.by_ref().read_u8(); // skip length
 				let mut point = [0; 33];
 				point.copy_from_slice(&reader.by_ref().read_bytes(33).unwrap());
-				keys.push(PublicKey::from_sec1_bytes(&point).unwrap());
+				keys.push(Secp256r1PublicKey::from_bytes(&point).unwrap());
 			}
 
 			return Ok(keys)

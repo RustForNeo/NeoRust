@@ -3,7 +3,6 @@
 
 use blake2::digest::Update;
 
-use p256::{PublicKey, SecretKey};
 use rand::{
 	seq::{IteratorRandom, SliceRandom},
 	SeedableRng,

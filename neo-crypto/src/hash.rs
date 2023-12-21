@@ -52,6 +52,44 @@ impl HashableForVec for [u8] {
 	}
 }
 
+impl HashableForVec for Vec<u8> {
+	fn hash256(&self) -> Vec<u8> {
+		let mut hasher = Sha256::new();
+		hasher.input(self);
+		let mut res = vec![0u8; 32];
+		hasher.result(&mut res);
+		res
+	}
+
+	fn ripemd160(&self) -> Vec<u8> {
+		let mut hasher = Ripemd160::new();
+		hasher.input(self);
+		let mut res = vec![0u8; 20];
+		hasher.result(&mut res);
+		res
+	}
+
+	fn sha256_ripemd160(&self) -> Vec<u8> {
+		let mut sha256 = Sha256::new();
+		sha256.input(self);
+		let mut res = vec![0u8; 32];
+		sha256.result(&mut res);
+		let mut hasher = Ripemd160::new();
+		hasher.input(&res);
+		let mut res = vec![0u8; 20];
+		hasher.result(&mut res);
+		res
+	}
+
+	fn hmac_sha512(&self, key: &[u8]) -> Vec<u8> {
+		let mut hmac = Hmac::new(Sha512::new(), key);
+
+		hmac.input(self);
+		let res = hmac.result();
+		res.code().to_vec()
+	}
+}
+
 fn hex_encode(bytes: &[u8]) -> String {
 	hex::encode(bytes)
 }

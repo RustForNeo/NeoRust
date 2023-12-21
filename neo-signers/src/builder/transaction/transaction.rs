@@ -62,6 +62,19 @@ pub struct Transaction {
 
 	#[serde(rename = "vmstate")]
 	pub vm_state: Option<VMState>,
+
+	#[serde(rename = "network")]
+	pub network_magic: Option<u64>,
+}
+
+impl Transaction {
+	pub fn network_magic(&self) -> Option<u64> {
+		self.network_magic
+	}
+
+	pub fn set_network_magic(&mut self, network_magic: u64) {
+		self.network_magic = Some(network_magic);
+	}
 }
 
 impl PartialEq for Transaction {

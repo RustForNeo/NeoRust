@@ -120,7 +120,7 @@ impl ScriptHashExtension for H160 {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use p256::PublicKey;
+
 	use rustc_serialize::hex::ToHex;
 	use std::str::FromStr;
 

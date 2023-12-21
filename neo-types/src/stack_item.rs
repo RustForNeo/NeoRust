@@ -3,7 +3,8 @@
 /// `MapEntry` is a simple struct that represents a key-value pair in a `StackItem::Map`.
 /// The `StackItem` enum also provides several utility methods for converting between different types and formats.
 use crate::{address::Address, script_hash::ScriptHashExtension};
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -168,7 +169,7 @@ impl StackItem {
 				// (assuming the vector has an even number of elements)
 				let entries = map_value
 					.iter()
-					.map(|(entry)| {
+					.map(|entry| {
 						format!("{} -> {}", entry.key.to_string(), entry.value.to_string())
 					})
 					.collect::<Vec<_>>()
@@ -234,9 +235,9 @@ impl StackItem {
 		})
 	}
 
-	/// Returns the `PublicKey` value of a `StackItem::ByteString` or `StackItem::Buffer`.
-	pub fn as_public_key(&self) -> Option<PublicKey> {
-		self.as_bytes().and_then(|bytes| PublicKey::from_sec1_bytes(&bytes).ok())
+	/// Returns the `Secp256r1PublicKey` value of a `StackItem::ByteString` or `StackItem::Buffer`.
+	pub fn as_public_key(&self) -> Option<Secp256r1PublicKey> {
+		self.as_bytes().and_then(|bytes| Secp256r1PublicKey::from_bytes(&bytes).ok())
 	}
 
 	/// Returns the `H160` value of a `StackItem::ByteString` or `StackItem::Buffer`.

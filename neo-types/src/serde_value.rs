@@ -1,5 +1,6 @@
 use elliptic_curve::sec1::ToEncodedPoint;
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::{H160, H256};
 use serde_json::Value;
 
@@ -33,9 +34,9 @@ impl ValueExtension for H160 {
 	}
 }
 
-impl ValueExtension for PublicKey {
+impl ValueExtension for Secp256r1PublicKey {
 	fn to_value(&self) -> Value {
-		Value::String(hex::encode(self.to_encoded_point(false).as_bytes()))
+		Value::String(hex::encode(self.to_raw_bytes()))
 	}
 }
 

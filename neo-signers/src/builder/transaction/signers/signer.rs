@@ -10,7 +10,8 @@ use crate::{
 	},
 };
 use neo_config::NeoConstants;
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize, Serializer};
 use std::hash::{Hash, Hasher};
@@ -40,8 +41,8 @@ pub trait SignerTrait {
 
 	// fn set_allowed_contracts(&mut self, allowed_contracts: Vec<H160>);
 
-	fn get_allowed_groups(&self) -> &Vec<PublicKey>;
-	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey>;
+	fn get_allowed_groups(&self) -> &Vec<Secp256r1PublicKey>;
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<Secp256r1PublicKey>;
 
 	fn get_rules(&self) -> &Vec<WitnessRule>;
 	fn get_rules_mut(&mut self) -> &mut Vec<WitnessRule>;
@@ -74,7 +75,7 @@ pub trait SignerTrait {
 	}
 
 	// Set allowed groups
-	fn set_allowed_groups(&mut self, groups: Vec<PublicKey>) -> Result<(), BuilderError> {
+	fn set_allowed_groups(&mut self, groups: Vec<Secp256r1PublicKey>) -> Result<(), BuilderError> {
 		if self.get_scopes().contains(&WitnessScope::Global) {
 			return Err(BuilderError::TransactionConfiguration(
 				"Cannot set groups for global scope".to_string(),

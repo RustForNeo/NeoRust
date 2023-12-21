@@ -1,8 +1,5 @@
-use crate::{
-	wallet::{account::Account, nep6wallet::NEP6Wallet},
-	WalletError,
-};
-use neo_types::{ScryptParamsDef, *};
+use crate::wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError};
+use neo_types::{address::AddressExtension, ScryptParamsDef, *};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
@@ -12,7 +9,6 @@ pub struct Wallet {
 	name: String,
 	version: String,
 	scrypt_params: ScryptParamsDef,
-
 	#[serde(deserialize_with = "deserialize_hash_map_h160_account")]
 	#[serde(serialize_with = "serialize_hash_map_h160_account")]
 	pub(crate) accounts: HashMap<H160, Account>,
@@ -82,7 +78,7 @@ impl Wallet {
 			version: nep6.version().clone(),
 			scrypt_params: nep6.scrypt().clone(),
 			accounts: accounts.into_iter().map(|a| (a.get_script_hash().clone(), a)).collect(),
-			default_account: default_account.clone(),
+			default_account: default_account.to_script_hash().unwrap(),
 		})
 	}
 	pub fn save_to_file(&self, path: PathBuf) -> Result<(), WalletError> {

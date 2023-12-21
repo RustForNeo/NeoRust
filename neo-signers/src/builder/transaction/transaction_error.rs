@@ -25,6 +25,8 @@ pub enum TransactionError {
 	EmptyScript,
 	#[error("Invalid sender")]
 	InvalidSender,
+	#[error("Invalid state:{0}")]
+	IllegalState(String),
 	#[error("Transaction too large")]
 	TxTooLarge,
 	#[error("Transaction configuration error: {0}")]

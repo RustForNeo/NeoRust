@@ -1,3 +1,5 @@
+use neo_codec::CodecError;
+use neo_crypto::error::CryptoError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -36,4 +38,8 @@ pub enum BuilderError {
 	IllegalState(String),
 	#[error("Illegal argument: {0}")]
 	IllegalArgument(String),
+	#[error("Invalid public key: {0}")]
+	CodecError(#[from] CodecError),
+	#[error("Crypto error: {0}")]
+	CryptoError(#[from] CryptoError),
 }

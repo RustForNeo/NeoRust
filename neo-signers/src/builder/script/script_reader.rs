@@ -46,9 +46,9 @@ impl ScriptReader {
 
 	fn get_prefix_size(reader: &mut Decoder, size: OperandSize) -> Result<usize, BuilderError> {
 		match size.prefix_size() {
-			1 => Ok(reader.read_u8().unwrap() as usize),
-			2 => Ok(reader.read_i16().unwrap() as usize),
-			4 => Ok(reader.read_i32().unwrap() as usize),
+			1 => Ok(reader.read_u8() as usize),
+			2 => Ok(reader.read_i16() as usize),
+			4 => Ok(reader.read_i32() as usize),
 			_ => Err(BuilderError::UnsupportedOperation(
 				"Only operand prefix sizes 1, 2, and 4 are supported".to_string(),
 			)),

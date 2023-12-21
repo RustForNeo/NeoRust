@@ -18,15 +18,23 @@ use std::net::Ipv4Addr;
 use async_trait::async_trait;
 
 use futures_util::{lock::Mutex, try_join};
+use neo_crypto::signature::Signature;
+use neo_signers::transaction::{
+	transaction::Transaction, transaction_send_token::TransactionSendToken,
+};
 use neo_types::{
-	address::Address,
+	address::{Address, NameOrAddress},
 	block::{Block, BlockId},
 	contract_parameter::ContractParameter,
-	filter::Filter,
+	filter::{Filter, FilterBlockOption},
 	invocation_result::InvocationResult,
+	log::Log,
+	syncing::SyncingStatus,
+	Bytes,
 };
-use primitive_types::{H160, H256 as TxHash, U256};
+use primitive_types::{H160, H256 as TxHash, H256, U256};
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use std::{
 	collections::VecDeque, convert::TryFrom, fmt::Debug, str::FromStr, sync::Arc, time::Duration,
 };
@@ -37,8 +45,8 @@ use url::{Host, ParseError, Url};
 /// Node Clients
 #[derive(Copy, Clone)]
 pub enum NodeClient {
-	/// Geth
-	Geth,
+	/// RNEO
+	NEO,
 }
 
 impl FromStr for NodeClient {
@@ -46,7 +54,7 @@ impl FromStr for NodeClient {
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s.split('/').next().unwrap().to_lowercase().as_str() {
-			"geth" => Ok(NodeClient::Geth),
+			"NEO" => Ok(NodeClient::NEO),
 			_ => Err(ProviderError::UnsupportedNodeClient),
 		}
 	}
@@ -173,7 +181,8 @@ impl<P: JsonRpcClient> Provider<P> {
 			},
 			BlockId::Number(num) => {
 				let num = utils::serialize(&num);
-				self.request("neo_getBlockByNumber", [num, include_txs]).await?
+				self.request::<[Value; 2], _>("neo_getBlockByNumber", [num, include_txs])
+					.await?
 			},
 		})
 	}
@@ -191,11 +200,8 @@ impl<P: JsonRpcClient> Provider<P> {
 	/// # Example
 	///
 	/// ```no_run
-	/// # use neo_core::{
-	/// #     types::{Address, TransactionRequest, H256, spoof},
-	/// #     utils::{parse_ether, Geth},
-	/// # };
 	/// # use neo_providers::{Provider, Http, Middleware, call_raw::RawCall};
+	/// use neo_types::address::Address;
 	/// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 	/// let geth = Geth::new().spawn();
 	/// let provider = Provider::<Http>::try_from(geth.endpoint()).unwrap();
@@ -238,7 +244,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	fn default_sender(&self) -> Option<Address> {
-		self.from
+		self.from.clone()
 	}
 
 	async fn client_version(&self) -> Result<String, Self::Error> {
@@ -343,35 +349,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	async fn get_gas_price(&self) -> Result<U256, ProviderError> {
 		self.request("neo_gasPrice", ()).await
-	}
-
-	async fn estimate_eip1559_fees(
-		&self,
-		estimator: Option<fn(U256, Vec<Vec<U256>>) -> (U256, U256)>,
-	) -> Result<(U256, U256), Self::Error> {
-		let base_fee_per_gas = self
-			.get_block(BlockNumber::Latest)
-			.await?
-			.ok_or_else(|| ProviderError::CustomError("Latest block not found".into()))?
-			.base_fee_per_gas
-			.ok_or_else(|| ProviderError::CustomError("EIP-1559 not activated".into()))?;
-
-		let fee_history = self
-			.fee_history(
-				utils::EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
-				BlockNumber::Latest,
-				&[utils::EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
-			)
-			.await?;
-
-		// use the provided fee estimator function, or fallback to the default implementation.
-		let (max_fee_per_gas, max_priority_fee_per_gas) = if let Some(es) = estimator {
-			es(base_fee_per_gas, fee_history.reward)
-		} else {
-			utils::eip1559_default_estimator(base_fee_per_gas, fee_history.reward)
-		};
-
-		Ok((max_fee_per_gas, max_priority_fee_per_gas))
 	}
 
 	async fn get_accounts(&self) -> Result<Vec<Address>, ProviderError> {
@@ -668,14 +645,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("admin_removeTrustedPeer", [enode_url]).await
 	}
 
-	async fn start_mining(&self) -> Result<(), Self::Error> {
-		self.request("miner_start", ()).await
-	}
-
-	async fn stop_mining(&self) -> Result<(), Self::Error> {
-		self.request("miner_stop", ()).await
-	}
-
 	async fn resolve_name(&self, nns_name: &str) -> Result<Address, ProviderError> {
 		self.query_resolver(ParamType::Address, nns_name, nns::ADDR_SELECTOR).await
 	}
@@ -692,98 +661,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		}
 	}
 
-	async fn resolve_avatar(&self, nns_name: &str) -> Result<Url, ProviderError> {
-		let (field, owner) =
-			try_join!(self.resolve_field(nns_name, "avatar"), self.resolve_name(nns_name))?;
-		let url = Url::from_str(&field).map_err(|e| ProviderError::CustomError(e.to_string()))?;
-		match url.scheme() {
-			"https" | "data" => Ok(url),
-			"ipfs" => erc::http_link_ipfs(url).map_err(ProviderError::CustomError),
-			"eip155" => {
-				let token =
-					erc::ERCNFT::from_str(url.path()).map_err(ProviderError::CustomError)?;
-				match token.type_ {
-					erc::ERCNFTType::ERC721 => {
-						let tx = TransactionRequest {
-							data: Some(
-								[&erc::ERC721_OWNER_SELECTOR[..], &token.id].concat().into(),
-							),
-							to: Some(NameOrAddress::Address(token.contract)),
-							..Default::default()
-						};
-						let data = self.call(&tx.into(), None).await?;
-						if decode_bytes::<Address>(ParamType::Address, data) != owner {
-							return Err(ProviderError::CustomError("Incorrect owner.".to_string()))
-						}
-					},
-					erc::ERCNFTType::ERC1155 => {
-						let tx = TransactionRequest {
-							data: Some(
-								[
-									&erc::ERC1155_BALANCE_SELECTOR[..],
-									&[0x0; 12],
-									&owner.0,
-									&token.id,
-								]
-								.concat()
-								.into(),
-							),
-							to: Some(NameOrAddress::Address(token.contract)),
-							..Default::default()
-						};
-						let data = self.call(&tx.into(), None).await?;
-						if decode_bytes::<u64>(ParamType::Uint(64), data) == 0 {
-							return Err(ProviderError::CustomError("Incorrect balance.".to_string()))
-						}
-					},
-				}
-
-				let image_url = self.resolve_nft(token).await?;
-				match image_url.scheme() {
-					"https" | "data" => Ok(image_url),
-					"ipfs" => erc::http_link_ipfs(image_url).map_err(ProviderError::CustomError),
-					_ => Err(ProviderError::CustomError(
-						"Unsupported scheme for the image".to_string(),
-					)),
-				}
-			},
-			_ => Err(ProviderError::CustomError("Unsupported scheme".to_string())),
-		}
-	}
-
-	async fn resolve_nft(&self, token: erc::ERCNFT) -> Result<Url, ProviderError> {
-		let selector = token.type_.resolution_selector();
-		let tx = TransactionRequest {
-			data: Some([&selector[..], &token.id].concat().into()),
-			to: Some(NameOrAddress::Address(token.contract)),
-			..Default::default()
-		};
-		let data = self.call(&tx.into(), None).await?;
-		let mut metadata_url = Url::parse(&decode_bytes::<String>(ParamType::String, data))
-			.map_err(|e| ProviderError::CustomError(format!("Invalid metadata url: {e}")))?;
-
-		if token.type_ == erc::ERCNFTType::ERC1155 {
-			metadata_url.set_path(&metadata_url.path().replace("%7Bid%7D", &hex::encode(token.id)));
-		}
-		if metadata_url.scheme() == "ipfs" {
-			metadata_url = erc::http_link_ipfs(metadata_url).map_err(ProviderError::CustomError)?;
-		}
-		let metadata: erc::Metadata = reqwest::get(metadata_url).await?.json().await?;
-		Url::parse(&metadata.image).map_err(|e| ProviderError::CustomError(e.to_string()))
-	}
-
-	async fn resolve_field(&self, nns_name: &str, field: &str) -> Result<String, ProviderError> {
-		let field: String = self
-			.query_resolver_parameters(
-				ParamType::String,
-				nns_name,
-				nns::FIELD_SELECTOR,
-				Some(&nns::parameterhash(field)),
-			)
-			.await?;
-		Ok(field)
-	}
-
 	async fn txpool_content(&self) -> Result<TxpoolContent, ProviderError> {
 		self.request("txpool_content", ()).await
 	}
@@ -794,125 +671,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	async fn txpool_status(&self) -> Result<TxpoolStatus, ProviderError> {
 		self.request("txpool_status", ()).await
-	}
-
-	async fn debug_trace_transaction(
-		&self,
-		tx_hash: TxHash,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<GethTrace, ProviderError> {
-		let tx_hash = utils::serialize(&tx_hash);
-		let trace_options = utils::serialize(&trace_options);
-		self.request("debug_traceTransaction", [tx_hash, trace_options]).await
-	}
-
-	async fn debug_trace_call<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: T,
-		block: Option<BlockId>,
-		trace_options: GethDebugTracingCallOptions,
-	) -> Result<GethTrace, ProviderError> {
-		let req = req.into();
-		let req = utils::serialize(&req);
-		let block = utils::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
-		let trace_options = utils::serialize(&trace_options);
-		self.request("debug_traceCall", [req, block, trace_options]).await
-	}
-
-	async fn debug_trace_block_by_number(
-		&self,
-		block: Option<BlockNumber>,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<Vec<GethTrace>, ProviderError> {
-		let block = utils::serialize(&block.unwrap_or(BlockNumber::Latest));
-		let trace_options = utils::serialize(&trace_options);
-		self.request("debug_traceBlockByNumber", [block, trace_options]).await
-	}
-
-	async fn debug_trace_block_by_hash(
-		&self,
-		block: H256,
-		trace_options: GethDebugTracingOptions,
-	) -> Result<Vec<GethTrace>, ProviderError> {
-		let block = utils::serialize(&block);
-		let trace_options = utils::serialize(&trace_options);
-		self.request("debug_traceBlockByHash", [block, trace_options]).await
-	}
-
-	async fn trace_call<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: T,
-		trace_type: Vec<TraceType>,
-		block: Option<BlockNumber>,
-	) -> Result<BlockTrace, ProviderError> {
-		let req = req.into();
-		let req = utils::serialize(&req);
-		let block = utils::serialize(&block.unwrap_or(BlockNumber::Latest));
-		let trace_type = utils::serialize(&trace_type);
-		self.request("trace_call", [req, trace_type, block]).await
-	}
-
-	async fn trace_call_many<T: Into<Transaction> + Send + Sync>(
-		&self,
-		req: Vec<(T, Vec<TraceType>)>,
-		block: Option<BlockNumber>,
-	) -> Result<Vec<BlockTrace>, ProviderError> {
-		let req: Vec<(Transaction, Vec<TraceType>)> =
-			req.into_iter().map(|(tx, trace_type)| (tx.into(), trace_type)).collect();
-		let req = utils::serialize(&req);
-		let block = utils::serialize(&block.unwrap_or(BlockNumber::Latest));
-		self.request("trace_callMany", [req, block]).await
-	}
-
-	async fn trace_raw_transaction(
-		&self,
-		data: Bytes,
-		trace_type: Vec<TraceType>,
-	) -> Result<BlockTrace, ProviderError> {
-		let data = utils::serialize(&data);
-		let trace_type = utils::serialize(&trace_type);
-		self.request("trace_rawTransaction", [data, trace_type]).await
-	}
-
-	async fn trace_replay_transaction(
-		&self,
-		hash: H256,
-		trace_type: Vec<TraceType>,
-	) -> Result<BlockTrace, ProviderError> {
-		let hash = utils::serialize(&hash);
-		let trace_type = utils::serialize(&trace_type);
-		self.request("trace_replayTransaction", [hash, trace_type]).await
-	}
-
-	async fn trace_replay_block_transactions(
-		&self,
-		block: BlockNumber,
-		trace_type: Vec<TraceType>,
-	) -> Result<Vec<BlockTrace>, ProviderError> {
-		let block = utils::serialize(&block);
-		let trace_type = utils::serialize(&trace_type);
-		self.request("trace_replayBlockTransactions", [block, trace_type]).await
-	}
-
-	async fn trace_block(&self, block: BlockNumber) -> Result<Vec<Trace>, ProviderError> {
-		let block = utils::serialize(&block);
-		self.request("trace_block", [block]).await
-	}
-
-	async fn trace_filter(&self, filter: TraceFilter) -> Result<Vec<Trace>, ProviderError> {
-		let filter = utils::serialize(&filter);
-		self.request("trace_filter", vec![filter]).await
-	}
-
-	async fn trace_get<T: Into<U64> + Send + Sync>(
-		&self,
-		hash: H256,
-		index: Vec<T>,
-	) -> Result<Trace, ProviderError> {
-		let hash = utils::serialize(&hash);
-		let index: Vec<U64> = index.into_iter().map(|i| i.into()).collect();
-		let index = utils::serialize(&index);
-		self.request("trace_get", vec![hash, index]).await
 	}
 
 	async fn trace_transaction(&self, hash: H256) -> Result<Vec<Trace>, ProviderError> {
@@ -938,7 +696,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		T: Into<U256> + Send + Sync,
 		P: PubsubClient,
 	{
-		self.request("neo_unsubscribe", [id.into()]).await
+		self.request::<_, bool>("neo_unsubscribe", [id.into()]).await
 	}
 
 	async fn subscribe_blocks(
@@ -995,45 +753,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		})
 	}
 
-	async fn fee_history<T: Into<U256> + Send + Sync>(
-		&self,
-		block_count: T,
-		last_block: BlockNumber,
-		reward_percentiles: &[f64],
-	) -> Result<FeeHistory, Self::Error> {
-		let block_count = block_count.into();
-		let last_block = utils::serialize(&last_block);
-		let reward_percentiles = utils::serialize(&reward_percentiles);
-
-		// The blockCount param is expected to be an unsigned integer up to geth v1.10.6.
-		// Geth v1.10.7 onwards, this has been updated to a hex encoded form. Failure to
-		// decode the param from client side would fallback to the old API spec.
-		match self
-			.request::<_, FeeHistory>(
-				"neo_feeHistory",
-				[utils::serialize(&block_count), last_block.clone(), reward_percentiles.clone()],
-			)
-			.await
-		{
-			success @ Ok(_) => success,
-			err @ Err(_) => {
-				let fallback = self
-					.request::<_, FeeHistory>(
-						"neo_feeHistory",
-						[utils::serialize(&block_count.as_u64()), last_block, reward_percentiles],
-					)
-					.await;
-
-				if fallback.is_err() {
-					// if the older fallback also resulted in an error, we return the error from the
-					// initial attempt
-					return err
-				}
-				fallback
-			},
-		}
-	}
-
 	//////////////////////// Neo methods////////////////////////////
 
 	fn nns_resolver(&self) -> H160 {
@@ -1052,160 +771,157 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.config().max_valid_until_block_increment
 	}
 
-	fn dump_private_key(&self, script_hash: H160) -> NeoRequest<String> {
-		NeoRequest::new("dumpprivkey", vec![Value::String(script_hash.to_address())])
+	async fn dump_private_key(&self, script_hash: H160) -> Result<String, ProviderError> {
+		self.request::<_, String>("dumpprivkey", [script_hash.to_address()]).await
 	}
 
-	async fn get_network_magic_number(&mut self) -> Result<u32, NeoError> {
+	async fn get_network_magic_number(&mut self) -> Result<u32, ProviderError> {
 		if self.config().network_magic.is_none() {
 			let magic = self
 				.get_version()
-				.request()
 				.await
 				.unwrap()
 				.protocol
-				.ok_or(NeoError::IllegalState(
+				.ok_or(ProviderError::IllegalState(
 					"Unable to read Network Magic Number from Version".to_string(),
 				))
 				.unwrap()
 				.network;
-			self.config.network_magic = Some(magic);
+			self.config().network_magic = Some(magic);
 		}
 		Ok(self.config().network_magic.unwrap())
 	}
 
-	async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, NeoError> {
+	async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, ProviderError> {
 		let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
 		Ok(magic_int.to_be_bytes().to_vec())
 	}
 
 	// Blockchain methods
-	fn get_best_block_hash(&self) -> NeoRequest<H256Def> {
-		NeoRequest::new("getbestblockhash", vec![])
+	async fn get_best_block_hash(&self) -> Result<H256Def, ProviderError> {
+		self.request::<_, H256Def>("getbestblockhash", vec![]).await
 	}
 
-	fn get_block_hash(&self, block_index: u32) -> NeoRequest<H256Def> {
-		NeoRequest::new("getblockhash", [block_index.to_value()].to_vec())
+	async fn get_block_hash(&self, block_index: u32) -> Result<H256Def, ProviderError> {
+		self.request("getblockhash", [block_index.to_value()].to_vec()).await
 	}
 
-	fn get_block(&self, block_hash: H256, full_tx: bool) -> NeoRequest<NeoBlock> {
+	fn get_block(&self, block_hash: H256, full_tx: bool) -> Result<NeoBlock, ProviderError> {
 		if full_tx {
-			NeoRequest::new("getblock", [block_hash.to_value(), 1.to_value()].to_vec())
+			self.request("getblock", [block_hash.to_value(), 1.to_value()].to_vec())
 		} else {
 			self.get_block_header_hash(block_hash)
 		}
 	}
 
-	// More methods...
-
-	fn get_raw_block(&self, block_hash: H256) -> NeoRequest<String> {
-		NeoRequest::new("getblock", vec![block_hash.to_value(), 0.to_value()])
+	fn get_raw_block(&self, block_hash: H256) -> Result<String, ProviderError> {
+		self.request::<_, String>("getblock", vec![block_hash.to_value(), 0.to_value()])
 	}
 
 	// Node methods
 
-	fn get_block_header_count(&self) -> NeoRequest<u32> {
-		NeoRequest::new("getblockheadercount", vec![])
+	fn get_block_header_count(&self) -> Result<u32, ProviderError> {
+		self.request("getblockheadercount", vec![])
 	}
 
-	fn get_block_count(&self) -> NeoRequest<u32> {
-		NeoRequest::new("getblockcount", vec![])
+	fn get_block_count(&self) -> Result<u32, ProviderError> {
+		self.request("getblockcount", vec![])
 	}
 
-	fn get_block_header(&self, block_hash: H256) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 1.to_value()])
+	fn get_block_header(&self, block_hash: H256) -> Result<NeoBlock, ProviderError> {
+		self.request("getblockheader", vec![block_hash.to_value(), 1.to_value()])
 	}
 
-	fn get_block_header_by_index(&self, index: u32) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![index.to_value(), 1.to_value()])
+	fn get_block_header_by_index(&self, index: u32) -> Result<NeoBlock, ProviderError> {
+		self.request("getblockheader", vec![index.to_value(), 1.to_value()])
 	}
 
 	// Smart contract methods
 
-	fn get_raw_block_header(&self, block_hash: H256) -> NeoRequest<String> {
-		NeoRequest::new("getblockheader", vec![block_hash.to_value(), 0.to_value()])
+	fn get_raw_block_header(&self, block_hash: H256) -> Result<String, ProviderError> {
+		self.request("getblockheader", vec![block_hash.to_value(), 0.to_value()])
 	}
 
-	fn get_raw_block_header_by_index(&self, index: u32) -> NeoRequest<String> {
-		NeoRequest::new("getblockheader", vec![index.to_value(), 0.to_value()])
+	fn get_raw_block_header_by_index(&self, index: u32) -> Result<String, ProviderError> {
+		self.request("getblockheader", vec![index.to_value(), 0.to_value()])
 	}
 
 	// Utility methods
 
-	fn get_native_contracts(&self) -> NeoRequest<Vec<NativeContractState>> {
-		NeoRequest::new("getnativecontracts", vec![])
+	fn get_native_contracts(&self) -> Result<Vec<NativeContractState>, ProviderError> {
+		self.request("getnativecontracts", vec![])
 	}
 
 	// Wallet methods
 
-	fn get_contract_state(&self, hash: H160) -> NeoRequest<ContractState> {
-		NeoRequest::new("getcontractstate", vec![hash.to_value()])
+	fn get_contract_state(&self, hash: H160) -> Result<ContractState, ProviderError> {
+		self.request("getcontractstate", vec![hash.to_value()])
 	}
 
-	fn get_native_contract_state(&self, name: &str) -> NeoRequest<ContractState> {
-		NeoRequest::new("getcontractstate", vec![name.to_value()])
+	fn get_native_contract_state(&self, name: &str) -> Result<ContractState, ProviderError> {
+		self.request("getcontractstate", vec![name.to_value()])
 	}
 
-	fn get_mem_pool(&self) -> NeoRequest<MemPoolDetails> {
-		NeoRequest::new("getrawmempool", vec![1.to_value()])
+	fn get_mem_pool(&self) -> Result<MemPoolDetails, ProviderError> {
+		self.request("getrawmempool", vec![1.to_value()])
 	}
 
-	fn get_raw_mem_pool(&self) -> NeoRequest<Vec<H256Def>> {
-		NeoRequest::new("getrawmempool", vec![])
+	fn get_raw_mem_pool(&self) -> Result<Vec<H256Def>, ProviderError> {
+		self.request("getrawmempool", vec![])
 	}
 
 	// Application logs
 
-	fn get_transaction(&self, hash: H256) -> NeoRequest<Transaction> {
-		NeoRequest::new("getrawtransaction", vec![hash.to_value(), 1.to_value()])
+	fn get_transaction(&self, hash: H256) -> Result<Transaction, ProviderError> {
+		self.request("getrawtransaction", vec![hash.to_value(), 1.to_value()])
 	}
 
 	// State service
 
-	fn get_raw_transaction(&self, tx_hash: H256) -> NeoRequest<String> {
-		NeoRequest::new("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
+	fn get_raw_transaction(&self, tx_hash: H256) -> Result<String, ProviderError> {
+		self.request("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
 	}
 
-	fn get_storage(&self, contract_hash: H160, key: &str) -> NeoRequest<String> {
+	fn get_storage(&self, contract_hash: H160, key: &str) -> Result<String, ProviderError> {
 		let params = [contract_hash.to_value(), key.to_value()];
-		NeoRequest::new("getstorage", params.to_vec())
+		self.request("getstorage", params.to_vec())
 	}
 	// Blockchain methods
 
-	fn get_transaction_height(&self, tx_hash: H256) -> NeoRequest<u32> {
+	fn get_transaction_height(&self, tx_hash: H256) -> Result<u32, ProviderError> {
 		let params = [tx_hash.to_value()];
-		NeoRequest::new("gettransactionheight", params.to_vec())
+		self.request("gettransactionheight", params.to_vec())
 	}
 
-	fn get_next_block_validators(&self) -> NeoRequest<Vec<Validator>> {
-		NeoRequest::new("getnextblockvalidators", vec![])
+	fn get_next_block_validators(&self) -> Result<Vec<Validator>, ProviderError> {
+		self.request("getnextblockvalidators", vec![])
 	}
 
-	fn get_committee(&self) -> NeoRequest<Vec<String>> {
-		NeoRequest::new("getcommittee", vec![])
+	fn get_committee(&self) -> Result<Vec<String>, ProviderError> {
+		self.request("getcommittee", vec![])
 	}
 
-	fn get_connection_count(&self) -> NeoRequest<u32> {
-		NeoRequest::new("getconnectioncount", vec![])
+	fn get_connection_count(&self) -> Result<u32, ProviderError> {
+		self.request("getconnectioncount", vec![])
 	}
 
-	fn get_peers(&self) -> NeoRequest<Peers> {
-		NeoRequest::new("getpeers", vec![])
+	fn get_peers(&self) -> Result<Peers, ProviderError> {
+		self.request("getpeers", vec![])
 	}
 
 	// Smart contract methods
 
-	fn get_version(&self) -> NeoRequest<NeoVersion> {
-		NeoRequest::new("getversion", vec![])
+	fn get_version(&self) -> Result<NeoVersion, ProviderError> {
+		self.request("getversion", vec![])
 	}
 
-	fn send_raw_transaction(&self, hex: String) -> NeoRequest<RawTransaction> {
-		NeoRequest::new("sendrawtransaction", vec![hex.to_value()])
+	fn send_raw_transaction(&self, hex: String) -> Result<RawTransaction, ProviderError> {
+		self.request("sendrawtransaction", vec![hex.to_value()])
 	}
 	// More node methods
 
-	fn submit_block(&self, hex: String) -> NeoRequest<bool> {
-		NeoRequest::new("submitblock", vec![hex.to_value()])
+	fn submit_block(&self, hex: String) -> Result<bool, ProviderError> {
+		self.request("submitblock", vec![hex.to_value()])
 	}
 
 	// More blockchain methods
@@ -1216,9 +932,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		method: String,
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer>,
-	) -> NeoRequest<InvocationResult> {
+	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
-		NeoRequest::new(
+		self.request(
 			"invokefunction",
 			vec![
 				contract_hash.to_value(),
@@ -1229,65 +945,69 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		)
 	}
 
-	fn invoke_script(&self, hex: String, signers: Vec<Signer>) -> NeoRequest<InvocationResult> {
+	fn invoke_script(
+		&self,
+		hex: String,
+		signers: Vec<Signer>,
+	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> =
 			signers.into_iter().map(|signer| signer.into()).collect::<Vec<_>>();
-		NeoRequest::new("invokescript", vec![hex.to_value(), signers.to_value()])
+		self.request("invokescript", vec![hex.to_value(), signers.to_value()])
 	}
 
 	// More smart contract methods
 
-	fn get_unclaimed_gas(&self, hash: H160) -> NeoRequest<GetUnclaimedGas> {
-		NeoRequest::new("getunclaimedgas", vec![hash.to_value()])
+	async fn get_unclaimed_gas(&self, hash: H160) -> Result<GetUnclaimedGas, ProviderError> {
+		self.request::<_, GetUnclaimedGas>("getunclaimedgas", [hash.to_value()]).await
 	}
 
-	fn list_plugins(&self) -> NeoRequest<Vec<Plugin>> {
-		NeoRequest::new("listplugins", vec![])
+	async fn list_plugins(&self) -> Result<Vec<Plugin>, ProviderError> {
+		self.request::<_, Vec<Plugin>>("listplugins", []).await
 	}
 
 	// More utility methods
 
-	fn validate_address(&self, address: &str) -> NeoRequest<ValidateAddress> {
-		NeoRequest::new("validateaddress", vec![address.to_value()])
+	fn validate_address(&self, address: &str) -> Result<ValidateAddress, ProviderError> {
+		self.request("validateaddress", vec![address.to_value()])
 	}
 
 	// More wallet methods
 
-	fn close_wallet(&self) -> NeoRequest<bool> {
-		NeoRequest::new("closewallet", vec![])
+	fn close_wallet(&self) -> Result<bool, ProviderError> {
+		self.request("closewallet", vec![])
 	}
 
-	fn dump_priv_key(&self, script_hash: H160) -> NeoRequest<String> {
+	fn dump_priv_key(&self, script_hash: H160) -> Result<String, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		NeoRequest::new("dumpprivkey", params)
+		self.request("dumpprivkey", params)
 	}
 
-	fn get_wallet_balance(&self, token_hash: H160) -> NeoRequest<Balance> {
-		NeoRequest::new("getwalletbalance", vec![token_hash.to_value()])
+	fn get_wallet_balance(&self, token_hash: H160) -> Result<Balance, ProviderError> {
+		self.request("getwalletbalance", vec![token_hash.to_value()])
 	}
 
-	fn get_new_address(&self) -> NeoRequest<String> {
-		NeoRequest::new("getnewaddress", vec![])
+	fn get_new_address(&self) -> Result<String, ProviderError> {
+		self.request("getnewaddress", vec![])
 	}
 
-	fn get_wallet_unclaimed_gas(&self) -> NeoRequest<String> {
-		NeoRequest::new("getwalletunclaimedgas", vec![])
+	fn get_wallet_unclaimed_gas(&self) -> Result<String, ProviderError> {
+		self.request("getwalletunclaimedgas", vec![])
 	}
 
-	fn import_priv_key(&self, priv_key: String) -> NeoRequest<NeoAddress> {
+	fn import_priv_key(&self, priv_key: String) -> Result<NeoAddress, ProviderError> {
 		let params = [priv_key.to_value()].to_vec();
-		NeoRequest::new("importprivkey", params)
+		self.request("importprivkey", params)
 	}
 
-	fn calculate_network_fee(&self, hex: String) -> NeoRequest<u64> {
-		NeoRequest::new("calculatenetworkfee", vec![hex.to_value()])
+	fn calculate_network_fee(&self, hex: String) -> Result<u64, ProviderError> {
+		self.request("calculatenetworkfee", vec![hex.to_value()])
 	}
 
-	fn list_address(&self) -> NeoRequest<Vec<NeoAddress>> {
-		NeoRequest::new("listaddress", vec![])
+	fn list_address(&self) -> Result<Vec<NeoAddress>, ProviderError> {
+		self.request("listaddress", vec![])
 	}
-	fn open_wallet(&self, path: String, password: String) -> NeoRequest<bool> {
-		NeoRequest::new("openwallet", vec![path.to_value(), password.to_value()])
+	fn open_wallet(&self, path: String, password: String) -> Result<bool, ProviderError> {
+		self.request("openwallet", vec![path.to_value(), password.to_value()])
 	}
 
 	fn send_from(
@@ -1296,10 +1016,10 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		from: Address,
 		to: Address,
 		amount: u32,
-	) -> NeoRequest<Transaction> {
+	) -> Result<Transaction, ProviderError> {
 		let params =
 			[token_hash.to_value(), from.to_value(), to.to_value(), amount.to_value()].to_vec();
-		NeoRequest::new("sendfrom", params)
+		self.request("sendfrom", params)
 	}
 
 	// Transaction methods
@@ -1308,9 +1028,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		&self,
 		from: Option<H160>,
 		send_tokens: Vec<TransactionSendToken>,
-	) -> NeoRequest<Transaction> {
+	) -> Result<Transaction, ProviderError> {
 		let params = [from.unwrap().to_value(), send_tokens.to_value()].to_vec();
-		NeoRequest::new("sendmany", params)
+		self.request("sendmany", params)
 	}
 
 	fn send_to_address(
@@ -1318,29 +1038,33 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		token_hash: H160,
 		to: Address,
 		amount: u32,
-	) -> NeoRequest<Transaction> {
+	) -> Result<Transaction, ProviderError> {
 		let params = [token_hash.to_value(), to.to_value(), amount.to_value()].to_vec();
-		NeoRequest::new("sendtoaddress", params)
+		self.request("sendtoaddress", params)
 	}
 
-	fn get_application_log(&self, tx_hash: H256) -> NeoRequest<NeoApplicationLog> {
-		NeoRequest::new("getapplicationlog", vec![tx_hash.to_value()])
+	fn get_application_log(&self, tx_hash: H256) -> Result<NeoApplicationLog, ProviderError> {
+		self.request("getapplicationlog", vec![tx_hash.to_value()])
 	}
 
-	fn get_nep17_balances(&self, script_hash: H160) -> NeoRequest<Nep17Balances> {
-		NeoRequest::new("getnep17balances", [script_hash.to_value()].to_vec())
+	fn get_nep17_balances(&self, script_hash: H160) -> Result<Nep17Balances, ProviderError> {
+		self.request("getnep17balances", [script_hash.to_value()].to_vec())
 	}
 
-	fn get_nep17_transfers(&self, script_hash: H160) -> NeoRequest<Nep17Transfers> {
+	fn get_nep17_transfers(&self, script_hash: H160) -> Result<Nep17Transfers, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		NeoRequest::new("getnep17transfers", params)
+		self.request("getnep17transfers", params)
 	}
 
 	// NEP-17 methods
 
-	fn get_nep17_transfers_from(&self, script_hash: H160, from: u64) -> NeoRequest<Nep17Transfers> {
+	fn get_nep17_transfers_from(
+		&self,
+		script_hash: H160,
+		from: u64,
+	) -> Result<Nep17Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
-		NeoRequest::new("getnep17transfers", params)
+		self.request("getnep17transfers", params)
 	}
 
 	fn get_nep17_transfers_range(
@@ -1348,26 +1072,30 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		script_hash: H160,
 		from: u64,
 		to: u64,
-	) -> NeoRequest<Nep17Transfers> {
+	) -> Result<Nep17Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
-		NeoRequest::new("getnep17transfers", params)
+		self.request("getnep17transfers", params)
 	}
 
-	fn get_nep11_balances(&self, script_hash: H160) -> NeoRequest<Nep11Balances> {
+	fn get_nep11_balances(&self, script_hash: H160) -> Result<Nep11Balances, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		NeoRequest::new("getnep11balances", params)
+		self.request("getnep11balances", params)
 	}
 
 	// NEP-11 methods
 
-	fn get_nep11_transfers(&self, script_hash: H160) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_transfers(&self, script_hash: H160) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		NeoRequest::new("getnep11transfers", params)
+		self.request("getnep11transfers", params)
 	}
 
-	fn get_nep11_transfers_from(&self, script_hash: H160, from: u64) -> NeoRequest<Nep11Transfers> {
+	fn get_nep11_transfers_from(
+		&self,
+		script_hash: H160,
+		from: u64,
+	) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
-		NeoRequest::new("getnep11transfers", params)
+		self.request("getnep11transfers", params)
 	}
 
 	fn get_nep11_transfers_range(
@@ -1375,45 +1103,55 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		script_hash: H160,
 		from: u64,
 		to: u64,
-	) -> NeoRequest<Nep11Transfers> {
+	) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
-		NeoRequest::new("getnep11transfers", params)
+		self.request("getnep11transfers", params)
 	}
 
 	fn get_nep11_properties(
 		&self,
 		script_hash: H160,
 		token_id: &str,
-	) -> NeoRequest<HashMap<String, String>> {
+	) -> Result<HashMap<String, String>, ProviderError> {
 		let params = [script_hash.to_value(), token_id.to_value()].to_vec();
-		NeoRequest::new("getnep11properties", params)
+		self.request("getnep11properties", params)
 	}
 
-	fn get_state_root(&self, block_index: u32) -> NeoRequest<StateRoot> {
+	fn get_state_root(&self, block_index: u32) -> Result<StateRoot, ProviderError> {
 		let params = [block_index.to_value()].to_vec();
-		NeoRequest::new("getstateroot", params)
+		self.request("getstateroot", params)
 	}
 
 	// State service methods
 
-	fn get_proof(&self, root_hash: H256, contract_hash: H160, key: &str) -> NeoRequest<String> {
-		NeoRequest::new(
+	fn get_proof(
+		&self,
+		root_hash: H256,
+		contract_hash: H160,
+		key: &str,
+	) -> Result<String, ProviderError> {
+		self.request(
 			"getproof",
 			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()],
 		)
 	}
 
-	fn verify_proof(&self, root_hash: H256, proof: &str) -> NeoRequest<bool> {
+	fn verify_proof(&self, root_hash: H256, proof: &str) -> Result<bool, ProviderError> {
 		let params = [root_hash.to_value(), proof.to_value()].to_vec();
-		NeoRequest::new("verifyproof", params)
+		self.request("verifyproof", params)
 	}
 
-	fn get_state_height(&self) -> NeoRequest<StateHeight> {
-		NeoRequest::new("getstateheight", vec![])
+	fn get_state_height(&self) -> Result<StateHeight, ProviderError> {
+		self.request("getstateheight", vec![])
 	}
 
-	fn get_state(&self, root_hash: H256, contract_hash: H160, key: &str) -> NeoRequest<String> {
-		NeoRequest::new(
+	fn get_state(
+		&self,
+		root_hash: H256,
+		contract_hash: H160,
+		key: &str,
+	) -> Result<String, ProviderError> {
+		self.request(
 			"getstate",
 			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()], //key.to_base64()],
 		)
@@ -1425,7 +1163,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		key_prefix: &str,
 		start_key: Option<&str>,
 		count: Option<u32>,
-	) -> NeoRequest<States> {
+	) -> Result<States, ProviderError> {
 		let mut params =
 			vec![root_hash.to_value(), contract_hash.to_value(), key_prefix.to_value()];
 		if let Some(start_key) = start_key {
@@ -1435,16 +1173,16 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 			params.push(count.to_value())
 		}
 
-		NeoRequest::new("findstates", params)
+		self.request("findstates", params)
 	}
 
-	fn get_block_by_index(&self, index: u32, full_tx: bool) -> NeoRequest<NeoBlock> {
+	fn get_block_by_index(&self, index: u32, full_tx: bool) -> Result<NeoBlock, ProviderError> {
 		let full_tx = if full_tx { 1 } else { 0 };
-		NeoRequest::new("getblock", vec![index.to_value(), full_tx.to_value()])
+		self.request("getblock", vec![index.to_value(), full_tx.to_value()])
 	}
 
-	fn get_raw_block_by_index(&self, index: u32) -> NeoRequest<String> {
-		NeoRequest::new("getblock", vec![index.to_value(), 0.to_value()])
+	fn get_raw_block_by_index(&self, index: u32) -> Result<String, ProviderError> {
+		self.request("getblock", vec![index.to_value(), 0.to_value()])
 	}
 
 	fn invoke_function_diagnostics(
@@ -1453,7 +1191,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		name: String,
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer>,
-	) -> NeoRequest<InvocationResult> {
+	) -> Result<InvocationResult, ProviderError> {
 		let params = vec![
 			contract_hash.to_value(),
 			name.to_value(),
@@ -1462,17 +1200,17 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 			true.to_value(),
 		];
 
-		NeoRequest::new("invokefunction", params)
+		self.request("invokefunction", params)
 	}
 
 	fn invoke_script_diagnostics(
 		&self,
 		hex: String,
 		signers: Vec<Signer>,
-	) -> NeoRequest<InvocationResult> {
+	) -> Result<InvocationResult, ProviderError> {
 		let params = vec![hex.to_value(), signers.to_value(), true.to_value()];
 
-		NeoRequest::new("invokescript", params)
+		self.request("invokescript", params)
 	}
 
 	fn traverse_iterator(
@@ -1480,14 +1218,14 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		session_id: String,
 		iterator_id: String,
 		count: u32,
-	) -> NeoRequest<Vec<StackItem>> {
+	) -> Result<Vec<StackItem>, ProviderError> {
 		let params = vec![session_id.to_value(), iterator_id.to_value(), count.to_value()];
 
-		NeoRequest::new("traverseiterator", params)
+		self.request("traverseiterator", params)
 	}
 
-	fn terminate_session(&self, session_id: &str) -> NeoRequest<bool> {
-		NeoRequest::new("terminatesession", vec![session_id.to_value()])
+	fn terminate_session(&self, session_id: &str) -> Result<bool, ProviderError> {
+		self.request("terminatesession", vec![session_id.to_value()])
 	}
 
 	fn invoke_contract_verify(
@@ -1495,40 +1233,40 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		hash: H160,
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer>,
-	) -> NeoRequest<InvocationResult> {
-		NeoRequest::new(
+	) -> Result<InvocationResult, ProviderError> {
+		self.request(
 			"invokecontractverify",
 			vec![hash.to_value(), params.to_value(), signers.to_value()],
 		)
 	}
 
-	fn get_raw_mempool(&self) -> NeoRequest<MemPoolDetails> {
-		NeoRequest::new("getrawmempool", vec![])
+	fn get_raw_mempool(&self) -> Result<MemPoolDetails, ProviderError> {
+		self.request("getrawmempool", vec![])
 	}
 
-	fn import_private_key(&self, wif: String) -> NeoRequest<NeoAddress> {
-		NeoRequest::new("importprivkey", vec![wif.to_value()])
+	fn import_private_key(&self, wif: String) -> Result<NeoAddress, ProviderError> {
+		self.request("importprivkey", vec![wif.to_value()])
 	}
 
-	fn get_block_header_hash(&self, hash: H256) -> NeoRequest<NeoBlock> {
-		NeoRequest::new("getblockheader", vec![hash.to_value(), 1.to_value()])
+	fn get_block_header_hash(&self, hash: H256) -> Result<NeoBlock, ProviderError> {
+		self.request("getblockheader", vec![hash.to_value(), 1.to_value()])
 	}
 
 	fn send_to_address_send_token(
 		&self,
 		send_token: &TransactionSendToken,
-	) -> NeoRequest<Transaction> {
+	) -> Result<Transaction, ProviderError> {
 		let params = [send_token.to_value()].to_vec();
-		NeoRequest::new("sendtoaddress", params)
+		self.request("sendtoaddress", params)
 	}
 
 	fn send_from_send_token(
 		&self,
 		send_token: &TransactionSendToken,
 		from: Address,
-	) -> NeoRequest<Transaction> {
+	) -> Result<Transaction, ProviderError> {
 		let params = [from.to_value(), vec![send_token.to_value()].into()].to_vec();
-		NeoRequest::new("sendmany", params)
+		self.request("sendmany", params)
 	}
 }
 
@@ -1538,7 +1276,7 @@ impl<P: JsonRpcClient> Provider<P> {
 		param: ParamType,
 		nns_name: &str,
 		selector: Selector,
-	) -> Result<T, ProviderError> {
+	) -> Result<T, ProviderError, ProviderError> {
 		self.query_resolver_parameters(param, nns_name, selector, None).await
 	}
 
@@ -1805,7 +1543,6 @@ mod sealed {
 ///
 /// ```no_run
 /// use std::convert::TryFrom;
-/// use neo_types::Chain;
 /// use neo_providers::{Http, Provider, ProviderExt};
 /// let http_provider = Provider::<Http>::try_from("https://eth.llamarpc.com").unwrap().set_chain(Chain::Mainnet);
 /// ```
@@ -1964,31 +1701,6 @@ mod tests {
 			.lookup_address("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".parse().unwrap())
 			.await
 			.unwrap_err();
-	}
-
-	#[tokio::test]
-	#[ignore]
-	async fn mainnet_resolve_avatar() {
-		let provider = crate::MAINNET.provider();
-
-		for (nns_name, res) in &[
-            // HTTPS
-            ("alisha.eth", "https://ipfs.io/ipfs/QmeQm91kAdPGnUKsE74WvkqYKUeHvc2oHd2FW11V3TrqkQ"),
-            // ERC-1155
-            ("nick.eth", "https://img.seadn.io/files/3ae7be6c41ad4767bf3ecbc0493b4bfb.png"),
-            // HTTPS
-            ("parishilton.eth", "https://i.imgur.com/YW3Hzph.jpg"),
-            // ERC-721 with IPFS link
-            ("ikehaya-nft.eth", "https://ipfs.io/ipfs/QmdKkwCE8uVhgYd7tWBfhtHdQZDnbNukWJ8bvQmR6nZKsk"),
-            // ERC-1155 with IPFS link
-            ("vitalik.eth", "https://ipfs.io/ipfs/QmSP4nq9fnN9dAiCj42ug9Wa79rqmQerZXZch82VqpiH7U/image.gif"),
-            // IPFS
-            ("cdixon.eth", "https://ipfs.io/ipfs/QmYA6ZpEARgHvRHZQdFPynMMX8NtdL2JCadvyuyG2oA88u"),
-            ("0age.eth", "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHN0eWxlPSJiYWNrZ3JvdW5kLWNvbG9yOmJsYWNrIiB2aWV3Qm94PSIwIDAgNTAwIDUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB4PSIxNTUiIHk9IjYwIiB3aWR0aD0iMTkwIiBoZWlnaHQ9IjM5MCIgZmlsbD0iIzY5ZmYzNyIvPjwvc3ZnPg==")
-        ] {
-        println!("Resolving: {nns_name}");
-        assert_eq!(provider.resolve_avatar(nns_name).await.unwrap(), Url::parse(res).unwrap());
-    }
 	}
 
 	#[tokio::test]
@@ -2181,79 +1893,6 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_fill_transaction_1559() {
-		let (mut provider, mock) = Provider::mocked();
-		provider.from = Some("0x6fC21092DA55B392b045eD78F4732bff3C580e2c".parse().unwrap());
-
-		let gas = U256::from(21000_usize);
-		let max_fee = U256::from(25_usize);
-		let prio_fee = U256::from(25_usize);
-		let access_list: AccessList = vec![Default::default()].into();
-
-		// --- leaves a filled 1559 transaction unchanged, making no requests
-		let from: Address = "0x0000000000000000000000000000000000000001".parse().unwrap();
-		let to: Address = "0x0000000000000000000000000000000000000002".parse().unwrap();
-		let mut tx = Eip1559TransactionRequest::new()
-			.from(from)
-			.to(to)
-			.gas(gas)
-			.max_fee_per_gas(max_fee)
-			.max_priority_fee_per_gas(prio_fee)
-			.access_list(access_list.clone())
-			.into();
-		provider.fill_transaction(&mut tx, None).await.unwrap();
-
-		assert_eq!(tx.from(), Some(&from));
-		assert_eq!(tx.to(), Some(&to.into()));
-		assert_eq!(tx.gas(), Some(&gas));
-		assert_eq!(tx.gas_price(), Some(max_fee));
-		assert_eq!(tx.access_list(), Some(&access_list));
-
-		// --- fills a 1559 transaction, leaving the existing gas limit unchanged,
-		// without generating an access-list
-		let mut tx = Eip1559TransactionRequest::new()
-			.gas(gas)
-			.max_fee_per_gas(max_fee)
-			.max_priority_fee_per_gas(prio_fee)
-			.into();
-
-		provider.fill_transaction(&mut tx, None).await.unwrap();
-
-		assert_eq!(tx.from(), provider.from.as_ref());
-		assert!(tx.to().is_none());
-		assert_eq!(tx.gas(), Some(&gas));
-		assert_eq!(tx.access_list(), Some(&Default::default()));
-
-		// --- fills a 1559 transaction, using estimated gas
-		let mut tx = Eip1559TransactionRequest::new()
-			.max_fee_per_gas(max_fee)
-			.max_priority_fee_per_gas(prio_fee)
-			.into();
-
-		mock.push(gas).unwrap();
-
-		provider.fill_transaction(&mut tx, None).await.unwrap();
-
-		assert_eq!(tx.from(), provider.from.as_ref());
-		assert!(tx.to().is_none());
-		assert_eq!(tx.gas(), Some(&gas));
-		assert_eq!(tx.access_list(), Some(&Default::default()));
-
-		// --- propogates estimate_gas() error
-		let mut tx = Eip1559TransactionRequest::new()
-			.max_fee_per_gas(max_fee)
-			.max_priority_fee_per_gas(prio_fee)
-			.into();
-
-		// bad mock value causes error response for neo_estimateGas
-		mock.push(b'b').unwrap();
-
-		let res = provider.fill_transaction(&mut tx, None).await;
-
-		assert!(matches!(res, Err(ProviderError::JsonRpcClientError(_))));
-	}
-
-	#[tokio::test]
 	async fn test_fill_transaction_legacy() {
 		let (mut provider, mock) = Provider::mocked();
 		provider.from = Some("0x6fC21092DA55B392b045eD78F4732bff3C580e2c".parse().unwrap());
@@ -2352,7 +1991,7 @@ mod tests {
 	/// Spawn a set of [`GethInstance`]s with the list of given data directories and [`Provider`]s
 	/// for those [`GethInstance`]s without discovery, setting sequential ports for their p2p, rpc,
 	/// and authrpc ports.
-	fn spawn_gneo_instances<const N: usize>(
+	fn spawn_neo_instances<const N: usize>(
 		datadirs: [PathBuf; N],
 		network_magic: u64,
 		genesis: Option<Genesis>,

@@ -4,7 +4,8 @@ use crate::{
 };
 use base64::encode;
 use elliptic_curve::sec1::ToEncodedPoint;
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -88,8 +89,8 @@ impl From<Vec<u8>> for ContractParameter {
 	}
 }
 
-impl From<&PublicKey> for ContractParameter {
-	fn from(value: &PublicKey) -> Self {
+impl From<&Secp256r1PublicKey> for ContractParameter {
+	fn from(value: &Secp256r1PublicKey) -> Self {
 		Self::public_key(value)
 	}
 }
@@ -251,10 +252,10 @@ impl ContractParameter {
 		Self::with_value(ContractParameterType::H256, ParameterValue::Hash256(value.to_string()))
 	}
 
-	pub fn public_key(value: &PublicKey) -> Self {
+	pub fn public_key(value: &Secp256r1PublicKey) -> Self {
 		Self::with_value(
 			ContractParameterType::PublicKey,
-			ParameterValue::PublicKey(value.to_encoded_point(false).to_string()),
+			ParameterValue::PublicKey(hex::encode(value.to_raw_bytes())),
 		)
 	}
 

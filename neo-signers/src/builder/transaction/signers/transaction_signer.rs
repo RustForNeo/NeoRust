@@ -4,7 +4,8 @@ use crate::transaction::{
 	witness_scope::WitnessScope,
 };
 use neo_types::*;
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -87,12 +88,12 @@ impl SignerTrait for TransactionSigner {
 		panic!("Not implemented")
 	}
 
-	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
+	fn get_allowed_groups(&self) -> &Vec<Secp256r1PublicKey> {
 		panic!("Not implemented")
 		// &self.allowed_groups
 	}
 
-	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<Secp256r1PublicKey> {
 		panic!("Not implemented")
 	}
 

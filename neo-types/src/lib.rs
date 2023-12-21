@@ -1,10 +1,15 @@
 use base64::{engine::general_purpose, Engine};
+use elliptic_curve::sec1::ToEncodedPoint;
+use ethereum_types::Address;
+use p256::{ecdsa::VerifyingKey, AffinePoint};
 use primitive_types::H256;
 use serde_derive::{Deserialize, Serialize};
+use std::{hash::Hash, ptr::hash};
 mod contract;
 mod nns;
 
 pub use contract::*;
+use neo_crypto::keys::{Secp256r1PrivateKey, Secp256r1PublicKey};
 pub use nns::*;
 
 pub mod address;
@@ -19,15 +24,15 @@ pub mod path_or_string;
 pub mod plugin_type;
 pub mod serde_value;
 pub mod serde_with_utils;
+use crate::script_hash::ScriptHash;
 pub use serde_with_utils::*;
-
 pub mod error;
 pub mod role;
 pub mod script_hash;
 pub mod stack_item;
 pub mod string;
 pub mod syncing;
-pub mod txpool;
+pub mod tx_pool;
 pub mod url_session;
 pub mod util;
 pub mod vm_state;
@@ -76,6 +81,43 @@ impl Base64Encode for &[u8] {
 	fn to_base64(&self) -> String {
 		base64::encode(&self)
 	}
+}
+
+pub fn secret_key_to_script_hash(secret_key: &Secp256r1PrivateKey) -> ScriptHash {
+	let public_key = secret_key.to_public_key().unwrap();
+	public_key_to_script_hash(&public_key)
+}
+
+pub fn public_key_to_script_hash(pubkey: &Secp256r1PublicKey) -> ScriptHash {
+	raw_public_key_to_script_hash(&pubkey.to_raw_bytes()[1..])
+}
+
+pub fn raw_public_key_to_script_hash<T: AsRef<[u8]>>(pubkey: T) -> ScriptHash {
+	let pubkey = pubkey.as_ref();
+	assert_eq!(pubkey.len(), 64, "raw public key must be 64 bytes");
+	let digest = vec![]; // keccak256(pubkey);
+	ScriptHash::from_slice(&digest)
+}
+
+pub fn to_checksum(addr: &Address, chain_id: Option<u8>) -> String {
+	let prefixed_addr = match chain_id {
+		Some(chain_id) => format!("{chain_id}0x{addr:x}"),
+		None => format!("{addr:x}"),
+	};
+	let hash = hex::encode(prefixed_addr);
+	let hash = hash.as_bytes();
+
+	let addr_hex = hex::encode(addr.as_bytes());
+	let addr_hex = addr_hex.as_bytes();
+
+	addr_hex.iter().zip(hash).fold("0x".to_owned(), |mut encoded, (addr, hash)| {
+		encoded.push(if *hash >= 56 {
+			addr.to_ascii_uppercase() as char
+		} else {
+			addr.to_ascii_lowercase() as char
+		});
+		encoded
+	})
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use crate::{
+	private_key_from_wif, public_key_to_address,
 	transaction::verification_script::VerificationScript,
 	wallet::{
 		nep6account::NEP6Account,
@@ -10,13 +11,15 @@ use crate::{
 use neo_crypto::{key_pair::KeyPair, nep2::NEP2};
 use neo_types::{
 	address::Address,
+	address_or_scripthash::AddressOrScriptHash,
 	contract_parameter_type::ContractParameterType,
 	script_hash::{ScriptHash, ScriptHashExtension},
-	Base64Encode, *,
+	*,
 };
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
-use rustc_serialize::base64::ToBase64;
+use rustc_serialize::base64::{ToBase64, STANDARD};
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashMap,
@@ -26,12 +29,13 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Account {
+	#[serde(skip)]
 	pub key_pair: Option<KeyPair>,
 	#[serde(
-		serialize_with = "serialize_script_hash",
-		deserialize_with = "deserialize_script_hash"
+		serialize_with = "serialize_address_or_script_hash",
+		deserialize_with = "deserialize_address_or_script_hash"
 	)]
-	address: Address,
+	address_or_scripthash: AddressOrScriptHash,
 	label: Option<String>,
 	pub verification_script: Option<VerificationScript>,
 	is_locked: bool,
@@ -43,7 +47,7 @@ pub struct Account {
 
 impl PartialEq for Account {
 	fn eq(&self, other: &Self) -> bool {
-		self.address == other.address
+		self.address_or_scripthash == other.address_or_scripthash
 			&& self.label == other.label
 			&& self.verification_script == other.verification_script
 			&& self.is_locked == other.is_locked
@@ -55,7 +59,7 @@ impl PartialEq for Account {
 
 impl Hash for Account {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.address.hash(state);
+		self.address_or_scripthash.hash(state);
 		self.label.hash(state);
 		self.verification_script.hash(state);
 		self.is_locked.hash(state);
@@ -65,13 +69,10 @@ impl Hash for Account {
 	}
 }
 
-struct PrivateKey<'a>(&'a str);
-
 impl Account {
-	// Constructors
-
+	// Constructor
 	pub fn new(
-		address: Address,
+		address: AddressOrScriptHash,
 		label: Option<String>,
 		verification_script: Option<VerificationScript>,
 		signing_threshold: Option<u32>,
@@ -79,7 +80,7 @@ impl Account {
 	) -> Self {
 		Self {
 			key_pair: None,
-			address,
+			address_or_scripthash: address,
 			label,
 			verification_script,
 			is_locked: false,
@@ -95,11 +96,11 @@ impl Account {
 		signing_threshold: Option<u32>,
 		nr_of_participants: Option<u32>,
 	) -> Result<Self, WalletError> {
-		let address = key_pair.get_address().unwrap();
+		let address = public_key_to_address(&key_pair.public_key);
 		Ok(Self {
 			key_pair: Some(key_pair.clone()),
-			address,
-			label: Some(ScriptHashExtension::to_string(&address)),
+			address_or_scripthash: AddressOrScriptHash::Address(address.clone()),
+			label: Some(address),
 			verification_script: Some(VerificationScript::from_public_key(
 				&key_pair.clone().public_key(),
 			)),
@@ -113,7 +114,7 @@ impl Account {
 
 	pub fn from_key_pair_opt(
 		key_pair: Option<KeyPair>,
-		address: Address,
+		address: AddressOrScriptHash,
 		label: Option<String>,
 		verification_script: Option<VerificationScript>,
 		is_locked: bool,
@@ -124,7 +125,7 @@ impl Account {
 	) -> Self {
 		Self {
 			key_pair,
-			address,
+			address_or_scripthash: address,
 			label,
 			verification_script,
 			is_locked,
@@ -136,7 +137,7 @@ impl Account {
 	}
 
 	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
-		let key_pair = KeyPair::from_private_key(PrivateKey::from_wif(wif).unwrap());
+		let key_pair = KeyPair::from_secret_key(&private_key_from_wif(wif).unwrap());
 		Self::from_key_pair(key_pair, None, None)
 	}
 
@@ -162,7 +163,7 @@ impl Account {
 			};
 
 		Ok(Self {
-			address: nep6_account.address.clone(),
+			address_or_scripthash: AddressOrScriptHash::Address(nep6_account.address.clone()),
 			label: nep6_account.label.clone(),
 			verification_script,
 			is_locked: nep6_account.lock,
@@ -202,7 +203,7 @@ impl Account {
 			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))
 			.unwrap();
 		let key_pair = NEP2::decrypt(password, encrypted_private_key).unwrap();
-		self.key_pair = Some(KeyPair::from_private_key(key_pair.private_key().clone()).unwrap());
+		self.key_pair = Some(KeyPair::from_secret_key(&key_pair.private_key().clone()));
 		Ok(())
 	}
 
@@ -218,8 +219,8 @@ impl Account {
 		Ok(())
 	}
 
-	pub fn get_script_hash(&self) -> &Address {
-		&self.address
+	pub fn get_script_hash(&self) -> ScriptHash {
+		self.address_or_scripthash.script_hash()
 	}
 
 	pub fn get_signing_threshold(&self) -> Result<u32, WalletError> {
@@ -284,7 +285,7 @@ impl Account {
 		};
 
 		Ok(NEP6Account {
-			address: self.address.clone(),
+			address: self.address_or_scripthash.address(),
 			label: self.label.clone(),
 			is_default: false, // TODO
 			lock: self.is_locked,
@@ -309,7 +310,7 @@ impl Account {
 		};
 
 		Ok(Self {
-			address,
+			address_or_scripthash: AddressOrScriptHash::ScriptHash(address),
 			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(script.clone()),
 			signing_threshold: signing_threshold.map(|x| x as u32),
@@ -318,20 +319,20 @@ impl Account {
 		})
 	}
 
-	pub fn from_public_key(public_key: &PublicKey) -> Result<Self, WalletError> {
+	pub fn from_public_key(public_key: &Secp256r1PublicKey) -> Result<Self, WalletError> {
 		let script = VerificationScript::from_public_key(public_key);
 		let address = ScriptHash::from_script(&script.script());
 
 		Ok(Self {
-			address,
+			address_or_scripthash: AddressOrScriptHash::Address(address),
 			label: Some(ScriptHashExtension::to_string(&address)),
 			verification_script: Some(script),
 			..Default::default()
 		})
 	}
 
-	pub fn create_MultiSig(
-		public_keys: &[PublicKey],
+	pub fn create_multi_sig(
+		public_keys: &[Secp256r1PublicKey],
 		signing_threshold: u32,
 	) -> Result<Self, WalletError> {
 		let script = VerificationScript::from_multi_sig(public_keys, signing_threshold as u8);
@@ -348,8 +349,8 @@ impl Account {
 	pub fn from_address(address: &str) -> Result<Self, WalletError> {
 		let address = Address::from_str(address).unwrap();
 		Ok(Self {
-			address,
-			label: Some(ScriptHashExtension::to_string(&address)),
+			address_or_scripthash: AddressOrScriptHash::Address(address.clone()),
+			label: Some(address),
 			..Default::default()
 		})
 	}
@@ -360,7 +361,7 @@ impl Account {
 	}
 
 	pub fn create() -> Result<Self, WalletError> {
-		let key_pair = KeyPair::generate();
+		let key_pair = KeyPair::new_random();
 		Self::from_key_pair(key_pair, None, None)
 	}
 

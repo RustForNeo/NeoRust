@@ -13,9 +13,13 @@ pub enum CryptoError {
 	#[error("Invalid public key")]
 	InvalidPublicKey,
 	#[error("Invalid private key")]
+	InvalidPrivateKey,
+	#[error("Invalid private key")]
 	P256Error(#[from] p256::elliptic_curve::Error),
 	#[error("Signing error")]
 	SigningError,
+	#[error("Signature verification error")]
+	SignatureVerificationError,
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

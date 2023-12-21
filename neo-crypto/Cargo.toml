@@ -33,3 +33,5 @@ open-fastrlp = { version = "0.1.4", features = ["std", "derive", "ethereum-types
 rlp = { version = "0.5", features = ["derive"] }
 bytes = "1.5.0"
 typenum = { version = "1.14", features = [] }
+signature = { version = "2.1.0", features = [] }
+rand_core = "0.6.4"

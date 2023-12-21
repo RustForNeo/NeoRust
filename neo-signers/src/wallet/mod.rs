@@ -2,7 +2,6 @@ mod mnemonic;
 pub use mnemonic::{MnemonicBuilder, MnemonicBuilderError};
 
 mod private_key;
-pub use private_key::WalletError;
 
 pub mod account;
 mod nep6account;
@@ -15,10 +14,10 @@ mod yubi;
 
 use crate::Signer;
 
-use crate::transaction::transaction::Transaction;
+use crate::{transaction::transaction::Transaction, wallet::wallet_error::WalletError};
 use async_trait::async_trait;
-use neo_crypto::signature::Signature;
-use neo_types::address::Address;
+use neo_crypto::keys::{PrivateKeyExtension, Secp256r1PrivateKey, Secp256r1Signature};
+use neo_types::{address::Address, address_or_scripthash::AddressOrScriptHash, hash_message};
 use p256::ecdsa::signature::hazmat::PrehashSigner;
 use primitive_types::{H256, U256};
 use std::fmt;
@@ -34,7 +33,7 @@ use std::fmt;
 /// prefix the message being hashed with the `neo Signed Message` domain separator.
 ///
 /// ```
-/// use neo_core::rand::thread_rng;
+/// use rand::thread_rng;
 /// use neo_signers::{LocalWallet, Signer};
 ///
 /// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
@@ -60,38 +59,41 @@ use std::fmt;
 /// [`Signature`]: neo_types::Signature
 /// [`hash_message`]: fn@neo_core::utils::hash_message
 #[derive(Clone)]
-pub struct Wallet<D: PrehashSigner<Signature>> {
+pub struct Wallet {
 	/// The Wallet's private Key
-	pub(crate) signer: D,
+	pub signer: Secp256r1PrivateKey,
 	/// The wallet's address
-	pub(crate) address: Address,
-	/// The wallet's network magic (for EIP-155)
-	pub(crate) network_magic: u64,
+	pub address: AddressOrScriptHash,
+	/// The wallet's network magic
+	pub network_magic: u64,
 }
 
-impl<D: PrehashSigner<Signature>> Wallet<D> {
+impl Wallet {
 	/// Construct a new wallet with an external Signer
-	pub fn new_with_signer(signer: D, address: Address, network_magic: u64) -> Self {
-		Wallet { signer, address, network_magic }
+	pub fn new_with_signer(
+		signer: Secp256r1PrivateKey,
+		address: Address,
+		network_magic: u64,
+	) -> Self {
+		Wallet { signer, address: AddressOrScriptHash::Address(address), network_magic }
 	}
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl<D: Sync + Send + PrehashSigner<Signature>> Signer for Wallet<D> {
+impl Signer for Wallet {
 	type Error = WalletError;
 
 	async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
 		&self,
 		message: S,
-	) -> Result<Signature, Self::Error> {
+	) -> Result<Secp256r1Signature, Self::Error> {
 		let message = message.as_ref();
 		let message_hash = hash_message(message);
-
 		self.sign_hash(message_hash)
 	}
 
-	async fn sign_transaction(&self, tx: &Transaction) -> Result<Signature, Self::Error> {
+	async fn sign_transaction(&self, tx: &Transaction) -> Result<Secp256r1Signature, Self::Error> {
 		let mut tx_with_chain = tx.clone();
 		if tx_with_chain.network_magic().is_none() {
 			// in the case we don't have a network_magic, let's use the signer network magic instead
@@ -101,7 +103,7 @@ impl<D: Sync + Send + PrehashSigner<Signature>> Signer for Wallet<D> {
 	}
 
 	fn address(&self) -> Address {
-		self.address
+		self.address.address()
 	}
 
 	/// Gets the wallet's network magic
@@ -116,46 +118,41 @@ impl<D: Sync + Send + PrehashSigner<Signature>> Signer for Wallet<D> {
 	}
 }
 
-impl<D: PrehashSigner<Signature>> Wallet<D> {
-	/// Synchronously signs the provided transaction, normalizing the signature `v` value with
-	/// EIP-155 using the transaction's `network_magic`, or the signer's `network_magic` if the transaction
-	/// does not specify one.
-	pub fn sign_transaction_sync(&self, tx: &Transaction) -> Result<Signature, WalletError> {
-		// rlp (for sighash) must have the same network magic as v in the signature
-		let network_magic = tx.network_magic().map(|id| id.as_u64()).unwrap_or(self.network_magic);
+impl Wallet {
+	pub fn sign_transaction_sync(
+		&self,
+		tx: &Transaction,
+	) -> Result<Secp256r1Signature, WalletError> {
+		let network_magic = tx.network_magic().unwrap_or(self.network_magic);
 		let mut tx = tx.clone();
 		tx.set_network_magic(network_magic);
 
 		let sighash = tx.sighash();
 		let mut sig = self.sign_hash(sighash)?;
-
-		// sign_hash sets `v` to recid + 27, so we need to subtract 27 before normalizing
-		sig.v = to_eip155_v(sig.v as u8 - 27, network_magic);
 		Ok(sig)
 	}
 
 	/// Signs the provided hash.
-	pub fn sign_hash(&self, hash: H256) -> Result<Signature, WalletError> {
-		let (recoverable_sig, recovery_id) = self.signer.sign_prehash(hash.as_ref())?;
+	pub fn sign_hash(&self, hash: H256) -> Result<Secp256r1Signature, WalletError> {
+		let p256_sig = self
+			.signer
+			.sign_prehash(hash.as_ref())
+			.map_err(|_| WalletError::SignHashError)?;
 
-		let v = u8::from(recovery_id) as u64 + 27;
+		let r = U256::from_big_endian(p256_sig.r().as_ref());
+		let s = U256::from_big_endian(p256_sig.s().as_ref());
 
-		let r_bytes: FieldBytes<Secp256r1> = recoverable_sig.r().into();
-		let s_bytes: FieldBytes<Secp256r1> = recoverable_sig.s().into();
-		let r = U256::from_big_endian(r_bytes.as_slice());
-		let s = U256::from_big_endian(s_bytes.as_slice());
-
-		Ok(Signature { r, s, v })
+		Ok(Secp256r1Signature::from_u256(r, s))
 	}
 
 	/// Gets the wallet's signer
-	pub fn signer(&self) -> &D {
+	pub fn signer(&self) -> &Secp256r1PrivateKey {
 		&self.signer
 	}
 }
 
 // do not log the signer
-impl<D: PrehashSigner<Signature>> fmt::Debug for Wallet<D> {
+impl fmt::Debug for Wallet {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("Wallet")
 			.field("address", &self.address)

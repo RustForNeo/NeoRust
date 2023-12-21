@@ -4,6 +4,8 @@ use crate::transaction::{
 };
 use getset::{Getters, Setters};
 use neo_codec::{Decoder, Encoder};
+use neo_config::NeoConstants;
+use neo_crypto::hash;
 use neo_types::{nef_file::HEADER_SIZE, Bytes};
 use serde::Serialize;
 use std::hash::Hash;
@@ -75,42 +77,42 @@ impl SerializableTransaction {
 	}
 
 	// Send transaction
-	// pub async fn send(&mut self) -> Result<(), TransactionError> {
-	// 	// Validate transaction
-	// 	if self.signers.len() != self.witnesses.len() {
-	// 		return Err(TransactionError::InvalidTransaction)
-	// 	}
-	//
-	// 	if self.size() > NeoConstants::MAX_TRANSACTION_SIZE as usize {
-	// 		return Err(TransactionError::TxTooLarge)
-	// 	}
-	//
-	// 	// Get hex encoding
-	// 	let hex = hex::encode(self.serialize());
-	//
-	// 	NEO_INSTANCE.read().unwrap().send_raw_transaction(hex).request().await.ok();
-	//
-	// 	self.block_count_when_sent =
-	// 		Some(NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap());
-	//
-	// 	Ok(())
-	// }
+	pub async fn send(&mut self) -> Result<(), TransactionError> {
+		// Validate transaction
+		if self.signers.len() != self.witnesses.len() {
+			return Err(TransactionError::InvalidTransaction)
+		}
+
+		if self.size() > NeoConstants::MAX_TRANSACTION_SIZE as usize {
+			return Err(TransactionError::TxTooLarge)
+		}
+
+		// Get hex encoding
+		let hex = hex::encode(self.serialize());
+
+		NEO_INSTANCE.read().unwrap().send_raw_transaction(hex).request().await.ok();
+
+		self.block_count_when_sent =
+			Some(NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap());
+
+		Ok(())
+	}
 
 	// Get hash data
-	// pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-	// 	let network_magic = NEO_INSTANCE
-	// 		.write()
-	// 		.unwrap()
-	// 		.get_network_magic_number()
-	// 		.await
-	// 		.unwrap()
-	// 		.to_le_bytes();
-	// 	let mut data = self.serialize_without_witnesses().hash256();
-	//
-	// 	data.splice(0..0, network_magic.iter().cloned());
-	//
-	// 	Ok(data)
-	// }
+	pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
+		let network_magic = NEO_INSTANCE
+			.write()
+			.unwrap()
+			.get_network_magic_number()
+			.await
+			.unwrap()
+			.to_le_bytes();
+		let mut data = self.serialize_without_witnesses().hash256();
+
+		data.splice(0..0, network_magic.iter().cloned());
+
+		Ok(data)
+	}
 
 	// Serialization
 	pub fn serialize(&self) -> Bytes {
@@ -156,7 +158,7 @@ impl SerializableTransaction {
 		// let mut signers = Vec::new();
 		// for _ in 0..signers_len {
 
-		let signers: Vec<Signer> = reader.read_serializable_list::<Vec<Signer>>().unwrap();
+		let signers: Vec<Signer> = reader.read_serializable_list::<Signer>().unwrap();
 		// signers.push();
 		// }
 
@@ -241,6 +243,6 @@ impl SerializableTransaction {
 		result.extend_from_slice(&self.script);
 		// }
 
-		result
+		result.to_bytes()
 	}
 }

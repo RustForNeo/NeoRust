@@ -160,7 +160,7 @@ pub struct SnapInfo {
 pub struct PeerInfo {
 	/// The peer's ENR.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub enr: Option<Enr<SigningKey>>,
+	pub enr: Option<Enr<Secp256r1PrivateKey>>,
 
 	/// The peer's enode URL.
 	pub enode: String,

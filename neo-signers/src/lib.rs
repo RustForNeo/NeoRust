@@ -6,7 +6,7 @@ mod utils;
 pub use utils::*;
 
 mod wallet;
-pub use wallet::{MnemonicBuilder, Wallet, WalletError};
+pub use wallet::{MnemonicBuilder, Wallet};
 
 mod builder;
 
@@ -16,11 +16,11 @@ pub use builder::*;
 pub use coins_bip39;
 
 /// A wallet instantiated with a locally stored private key
-pub type LocalWallet = Wallet<p256::ecdsa::SigningKey>;
+pub type LocalWallet = Wallet;
 
 #[cfg(all(feature = "yubihsm", not(target_arch = "wasm32")))]
 /// A wallet instantiated with a YubiHSM
-pub type YubiWallet = Wallet<yubihsm::ecdsa::Signer<p256::NistP256>>;
+pub type YubiWallet = Wallet;
 
 #[cfg(all(feature = "ledger", not(target_arch = "wasm32")))]
 mod ledger;
@@ -42,7 +42,7 @@ pub use aws::{AwsSigner, AwsSignerError};
 
 use crate::transaction::transaction::Transaction;
 use async_trait::async_trait;
-use neo_crypto::signature::Signature;
+use neo_crypto::keys::Secp256r1Signature;
 use neo_types::address::Address;
 use std::error::Error;
 
@@ -57,10 +57,13 @@ pub trait Signer: std::fmt::Debug + Send + Sync {
 	async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
 		&self,
 		message: S,
-	) -> Result<Signature, Self::Error>;
+	) -> Result<Secp256r1Signature, Self::Error>;
 
 	/// Signs the transaction
-	async fn sign_transaction(&self, message: &Transaction) -> Result<Signature, Self::Error>;
+	async fn sign_transaction(
+		&self,
+		message: &Transaction,
+	) -> Result<Secp256r1Signature, Self::Error>;
 
 	/// Returns the signer's neo Address
 	fn address(&self) -> Address;

@@ -2,13 +2,13 @@ use crate::{
 	base58_helper::{base58check_decode, base58check_encode},
 	hash::HashableForVec,
 	key_pair::KeyPair,
+	keys::Secp256r1PrivateKey,
 };
 use aes::{
 	cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit},
 	Aes128,
 };
 use crypto::scrypt::{scrypt, ScryptParams};
-use p256::SecretKey;
 
 const DKLEN: usize = 64;
 const NEP2_PRIVATE_KEY_LENGTH: usize = 39;
@@ -44,9 +44,8 @@ impl NEP2 {
 		let derived_key = generate_derived_scrypt_key(password, address_hash).unwrap();
 		let decrypted_bytes = decrypt_aes(encrypted, &derived_key[..32]).unwrap();
 		let plain_private_key = xor(&decrypted_bytes, &derived_key[..32]);
-		let plain_private_key_array = GenericArray::clone_from_slice(&plain_private_key);
-		let private_key = SecretKey::from_bytes(&plain_private_key_array).unwrap();
-		let key_pair = KeyPair::from_secret_key(private_key);
+		let private_key = Secp256r1PrivateKey::from_bytes(&plain_private_key).unwrap();
+		let key_pair = KeyPair::from_secret_key(&private_key);
 		let new_address_hash = address_hash_from_pubkey(&key_pair.public_key_bytes());
 		if new_address_hash != address_hash {
 			return Err("Invalid passphrase")

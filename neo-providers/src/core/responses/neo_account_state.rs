@@ -8,7 +8,7 @@ pub struct AccountState {
 	pub balance_height: Option<i64>,
 	#[serde(deserialize_with = "deserialize_public_key_option")]
 	#[serde(serialize_with = "serialize_public_key_option")]
-	pub public_key: Option<PublicKey>,
+	pub public_key: Option<Secp256r1PublicKey>,
 }
 
 impl Hash for AccountState {

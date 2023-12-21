@@ -11,24 +11,29 @@ use neo_types::{
 	contract_parameter::ContractParameter, script_hash::ScriptHashExtension,
 	serde_value::ValueExtension,
 };
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
+use neo_types::script_hash::ScriptHash;
 use primitive_types::H160;
 use serde_json::Value;
 
-pub type ScriptHash = H160;
+// pub type ScriptHash = H160;
 
 /// Converts a list of public keys to a script hash using a given threshold.
 ///
 /// # Arguments
 ///
-/// * `public_keys` - A mutable slice of `PublicKey` instances.
+/// * `public_keys` - A mutable slice of `Secp256r1PublicKey` instances.
 /// * `threshold` - The minimum number of signatures required to validate the transaction.
 ///
 /// # Returns
 ///
 /// A `ScriptHash` instance representing the script hash of the MultiSig script.
-pub fn public_keys_to_scripthash(public_keys: &mut [PublicKey], threshold: usize) -> ScriptHash {
-	let mut script = ScriptBuilder::build_multisig_script(public_keys, threshold as u8).unwrap();
+pub fn public_keys_to_scripthash(
+	public_keys: &mut [Secp256r1PublicKey],
+	threshold: usize,
+) -> ScriptHash {
+	let mut script = ScriptBuilder::build_multi_sig_script(public_keys, threshold as u8).unwrap();
 	// Self::from_script(&script)
 	ScriptHash::from_slice(&script)
 }
@@ -37,12 +42,12 @@ pub fn public_keys_to_scripthash(public_keys: &mut [PublicKey], threshold: usize
 ///
 /// # Arguments
 ///
-/// * `public_key` - A `PublicKey` instance.
+/// * `public_key` - A `Secp256r1PublicKey` instance.
 ///
 /// # Returns
 ///
 /// A `ScriptHash` instance representing the script hash of the verification script.
-pub fn pubkey_to_scripthash(public_key: &PublicKey) -> ScriptHash {
+pub fn pubkey_to_scripthash(public_key: &Secp256r1PublicKey) -> ScriptHash {
 	let script = ScriptBuilder::build_verification_script(public_key);
 	ScriptHash::from_script(&script)
 }

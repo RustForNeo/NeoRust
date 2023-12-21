@@ -2,6 +2,7 @@ use crate::{errors::ProviderError, JsonRpcClient, PubsubClient};
 use async_trait::async_trait;
 use futures_core::Stream;
 use futures_util::{future::join_all, FutureExt, StreamExt};
+use primitive_types::U256;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{value::RawValue, Value};
 use std::{

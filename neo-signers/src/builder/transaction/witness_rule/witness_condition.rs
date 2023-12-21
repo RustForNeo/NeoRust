@@ -1,5 +1,6 @@
 use neo_types::*;
-use p256::PublicKey;
+
+use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::hash::{Hash, Hasher};
@@ -22,7 +23,7 @@ pub enum WitnessCondition {
 	/// Public key group.
 	#[serde(deserialize_with = "deserialize_public_key")]
 	#[serde(serialize_with = "serialize_public_key")]
-	Group(PublicKey),
+	Group(Secp256r1PublicKey),
 	/// Called by entry.
 	CalledByEntry,
 	/// Called by contract.
@@ -32,7 +33,7 @@ pub enum WitnessCondition {
 	/// Called by public key group.
 	#[serde(deserialize_with = "deserialize_public_key")]
 	#[serde(serialize_with = "serialize_public_key")]
-	CalledByGroup(PublicKey),
+	CalledByGroup(Secp256r1PublicKey),
 }
 
 impl Hash for WitnessCondition {
@@ -44,10 +45,10 @@ impl Hash for WitnessCondition {
 			WitnessCondition::And(exp) => exp.hash(state),
 			WitnessCondition::Or(exp) => exp.hash(state),
 			WitnessCondition::ScriptHash(hash) => hash.hash(state),
-			WitnessCondition::Group(group) => group.to_vec().hash(state),
+			WitnessCondition::Group(group) => group.to_raw_bytes().to_vec().hash(state),
 			WitnessCondition::CalledByEntry => WitnessCondition::CalledByEntry.hash(state),
 			WitnessCondition::CalledByContract(hash) => hash.hash(state),
-			WitnessCondition::CalledByGroup(group) => group.to_vec().hash(state),
+			WitnessCondition::CalledByGroup(group) => group.to_raw_bytes().to_vec().hash(state),
 		}
 	}
 }
@@ -160,7 +161,7 @@ impl WitnessCondition {
 	}
 
 	/// Returns the public key group of the witness condition.
-	pub fn group(&self) -> Option<&PublicKey> {
+	pub fn group(&self) -> Option<&Secp256r1PublicKey> {
 		match self {
 			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) => Some(group),
 			_ => None,

@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 use auto_impl::auto_impl;
 use futures_util::future::join_all;
+use primitive_types::H160;
 use serde::{de::DeserializeOwned, Serialize};
-use std::fmt::Debug;
+use std::{fmt::Debug, vec};
 use url::Url;
 
 use crate::{

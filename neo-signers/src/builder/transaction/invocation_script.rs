@@ -1,8 +1,7 @@
-use crate::script::script_builder::ScriptBuilder;
+use crate::{builder::error::BuilderError, script::script_builder::ScriptBuilder};
 use getset::{Getters, Setters};
-use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, signature::Signature};
+use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, keys::Secp256r1Signature};
 use neo_types::Bytes;
-use p256::ecdsa::signature::Signer;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
@@ -24,26 +23,31 @@ pub struct InvocationScript {
 }
 
 impl InvocationScript {
-	pub fn from_signature(signature: &Signature) -> Self {
+	pub fn from_signature(signature: &Secp256r1Signature) -> Self {
 		let mut builder = ScriptBuilder::new();
-		builder.push_data(signature.concatenated()).expect("TODO: panic message");
+		builder
+			.push_data(signature.to_raw_bytes().to_vec())
+			.expect("TODO: panic message");
 		Self { script: builder.to_bytes() }
 	}
 
-	pub fn from_message_and_key_pair(message: Bytes, key_pair: &KeyPair) -> Result<Self, ()> {
+	pub fn from_message_and_key_pair(
+		message: Bytes,
+		key_pair: &mut KeyPair,
+	) -> Result<Self, BuilderError> {
 		let message_hash = message.hash256();
-		let signature = key_pair.private_key().sign(&message_hash);
+		let signature = key_pair.private_key.sign_tx(&message_hash)?;
 		let mut builder = ScriptBuilder::new();
 		// Convert signature to bytes
-		let signature_bytes = signature.to_vec();
-		builder.push_data(signature_bytes).expect("Incorrect signature length");
+		let signature_bytes = signature.to_raw_bytes();
+		builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
 		Ok(Self { script: builder.to_bytes() })
 	}
 
-	pub fn from_signatures(signatures: &[Signature]) -> Self {
+	pub fn from_signatures(signatures: &[Secp256r1Signature]) -> Self {
 		let mut builder = ScriptBuilder::new();
 		for signature in signatures {
-			let mut signature_bytes = signature.concatenated();
+			let mut signature_bytes = signature.to_raw_bytes();
 			// signature.write_scalars(&mut signature_bytes).unwrap();
 
 			builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");

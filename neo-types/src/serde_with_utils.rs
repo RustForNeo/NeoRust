@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use elliptic_curve::sec1::ToEncodedPoint;
-use p256::{PublicKey, SecretKey};
+
 #[cfg(feature = "substrate")]
 use serde_big_array_substrate::big_array;
 #[cfg(feature = "substrate")]
@@ -19,6 +19,7 @@ use std::{
 
 use crate::{
 	address::Address,
+	address_or_scripthash::AddressOrScriptHash,
 	nef_file::MethodToken,
 	script_hash::{ScriptHash, ScriptHashExtension},
 	util::{
@@ -26,6 +27,7 @@ use crate::{
 		parse_string_u256, parse_string_u64,
 	},
 };
+use neo_crypto::keys::{Secp256r1PrivateKey, Secp256r1PublicKey};
 use serde::ser::{SerializeMap, SerializeSeq};
 
 use crate::util::encode_string_u256;
@@ -214,11 +216,33 @@ where
 	serializer.serialize_str(&item_str)
 }
 
-pub fn deserialize_vec_address<'de, D>(deserializer: D) -> Result<Vec<Address>, D::Error>
+pub fn deserialize_address_or_script_hash<'de, D>(
+	deserializer: D,
+) -> Result<AddressOrScriptHash, D::Error>
 where
 	D: Deserializer<'de>,
 {
-	let string_seq = <Vec<String>>::deserialize(deserializer)?;
+	let s: String = Deserialize::deserialize(deserializer)?;
+	let addr = parse_address(&s);
+	Ok(AddressOrScriptHash::ScriptHash(addr))
+}
+
+pub fn serialize_address_or_script_hash<S>(
+	item: &AddressOrScriptHash,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let item_str = encode_string_h160(&item.script_hash());
+	serializer.serialize_str(&item_str)
+}
+
+pub fn deserialize_vec_script_hash<'de, D>(deserializer: D) -> Result<Vec<ScriptHash>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let string_seq = <Vec<ScriptHash>>::deserialize(deserializer)?;
 	// let mut vec: Vec<Address> = Vec::new();
 	// for v_str in string_seq {
 	// 	let v = parse_address(&v_str);
@@ -227,7 +251,10 @@ where
 	Ok(string_seq)
 }
 
-pub fn serialize_vec_address<S>(item: &Vec<Address>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_vec_script_hash<S>(
+	item: &Vec<ScriptHash>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
 {
@@ -300,74 +327,79 @@ where
 	Ok(hashmap)
 }
 
-// SecretKey
+// Secp256r1PrivateKey
 
-pub fn deserialize_private_key<'de, D>(deserializer: D) -> Result<SecretKey, D::Error>
+pub fn deserialize_private_key<'de, D>(deserializer: D) -> Result<Secp256r1PrivateKey, D::Error>
 where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	let key = SecretKey::from_slice(parse_string_h256(&s).as_bytes()).unwrap();
+	let key = Secp256r1PrivateKey::from_bytes(parse_string_h256(&s).as_bytes()).unwrap();
 	Ok(key)
 }
 
-pub fn serialize_private_key<S>(item: &SecretKey, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_private_key<S>(
+	item: &Secp256r1PrivateKey,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
 {
-	let item_str = encode_string_h256(&H256::from_slice(&item.to_bytes().to_vec()));
+	let item_str = encode_string_h256(&H256::from_slice(&item.to_raw_bytes().to_vec()));
 	serializer.serialize_str(&item_str)
 }
 
-// PublicKey
-pub fn deserialize_public_key<'de, D>(deserializer: D) -> Result<PublicKey, D::Error>
+// Secp256r1PublicKey
+pub fn deserialize_public_key<'de, D>(deserializer: D) -> Result<Secp256r1PublicKey, D::Error>
 where
 	D: Deserializer<'de>,
 {
 	let s: String = Deserialize::deserialize(deserializer)?;
-	let key = PublicKey::from_sec1_bytes(parse_string_h256(&s).as_bytes()).unwrap();
+	let key = Secp256r1PublicKey::from_bytes(parse_string_h256(&s).as_bytes()).unwrap();
 	Ok(key)
 }
 
-pub fn serialize_public_key<S>(item: &PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_public_key<S>(item: &Secp256r1PublicKey, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
 {
-	let item_str =
-		encode_string_h256(&H256::from_slice(&item.to_encoded_point(false).as_bytes().to_vec()));
+	let item_str = encode_string_h256(&H256::from_slice(&item.to_raw_bytes().to_vec()));
 	serializer.serialize_str(&item_str)
 }
 
-pub fn deserialize_vec_public_key<'de, D>(deserializer: D) -> Result<Vec<PublicKey>, D::Error>
+pub fn deserialize_vec_public_key<'de, D>(
+	deserializer: D,
+) -> Result<Vec<Secp256r1PublicKey>, D::Error>
 where
 	D: Deserializer<'de>,
 {
 	let string_seq = <Vec<String>>::deserialize(deserializer)?;
-	let mut vec: Vec<PublicKey> = Vec::new();
+	let mut vec: Vec<Secp256r1PublicKey> = Vec::new();
 	for v_str in string_seq {
 		let v = parse_string_h256(&v_str);
-		let key = PublicKey::from_sec1_bytes(v.as_bytes()).unwrap();
+		let key = Secp256r1PublicKey::from_bytes(v.as_bytes()).unwrap();
 		vec.push(key);
 	}
 	Ok(vec)
 }
 
-pub fn serialize_vec_public_key<S>(item: &Vec<PublicKey>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_vec_public_key<S>(
+	item: &Vec<Secp256r1PublicKey>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
 where
 	S: Serializer,
 {
 	let mut seq = serializer.serialize_seq(Some(item.len()))?;
 	for i in item {
-		seq.serialize_element(&encode_string_h256(&H256::from_slice(
-			&i.to_encoded_point(false).as_bytes(),
-		)))?;
+		seq.serialize_element(&encode_string_h256(&H256::from_slice(&i.to_raw_bytes())))?;
 	}
 	seq.end()
 }
 
 // impl serialize_public_key_option
 pub fn serialize_public_key_option<S>(
-	item: &Option<PublicKey>,
+	item: &Option<Secp256r1PublicKey>,
 	serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -375,9 +407,7 @@ where
 {
 	match item {
 		Some(key) => {
-			let key_str = encode_string_h256(&H256::from_slice(
-				&key.to_encoded_point(false).to_bytes().to_vec(),
-			));
+			let key_str = encode_string_h256(&H256::from_slice(&key.to_raw_bytes().to_vec()));
 			serializer.serialize_str(&key_str)
 		},
 		None => serializer.serialize_none(),
@@ -385,7 +415,9 @@ where
 }
 
 // impl deserialize_public_key_option
-pub fn deserialize_public_key_option<'de, D>(deserializer: D) -> Result<Option<PublicKey>, D::Error>
+pub fn deserialize_public_key_option<'de, D>(
+	deserializer: D,
+) -> Result<Option<Secp256r1PublicKey>, D::Error>
 where
 	D: Deserializer<'de>,
 {
@@ -393,7 +425,7 @@ where
 	match s {
 		Some(s) => {
 			let pubkey_bytes = parse_string_h256(&s);
-			let key = PublicKey::from_sec1_bytes(pubkey_bytes.as_bytes()).unwrap();
+			let key = Secp256r1PublicKey::from_bytes(pubkey_bytes.as_bytes()).unwrap();
 			Ok(Some(key))
 		},
 		None => Ok(None),

@@ -1,19 +1,23 @@
 //! Specific helper functions for creating/loading a mnemonic private key following BIP-39
 //! specifications
-use crate::{Wallet, WalletError};
+use crate::Wallet;
 
 use coins_bip32::path::DerivationPath;
 use coins_bip39::{Mnemonic, Wordlist};
 
-use neo_types::path_or_string::PathOrString;
-use p256::ecdsa::SigningKey;
+use crate::wallet::wallet_error::WalletError;
+use neo_crypto::keys::Secp256r1PrivateKey;
+use neo_types::{
+	address_or_scripthash::AddressOrScriptHash, path_or_string::PathOrString,
+	secret_key_to_script_hash, to_checksum,
+};
 use rand::Rng;
 use std::{fs::File, io::Write, marker::PhantomData, path::PathBuf, str::FromStr};
 use thiserror::Error;
 
 const DEFAULT_DERIVATION_PATH_PREFIX: &str = "m/44'/60'/0'/0/";
 
-/// Represents a structure that can resolve into a `Wallet<SigningKey>`.
+/// Represents a structure that can resolve into a `Wallet`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MnemonicBuilder<W: Wordlist> {
 	/// The mnemonic phrase can be supplied to the builder as a string or a path to the file whose
@@ -143,7 +147,7 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 
 	/// Builds a `LocalWallet` using the parameters set in mnemonic builder. This method expects
 	/// the phrase field to be set.
-	pub fn build(&self) -> Result<Wallet<SigningKey>, WalletError> {
+	pub fn build(&self) -> Result<Wallet, WalletError> {
 		let mnemonic = match &self.phrase {
 			Some(path_or_string) => {
 				let phrase = path_or_string.read()?;
@@ -156,7 +160,7 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 
 	/// Builds a `LocalWallet` using the parameters set in the mnemonic builder and constructing
 	/// the phrase using the provided random number generator.
-	pub fn build_random<R: Rng>(&self, rng: &mut R) -> Result<Wallet<SigningKey>, WalletError> {
+	pub fn build_random<R: Rng>(&self, rng: &mut R) -> Result<Wallet, WalletError> {
 		let mnemonic = match &self.phrase {
 			None => Mnemonic::<W>::new_with_count(rng, self.word_count)?,
 			_ => return Err(MnemonicBuilderError::UnexpectedPhraseFound.into()),
@@ -165,24 +169,22 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 
 		// Write the mnemonic phrase to storage if a directory has been provided.
 		if let Some(dir) = &self.write_to {
-			let mut file = File::create(dir.as_path().join(to_checksum(&wallet.address, None)))?;
+			let mut file =
+				File::create(dir.as_path().join(to_checksum(&wallet.address.script_hash(), None)))?;
 			file.write_all(mnemonic.to_phrase().as_bytes())?;
 		}
 
 		Ok(wallet)
 	}
 
-	fn mnemonic_to_wallet(
-		&self,
-		mnemonic: &Mnemonic<W>,
-	) -> Result<Wallet<SigningKey>, WalletError> {
+	fn mnemonic_to_wallet(&self, mnemonic: &Mnemonic<W>) -> Result<Wallet, WalletError> {
 		let derived_priv_key =
 			mnemonic.derive_key(&self.derivation_path, self.password.as_deref())?;
-		let key: &coins_bip32::prelude::SigningKey = derived_priv_key.as_ref();
-		let signer = SigningKey::from_bytes(&key.to_bytes())?;
-		let address = secret_key_to_address(&signer);
+		let key: &Secp256r1PrivateKey = derived_priv_key.as_ref();
+		let signer = Secp256r1PrivateKey::from_bytes(&key.to_raw_bytes().to_vec())?;
+		let address = secret_key_to_script_hash(&signer);
 
-		Ok(Wallet::<SigningKey> { signer, address, network_magic: 1 })
+		Ok(Wallet { signer, address: AddressOrScriptHash::ScriptHash(address), network_magic: 1 })
 	}
 }
 

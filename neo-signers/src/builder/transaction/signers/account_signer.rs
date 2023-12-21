@@ -8,9 +8,9 @@ use crate::{
 	wallet::account::Account,
 };
 use getset::{Getters, Setters};
-use neo_crypto::keys::PublicKeyExtension;
+use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey};
 use neo_types::{script_hash::ScriptHashExtension, *};
-use p256::PublicKey;
+
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -24,15 +24,15 @@ pub struct AccountSigner {
 	signer_hash: H160,
 	scopes: Vec<WitnessScope>,
 	#[serde(
-		serialize_with = "serialize_vec_address",
-		deserialize_with = "deserialize_vec_address"
+		serialize_with = "serialize_vec_script_hash",
+		deserialize_with = "deserialize_vec_script_hash"
 	)]
 	allowed_contracts: Vec<H160>,
 	#[serde(
 		serialize_with = "serialize_vec_public_key",
 		deserialize_with = "deserialize_vec_public_key"
 	)]
-	allowed_groups: Vec<PublicKey>,
+	allowed_groups: Vec<Secp256r1PublicKey>,
 	rules: Vec<WitnessRule>,
 	#[getset(get = "pub")]
 	pub account: Account,
@@ -99,11 +99,11 @@ impl SignerTrait for AccountSigner {
 		&mut self.allowed_contracts
 	}
 
-	fn get_allowed_groups(&self) -> &Vec<PublicKey> {
+	fn get_allowed_groups(&self) -> &Vec<Secp256r1PublicKey> {
 		&self.allowed_groups
 	}
 
-	fn get_allowed_groups_mut(&mut self) -> &mut Vec<PublicKey> {
+	fn get_allowed_groups_mut(&mut self) -> &mut Vec<Secp256r1PublicKey> {
 		&mut self.allowed_groups
 	}
 
@@ -157,6 +157,6 @@ impl AccountSigner {
 	}
 
 	pub fn is_multi_sig(&self) -> bool {
-		matches!(&self.account.verification_script, Some(script) if script.is_MultiSig())
+		matches!(&self.account.verification_script, Some(script) if script.is_multi_sig())
 	}
 }

@@ -1,5 +1,6 @@
 use crate::{
 	builder::error::BuilderError,
+	public_key_to_script_hash,
 	transaction::{
 		serializable_transaction::SerializableTransaction,
 		signers::signer::{Signer, SignerType},
@@ -27,8 +28,8 @@ use crate::{
 /// ```
 use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_config::NeoConstants;
+use neo_crypto::keys::Secp256r1PublicKey;
 use neo_types::{contract_parameter::ContractParameter, witness::Witness, Bytes};
-use p256::elliptic_curve::PublicKey;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use serde::Serialize;
@@ -323,7 +324,7 @@ impl TransactionBuilder {
 					)
 				})?;
 
-				witnesses_to_add.push(Witness::create(tx_bytes.clone(), key_pair).unwrap());
+				witnesses_to_add.push(Witness::new(tx_bytes.clone(), key_pair));
 			} else {
 				let contract_signer = signer.as_contract_signer().unwrap();
 				witnesses_to_add.push(
@@ -362,7 +363,7 @@ impl TransactionBuilder {
 		}
 
 		if self.signers.is_empty() {
-			return Err(BuilderError::IllegalState(
+			return Err(TransactionError::IllegalState(
 				"Cannot create a transaction without signers.".to_string(),
 			)
 			.into())
@@ -371,10 +372,7 @@ impl TransactionBuilder {
 		if self.is_high_priority() {
 			let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
 			if !is_allowed {
-				return Err(BuilderError::IllegalState(
-					"Only committee members can send high priority transactions.".to_string(),
-				)
-				.into())
+				return Err(TransactionError::InvalidTransaction)
 			}
 		}
 		let mut transaction = SerializableTransaction::new(
@@ -414,7 +412,7 @@ impl TransactionBuilder {
 			.request()
 			.await?
 			.into_iter()
-			.map(|key| PublicKey::from_hex(&key))
+			.map(|key| Secp256r1PublicKey::from_hex(&key))
 			.map(|key| key.unwrap().to_script_hash())
 			.collect::<HashSet<_>>();
 
@@ -429,10 +427,10 @@ impl TransactionBuilder {
 	fn signers_contain_MultiSig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
 		for signer in &self.signers {
 			if let Some(account_signer) = signer.as_account_signer() {
-				if account_signer.is_MultiSig() {
+				if account_signer.is_multi_sig() {
 					if let Some(script) = &account_signer.account().verification_script {
 						for pubkey in script.get_public_keys().unwrap() {
-							let hash = pubkey.to_script_hash();
+							let hash = public_key_to_script_hash(&pubkey);
 							if committee.contains(&hash) {
 								return true
 							}

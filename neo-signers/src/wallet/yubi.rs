@@ -1,7 +1,7 @@
 //! Helpers for creating wallets for YubiHSM2
 use super::Wallet;
 use elliptic_curve::sec1::{FromEncodedPoint, ToEncodedPoint};
-use p256::PublicKey;
+
 use yubihsm::{
 	asymmetric::Algorithm::EcK256, ecdsa::Signer as YubiSigner, object, object::Label, Capability,
 	Client, Connector, Credentials, Domain,
@@ -52,7 +52,7 @@ impl Wallet<YubiSigner<Secp256r1>> {
 impl From<YubiSigner<Secp256r1>> for Wallet<YubiSigner<Secp256r1>> {
 	fn from(signer: YubiSigner<Secp256r1>) -> Self {
 		// this will never fail
-		let public_key = PublicKey::from_encoded_point(signer.public_key()).unwrap();
+		let public_key = Secp256r1PublicKey::from_encoded_point(signer.public_key()).unwrap();
 		let public_key = public_key.to_encoded_point(/* compress = */ false);
 		let public_key = public_key.as_bytes();
 		debug_assert_eq!(public_key[0], 0x04);
