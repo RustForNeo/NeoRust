@@ -1,5 +1,5 @@
 use crate::core::transaction::transaction_error::TransactionError;
-use neo_codec::{serializable::NeoSerializable, CodecError, Decoder, Encoder};
+use neo_codec::{encode::NeoSerializable, CodecError, Decoder, Encoder};
 use neo_types::{Base64Encode, ExternBase64};
 use num_bigint::BigInt;
 use rustc_serialize::base64::FromBase64;
@@ -8,7 +8,7 @@ use std::hash::Hasher;
 
 use super::oracle_response_code::OracleResponseCode;
 
-#[derive(PartialEq, Hash, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum TransactionAttribute {
 	#[serde(rename = "HighPriority")]
@@ -87,7 +87,7 @@ impl NeoSerializable for TransactionAttribute {
 		}
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		match self {
 			TransactionAttribute::HighPriority => {
 				writer.write_u8(0x01);
@@ -103,12 +103,12 @@ impl NeoSerializable for TransactionAttribute {
 		}
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
 		match reader.read_u8() {
 			0x01 => Ok(TransactionAttribute::HighPriority),
 			0x11 => {
 				let id = reader.read_u32();
-				let response_code = OracleResponseCode::try_from(reader.read_u8()?).unwrap();
+				let response_code = OracleResponseCode::try_from(reader.read_u8()).unwrap();
 				let result = reader.read_var_bytes().unwrap().to_base64();
 
 				Ok(TransactionAttribute::OracleResponse(OracleResponse {
@@ -117,13 +117,13 @@ impl NeoSerializable for TransactionAttribute {
 					result,
 				}))
 			},
-			_ => Err(CodecError::InvalidOpCode),
+			_ => Err(TransactionError::InvalidTransaction),
 		}
 	}
 
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
-		writer.into_bytes()
+		self.encode(&mut writer);
+		writer.to_bytes()
 	}
 }

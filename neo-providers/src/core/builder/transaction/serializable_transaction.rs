@@ -6,14 +6,16 @@ use crate::core::{
 	},
 };
 use getset::{Getters, Setters};
-use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
-use neo_types::{nef_file::HEADER_SIZE, Bytes};
-use serde::{de::DeserializeOwned, Serialize};
+use neo_codec::{
+	encode::{NeoSerializable, VarSizeTrait},
+	Decoder, Encoder,
+};
+use neo_types::Bytes;
+use serde::Serialize;
 use std::hash::Hash;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Debug, Clone, Setters, Getters)]
-pub struct SerializableTransaction<T: AccountTrait + Serialize + DeserializeOwned> {
+pub struct SerializableTransaction<T: AccountTrait + Serialize> {
 	version: u8,
 	nonce: u32,
 	valid_until_block: u32,
@@ -29,8 +31,8 @@ pub struct SerializableTransaction<T: AccountTrait + Serialize + DeserializeOwne
 	block_count_when_sent: Option<u32>,
 }
 
-impl<T: AccountTrait + Serialize + DeserializeOwned> Eq for SerializableTransaction<T> {}
-impl<T: AccountTrait + Serialize + DeserializeOwned> PartialEq for SerializableTransaction<T> {
+impl<T: AccountTrait + Serialize> Eq for SerializableTransaction<T> {}
+impl<T: AccountTrait + Serialize> PartialEq for SerializableTransaction<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -44,8 +46,9 @@ impl<T: AccountTrait + Serialize + DeserializeOwned> PartialEq for SerializableT
 	}
 }
 
-impl<T: AccountTrait + Serialize + DeserializeOwned> SerializableTransaction<T> {
-	// Constructor
+impl<T: AccountTrait + Serialize> SerializableTransaction<T> {
+	const HEADER_SIZE: usize = 25;
+
 	pub fn new(
 		version: u8,
 		nonce: u32,
@@ -114,122 +117,35 @@ impl<T: AccountTrait + Serialize + DeserializeOwned> SerializableTransaction<T> 
 	// 	Ok(data)
 	// }
 
-	// Serialization
-	pub fn serialize(&self) -> Bytes {
-		let mut writer = Encoder::new();
-
-		writer.write_u8(self.version);
-		writer.write_u32(self.nonce);
-		writer.write_u32(self.valid_until_block);
-
-		// Write signers
-		let signers_len = self.signers.len() as u32;
-		writer.write_var_int(signers_len as i64);
-		for signer in &self.signers {
-			// bincode::serialize(signer)
-			// signer.serialize(&mut writer).expect("Failed to serialize signer");
-			writer.write_serializable(signer);
-		}
-
-		// Write attributes
-		let attributes_len = self.attributes.len() as u32;
-		writer.write_var_int(attributes_len as i64);
-		for attribute in &self.attributes {
-			// attribute.serialize(&mut writer).expect("Failed to serialize attribute");
-			writer.write_serializable(attribute);
-		}
-
-		writer.write_var_bytes(&self.script);
-
-		writer.to_bytes()
-	}
-
-	// Deserialization
-
-	pub fn deserialize(bytes: &[u8]) -> Result<Self, TransactionError> {
-		let mut reader = Decoder::new(bytes);
-
-		let version = reader.read_u8();
-		let nonce = reader.read_u32();
-		let valid_until_block = reader.read_u32();
-
-		// Read signers
-		let signers_len = reader.read_var_int().unwrap() as u32;
-		// let mut signers = Vec::new();
-		// for _ in 0..signers_len {
-
-		let signers: Vec<Signer<T>> = reader.read_serializable_list::<Signer<T>>().unwrap();
-		// signers.push();
-		// }
-
-		// Read attributes
-		let attributes_len = reader.read_var_int().unwrap();
-		let mut attributes = Vec::new();
-		// for _ in 0..attributes_len {
-		// 	let attr:TransactionAttribute =  bincode::deserialize(&mut reader.);
-		//
-		// 	// let attribute = TransactionAttribute::deserialize(&mut reader).unwrap();
-		// 	attributes.push(attr);
-		// }
-		// let list:Vec<TransactionAttribute> =  reader.read_serializable_list();
-
-		let script = reader.read_var_bytes().unwrap().to_vec();
-
-		Ok(Self {
-			version,
-			nonce,
-			valid_until_block,
-			signers,
-			system_fee: 0,
-			network_fee: 0,
-			attributes,
-			script,
-			witnesses: vec![],
-			block_count_when_sent: None,
-		})
-	}
-
-	pub fn size(&self) -> usize {
-		let mut size = HEADER_SIZE;
-
-		HEADER_SIZE
-			+ self.signers.varSize
-			+ self.attributes.varSize
-			+ self.script.varSize
-			+ self.witnesses.varSize
-	}
-
 	fn serialize_without_witnesses(&self, writer: &mut Encoder) {
 		writer.write_u8(self.version);
 		writer.write_u32(self.nonce);
 		writer.write_i64(self.system_fee);
 		writer.write_i64(self.network_fee);
 		writer.write_u32(self.valid_until_block);
-		writer.write_serializable_list(&self.signers);
-		writer.write_serializable_list(&self.attributes);
+		writer.write_serializable_variable_list(&self.signers);
+		writer.write_serializable_variable_list(&self.attributes);
 		writer.write_var_bytes(&self.script);
 	}
 }
 
-impl<T: AccountTrait> NeoSerializable for SerializableTransaction<T> {
+impl<T: AccountTrait + Serialize> NeoSerializable for SerializableTransaction<T> {
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
-		let mut size = HEADER_SIZE;
-
-		HEADER_SIZE
-			+ self.signers.varSize
-			+ self.attributes.varSize
-			+ self.script.varSize
-			+ self.witnesses.varSize
+		SerializableTransaction::HEADER_SIZE
+			+ self.signers.var_size()
+			+ self.attributes.var_size()
+			+ self.script.var_size()
+			+ self.witnesses.var_size()
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		self.serialize_without_witnesses(writer);
-		writer.write_serializable_list(&self.witnesses);
+		writer.write_serializable_variable_list(&self.witnesses);
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error>
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
 	where
 		Self: Sized,
 	{
@@ -269,7 +185,7 @@ impl<T: AccountTrait> NeoSerializable for SerializableTransaction<T> {
 
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
-		writer.to_array()
+		self.encode(&mut writer);
+		writer.to_bytes()
 	}
 }

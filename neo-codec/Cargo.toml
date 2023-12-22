@@ -20,6 +20,6 @@ derive_more = "0.99.17"
 p256= "0.13.2"
 getset.workspace = true
 thiserror = "1.0.49"
-bincode = "1.3.3"
+# bincode = "1.3.3"
 serde = { version = "1.0.188", features = ["derive"] }
 primitive-types.workspace = true

@@ -6,10 +6,12 @@ use crate::core::{
 			account_signer::AccountSigner, contract_signer::ContractSigner,
 			transaction_signer::TransactionSigner,
 		},
+		transaction_error::TransactionError,
 		witness_rule::{witness_condition::WitnessCondition, witness_rule::WitnessRule},
 		witness_scope::WitnessScope,
 	},
 };
+use neo_codec::{encode::NeoSerializable, Decoder, Encoder};
 use neo_config::NeoConstants;
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
@@ -160,7 +162,7 @@ pub enum Signer<T: AccountTrait + Serialize> {
 	Transaction(TransactionSigner),
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Signer<T> {
+impl<T: AccountTrait + Serialize> Signer<T> {
 	pub fn get_type(&self) -> SignerType {
 		match self {
 			Signer::Account(account_signer) => account_signer.get_type(),
@@ -198,7 +200,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Signer<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for Signer<T> {
+impl<T: AccountTrait + Serialize> Hash for Signer<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		match self {
 			Signer::Account(account_signer) => account_signer.hash(state),
@@ -208,19 +210,19 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for Signer<T>
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> From<AccountSigner<T>> for Signer<T> {
+impl<T: AccountTrait + Serialize> From<AccountSigner<T>> for Signer<T> {
 	fn from(account_signer: AccountSigner<T>) -> Self {
 		Signer::Account(account_signer)
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> From<ContractSigner> for Signer<T> {
+impl<T: AccountTrait + Serialize> From<ContractSigner> for Signer<T> {
 	fn from(contract_signer: ContractSigner) -> Self {
 		Signer::Contract(contract_signer)
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner<T>> for Signer<T> {
+impl<T: AccountTrait + Serialize> Into<AccountSigner<T>> for Signer<T> {
 	fn into(self) -> AccountSigner<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer,
@@ -229,9 +231,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
-	for Signer<T>
-{
+impl<T: AccountTrait + Serialize> Into<TransactionSigner> for Signer<T> {
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -243,9 +243,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSi
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
-	for &Signer<T>
-{
+impl<T: AccountTrait + Serialize> Into<TransactionSigner> for &Signer<T> {
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -257,9 +255,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSi
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
-	for &mut Signer<T>
-{
+impl<T: AccountTrait + Serialize> Into<TransactionSigner> for &mut Signer<T> {
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -271,9 +267,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSi
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner<T>>
-	for &mut Signer<T>
-{
+impl<T: AccountTrait + Serialize> Into<AccountSigner<T>> for &mut Signer<T> {
 	fn into(self) -> AccountSigner<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer.clone(),
@@ -285,9 +279,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigner>
-	for &mut Signer<T>
-{
+impl<T: AccountTrait + Serialize> Into<ContractSigner> for &mut Signer<T> {
 	fn into(self) -> ContractSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -299,7 +291,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigne
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigner> for Signer<T> {
+impl<T: AccountTrait + Serialize> Into<ContractSigner> for Signer<T> {
 	fn into(self) -> ContractSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -311,7 +303,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigne
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Serialize for Signer<T> {
+impl<T: AccountTrait + Serialize> Serialize for Signer<T> {
 	fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
 	where
 		S: Serializer,
@@ -320,6 +312,46 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Serialize for Sign
 			Signer::Account(account_signer) => account_signer.serialize(serializer),
 			Signer::Contract(contract_signer) => contract_signer.serialize(serializer),
 			Signer::Transaction(transaction_signer) => transaction_signer.serialize(serializer),
+		}
+	}
+}
+
+impl<T: AccountTrait + Serialize> NeoSerializable for Signer<T> {
+	type Error = TransactionError;
+
+	fn size(&self) -> usize {
+		match self {
+			Signer::Account(account_signer) => account_signer.size(),
+			Signer::Contract(contract_signer) => contract_signer.size(),
+			Signer::Transaction(transaction_signer) => transaction_signer.size(),
+		}
+	}
+
+	fn encode(&self, writer: &mut Encoder) {
+		match self {
+			Signer::Account(account_signer) => account_signer.encode(writer),
+			Signer::Contract(contract_signer) => contract_signer.encode(writer),
+			Signer::Transaction(transaction_signer) => transaction_signer.encode(writer),
+		}
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		match reader.read_u8() {
+			0 => Ok(Signer::Account(AccountSigner::decode(reader)?)),
+			1 => Ok(Signer::Contract(ContractSigner::decode(reader)?)),
+			2 => Ok(Signer::Transaction(TransactionSigner::decode(reader)?)),
+			_ => Err(TransactionError::InvalidTransaction),
+		}
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		match self {
+			Signer::Account(account_signer) => account_signer.to_array(),
+			Signer::Contract(contract_signer) => contract_signer.to_array(),
+			Signer::Transaction(transaction_signer) => transaction_signer.to_array(),
 		}
 	}
 }

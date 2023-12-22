@@ -1,11 +1,11 @@
 use crate::core::{error::BuilderError, script::script_builder::ScriptBuilder};
 use getset::{Getters, Setters};
-use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
+use neo_codec::{encode::NeoSerializable, Decoder, Encoder};
 use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, keys::Secp256r1Signature};
 use neo_types::Bytes;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters, Serialize, Deserialize)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default
@@ -64,17 +64,17 @@ impl NeoSerializable for InvocationScript {
 		self.script.len()
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		writer.write_var_bytes(&self.script);
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
 		let script = reader.read_var_bytes()?;
 		Ok(Self { script })
 	}
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
+		self.encode(&mut writer);
 		writer.to_bytes()
 	}
 }

@@ -3,10 +3,10 @@ use crate::core::transaction::{
 	witness_rule::{witness_action::WitnessAction, witness_condition::WitnessCondition},
 	witness_scope::WitnessScope::WitnessRules,
 };
-use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
+use neo_codec::{encode::NeoSerializable, Decoder, Encoder};
 use serde::{ser::SerializeTuple, Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct WitnessRule {
 	pub action: WitnessAction,
 	pub condition: WitnessCondition,
@@ -25,19 +25,19 @@ impl NeoSerializable for WitnessRule {
 		1 + self.condition.size()
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		writer.write_u8(self.action as u8);
 		writer.write_serializable_fixed(&self.condition);
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
 		let action = reader.read_u8();
-		let condition = WitnessCondition::deserialize(reader)?;
+		let condition = WitnessCondition::decode(reader)?;
 		Ok(Self { action: WitnessAction::try_from(action).unwrap(), condition })
 	}
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
+		self.encode(&mut writer);
 		writer.to_bytes()
 	}
 }

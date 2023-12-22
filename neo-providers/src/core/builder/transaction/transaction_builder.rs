@@ -44,7 +44,7 @@ use crate::core::{
 };
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
-pub struct TransactionBuilder<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> {
+pub struct TransactionBuilder<T: AccountTrait + Serialize> {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
@@ -59,7 +59,7 @@ pub struct TransactionBuilder<T: AccountTrait + Serialize + for<'de> Deserialize
 	fee_error: Option<TransactionError>,
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Debug for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize> Debug for TransactionBuilder<T> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TransactionBuilder")
 			.field("version", &self.version)
@@ -76,7 +76,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Debug for Transact
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Clone for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize> Clone for TransactionBuilder<T> {
 	fn clone(&self) -> Self {
 		Self {
 			version: self.version,
@@ -94,9 +94,9 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Clone for Transact
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Eq for TransactionBuilder<T> {}
+impl<T: AccountTrait + Serialize> Eq for TransactionBuilder<T> {}
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> PartialEq for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize> PartialEq for TransactionBuilder<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -109,7 +109,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> PartialEq for Tran
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize> Hash for TransactionBuilder<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.version.hash(state);
 		self.nonce.hash(state);
@@ -122,7 +122,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for Transacti
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 	pub const GAS_TOKEN_HASH: [u8; 20] =
 		hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap().into();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";

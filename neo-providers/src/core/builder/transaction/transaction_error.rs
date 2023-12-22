@@ -1,8 +1,9 @@
 use neo_codec::CodecError;
+use neo_crypto::error::CryptoError;
 use std::error;
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Error, Debug)]
 pub enum TransactionError {
 	#[error("Script format error: {0}")]
 	ScriptFormat(String),
@@ -36,4 +37,6 @@ pub enum TransactionError {
 	TransactionConfiguration(String),
 	#[error("Codec error: {0}")]
 	CodecError(#[from] CodecError),
+	#[error("Crypto error: {0}")]
+	CryptoError(#[from] CryptoError),
 }

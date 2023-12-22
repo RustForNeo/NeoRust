@@ -56,6 +56,28 @@ impl NeoSerializable for H256 {
 	}
 }
 
+impl NeoSerializable for u8 {
+	type Error = CodecError;
+
+	fn size(&self) -> usize {
+		1
+	}
+	fn encode(&self, writer: &mut Encoder) {
+		writer.write_u8(*self);
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, CodecError>
+	where
+		Self: Sized,
+	{
+		Ok(reader.read_u8())
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		vec![*self]
+	}
+}
+
 pub trait VarSizeTrait {
 	fn var_size(&self) -> usize;
 }

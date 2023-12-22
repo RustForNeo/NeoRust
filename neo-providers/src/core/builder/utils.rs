@@ -77,13 +77,13 @@ impl VecValueExtension for Vec<TransactionAttribute> {
 		self.iter().map(|x| x.to_value()).collect()
 	}
 }
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> ValueExtension for Signer<T> {
+impl<T: AccountTrait + Serialize> ValueExtension for Signer<T> {
 	fn to_value(&self) -> Value {
 		Value::String(serde_json::to_string(self).unwrap())
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> VecValueExtension for Vec<Signer<T>> {
+impl<T: AccountTrait + Serialize> VecValueExtension for Vec<Signer<T>> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}

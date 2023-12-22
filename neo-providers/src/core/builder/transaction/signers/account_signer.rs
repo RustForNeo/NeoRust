@@ -11,7 +11,11 @@ use crate::core::{
 		witness_scope::WitnessScope,
 	},
 };
-use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
+use neo_codec::{
+	encode::{NeoSerializable, VarSizeTrait},
+	Decoder, Encoder,
+};
+use neo_config::NeoConstants;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -40,26 +44,74 @@ pub struct AccountSigner<T: AccountTrait + Serialize> {
 	scope: WitnessScope,
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> NeoSerializable for AccountSigner<T> {
-	fn size(&self) -> usize {}
+impl<T: AccountTrait + Serialize> NeoSerializable for AccountSigner<T> {
+	type Error = TransactionError;
 
-	fn serialize(&self, writer: &mut Encoder) {
-		writer.write_serializable()
+	fn size(&self) -> usize {
+		let mut size: usize = NeoConstants::HASH160_SIZE as usize;
+		if self.scopes.contains(&WitnessScope::CustomContracts) {
+			size += self.allowed_contracts.var_size();
+		}
+		if self.scopes.contains(&WitnessScope::CustomGroups) {
+			size += self.allowed_groups.var_size();
+		}
+		if self.scopes.contains(&WitnessScope::WitnessRules) {
+			size += self.rules.var_size();
+		}
+		size
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, String>
+	fn encode(&self, writer: &mut Encoder) {
+		writer.write_serializable_fixed(&self.signer_hash);
+		writer.write_u8(WitnessScope::combine(&self.scopes));
+		if self.scopes.contains(&WitnessScope::CustomContracts) {
+			writer.write_serializable_variable_list(&self.allowed_contracts);
+		}
+		if self.scopes.contains(&WitnessScope::CustomGroups) {
+			writer.write_serializable_variable_list(&self.allowed_groups);
+		}
+		if self.scopes.contains(&WitnessScope::WitnessRules) {
+			writer.write_serializable_variable_list(&self.rules);
+		}
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
 	where
 		Self: Sized,
 	{
-		todo!()
+		let signer_hash = reader.read_serializable::<H160>().unwrap();
+		let scopes = WitnessScope::split(reader.read_u8());
+		let mut allowed_contracts = vec![];
+		let mut allowed_groups = vec![];
+		let mut rules = vec![];
+		if scopes.contains(&WitnessScope::CustomContracts) {
+			allowed_contracts = reader.read_serializable_list::<H160>().unwrap();
+		}
+		if scopes.contains(&WitnessScope::CustomGroups) {
+			allowed_groups = reader.read_serializable_list::<Secp256r1PublicKey>().unwrap();
+		}
+		if scopes.contains(&WitnessScope::WitnessRules) {
+			rules = reader.read_serializable_list::<WitnessRule>().unwrap();
+		}
+		Ok(Self {
+			signer_hash,
+			scopes,
+			allowed_contracts,
+			allowed_groups,
+			rules,
+			account: T::from_address(signer_hash.to_address().as_str()).unwrap(),
+			scope: WitnessScope::None,
+		})
 	}
 
 	fn to_array(&self) -> Vec<u8> {
-		todo!()
+		let mut writer = Encoder::new();
+		self.encode(&mut writer);
+		writer.to_bytes()
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> PartialEq for AccountSigner<T> {
+impl<T: AccountTrait + Serialize> PartialEq for AccountSigner<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.signer_hash == other.signer_hash
 			&& self.scopes == other.scopes
@@ -71,7 +123,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> PartialEq for Acco
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for AccountSigner<T> {
+impl<T: AccountTrait + Serialize> Hash for AccountSigner<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.signer_hash.hash(state);
 		self.scopes.hash(state);
@@ -86,7 +138,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for AccountSi
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> SignerTrait for AccountSigner<T> {
+impl<T: AccountTrait + Serialize> SignerTrait for AccountSigner<T> {
 	fn get_type(&self) -> SignerType {
 		SignerType::Account
 	}
@@ -136,7 +188,7 @@ impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> SignerTrait for Ac
 	}
 }
 
-impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> AccountSigner<T> {
+impl<T: AccountTrait + Serialize> AccountSigner<T> {
 	fn new(account: &T, scope: WitnessScope) -> Self {
 		Self {
 			signer_hash: account.get_script_hash().clone(),

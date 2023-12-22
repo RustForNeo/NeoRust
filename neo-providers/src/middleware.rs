@@ -681,7 +681,7 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
 	}
 
-	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
+	async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, Self::Error> {
 		self.inner()
 			.get_network_magic_number_bytes()
 			.await
@@ -843,7 +843,7 @@ pub trait Middleware: Sync + Send + Debug {
 
 	// More blockchain methods
 
-	async fn invoke_function<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_function<T: AccountTrait + Serialize>(
 		&self,
 		contract_hash: &H160,
 		method: String,
@@ -856,7 +856,7 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_script<T: AccountTrait + Serialize>(
 		&self,
 		hex: String,
 		signers: Vec<Signer<T>>,
@@ -1131,9 +1131,7 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_function_diagnostics<
-		T: AccountTrait + Serialize + for<'de> Deserialize<'de>,
-	>(
+	async fn invoke_function_diagnostics<T: AccountTrait + Serialize>(
 		&self,
 		contract_hash: H160,
 		name: String,
@@ -1146,7 +1144,7 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script_diagnostics<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_script_diagnostics<T: AccountTrait + Serialize>(
 		&self,
 		hex: String,
 		signers: Vec<Signer<T>>,
@@ -1176,7 +1174,7 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_contract_verify<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_contract_verify<T: AccountTrait + Serialize>(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
@@ -1192,7 +1190,7 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().get_raw_mempool().await.map_err(MiddlewareError::from_err)
 	}
 
-	async fn import_private_key(&self, wif: String) -> Result<Address, Self::Error> {
+	async fn import_private_key(&self, wif: String) -> Result<NeoAddress, Self::Error> {
 		self.inner().import_private_key(wif).await.map_err(MiddlewareError::from_err)
 	}
 

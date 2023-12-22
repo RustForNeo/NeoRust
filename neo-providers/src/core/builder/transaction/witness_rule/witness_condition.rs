@@ -4,19 +4,19 @@ use crate::core::transaction::{
 	signers::signer::SignerType::Transaction, transaction_error::TransactionError,
 	witness_scope::WitnessScope::WitnessRules,
 };
-use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
+use neo_codec::{encode::NeoSerializable, Decoder, Encoder};
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::hash::{Hash, Hasher};
 
 /// Enum representing the different types of witness conditions that can be used in a smart contract.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum WitnessCondition {
 	/// Boolean value.
 	Boolean(bool),
 	/// Not operator.
-	Not(WitnessCondition),
+	Not(Box<WitnessCondition>),
 	/// And operator.
 	And(Vec<WitnessCondition>),
 	/// Or operator.
@@ -183,7 +183,7 @@ impl NeoSerializable for WitnessCondition {
 		}
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		match self {
 			WitnessCondition::Boolean(b) => {
 				writer.write_u8(WitnessCondition::BOOLEAN_BYTE);
@@ -191,7 +191,8 @@ impl NeoSerializable for WitnessCondition {
 			},
 			WitnessCondition::Not(exp) => {
 				writer.write_u8(WitnessCondition::NOT_BYTE);
-				exp.writeSerializableFixed(writer);
+				writer.write_serializable_fixed(exp.expression().unwrap());
+				// exp.writeSerializableFixed(writer);
 			},
 			WitnessCondition::And(exp) => {
 				writer.write_u8(WitnessCondition::AND_BYTE);
@@ -203,7 +204,7 @@ impl NeoSerializable for WitnessCondition {
 			},
 			WitnessCondition::ScriptHash(hash) => {
 				writer.write_u8(WitnessCondition::SCRIPT_HASH_BYTE);
-				writer.write_serializable_fixed(hash.as_bytes());
+				writer.write_serializable_fixed(hash);
 			},
 			WitnessCondition::Group(group) => {
 				writer.write_u8(WitnessCondition::GROUP_BYTE);
@@ -223,7 +224,7 @@ impl NeoSerializable for WitnessCondition {
 		}
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
 		let byte = reader.read_u8();
 		match byte {
 			WitnessCondition::BOOLEAN_BYTE => {
@@ -231,15 +232,15 @@ impl NeoSerializable for WitnessCondition {
 				Ok(WitnessCondition::Boolean(b))
 			},
 			WitnessCondition::NOT_BYTE => {
-				let exp = WitnessCondition::deserialize(reader)?;
-				Ok(WitnessCondition::Not(exp))
+				let exp = WitnessCondition::decode(reader)?;
+				Ok(WitnessCondition::Not(Box::from(exp)))
 			},
 			WitnessCondition::OR_BYTE | WitnessCondition::AND_BYTE => {
 				let len = reader.read_var_int()?;
 				if len > WitnessCondition::MAX_SUBITEMS as i64 {
 					return Err(TransactionError::InvalidWitnessCondition)
 				}
-				let exp = WitnessCondition::deserialize(reader)?;
+				let exp = WitnessCondition::decode(reader)?;
 				if byte == WitnessCondition::OR_BYTE {
 					Ok(WitnessCondition::Or(vec![exp]))
 				} else {
@@ -247,22 +248,29 @@ impl NeoSerializable for WitnessCondition {
 				}
 			},
 			WitnessCondition::SCRIPT_HASH_BYTE | WitnessCondition::CALLED_BY_CONTRACT_BYTE => {
-				let hash = H160::deserialize(reader)?;
+				let hash = H160::decode(reader)?;
 				if byte == WitnessCondition::SCRIPT_HASH_BYTE {
 					Ok(WitnessCondition::ScriptHash(hash))
 				} else {
 					Ok(WitnessCondition::CalledByContract(hash))
 				}
 			},
-			WitnessCondition::GROUP_BYTE | WitnessCondition::CALLED_BY_GROUP_BYTE => {},
+			WitnessCondition::GROUP_BYTE | WitnessCondition::CALLED_BY_GROUP_BYTE => {
+				let group = Secp256r1PublicKey::decode(reader)?;
+				if byte == WitnessCondition::GROUP_BYTE {
+					Ok(WitnessCondition::Group(group))
+				} else {
+					Ok(WitnessCondition::CalledByGroup(group))
+				}
+			},
 			WitnessCondition::CALLED_BY_ENTRY_BYTE => Ok(WitnessCondition::CalledByEntry),
-			_ => {},
+			_ => Err(TransactionError::InvalidTransaction),
 		}
 	}
 
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
+		self.encode(&mut writer);
 		writer.to_bytes()
 	}
 }

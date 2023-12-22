@@ -8,7 +8,7 @@ use primitive_types::H160;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{cell::RefCell, fmt::Debug, rc::Weak};
 
-pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug {
+pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug + Clone {
 	type Wallet: WalletTrait;
 	type Error: Sync + Send + Debug + Sized;
 	type NEP6Account;

@@ -1,8 +1,20 @@
-use crate::core::transaction::{
-	signers::signer::{SignerTrait, SignerType},
-	witness_rule::witness_rule::WitnessRule,
-	witness_scope::WitnessScope,
+use crate::core::{
+	account::AccountTrait,
+	transaction::{
+		signers::{
+			account_signer::AccountSigner,
+			signer::{SignerTrait, SignerType},
+		},
+		transaction_error::TransactionError,
+		witness_rule::witness_rule::WitnessRule,
+		witness_scope::WitnessScope,
+	},
 };
+use neo_codec::{
+	encode::{NeoSerializable, VarSizeTrait},
+	Decoder, Encoder,
+};
+use neo_config::NeoConstants;
 use neo_crypto::keys::Secp256r1PublicKey;
 use neo_types::{contract_parameter::ContractParameter, *};
 use primitive_types::H160;
@@ -125,5 +137,73 @@ impl ContractSigner {
 
 	pub fn global(contract_hash: H160, verify_params: &[ContractParameter]) -> Self {
 		Self::new(contract_hash, WitnessScope::Global, verify_params.to_vec())
+	}
+}
+
+impl NeoSerializable for ContractSigner {
+	type Error = TransactionError;
+
+	fn size(&self) -> usize {
+		let mut size: usize = NeoConstants::HASH160_SIZE as usize;
+		if self.scopes.contains(&WitnessScope::CustomContracts) {
+			size += self.allowed_contracts.var_size();
+		}
+		if self.scopes.contains(&WitnessScope::CustomGroups) {
+			size += self.allowed_groups.var_size();
+		}
+		if self.scopes.contains(&WitnessScope::WitnessRules) {
+			size += self.rules.var_size();
+		}
+		size
+	}
+
+	fn encode(&self, writer: &mut Encoder) {
+		writer.write_serializable_fixed(&self.signer_hash);
+		writer.write_u8(WitnessScope::combine(&self.scopes));
+		if self.scopes.contains(&WitnessScope::CustomContracts) {
+			writer.write_serializable_variable_list(&self.allowed_contracts);
+		}
+		if self.scopes.contains(&WitnessScope::CustomGroups) {
+			writer.write_serializable_variable_list(&self.allowed_groups);
+		}
+		if self.scopes.contains(&WitnessScope::WitnessRules) {
+			writer.write_serializable_variable_list(&self.rules);
+		}
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		let signer_hash = reader.read_serializable::<H160>().unwrap();
+		let scopes = WitnessScope::split(reader.read_u8());
+		let mut allowed_contracts = vec![];
+		let mut allowed_groups = vec![];
+		let mut rules = vec![];
+		if scopes.contains(&WitnessScope::CustomContracts) {
+			allowed_contracts = reader.read_serializable_list::<H160>().unwrap();
+		}
+		if scopes.contains(&WitnessScope::CustomGroups) {
+			allowed_groups = reader.read_serializable_list::<Secp256r1PublicKey>().unwrap();
+		}
+		if scopes.contains(&WitnessScope::WitnessRules) {
+			rules = reader.read_serializable_list::<WitnessRule>().unwrap();
+		}
+		Ok(Self {
+			signer_hash,
+			scopes,
+			allowed_contracts,
+			allowed_groups,
+			rules,
+			verify_params: vec![],
+			contract_hash: Default::default(),
+			scope: WitnessScope::None,
+		})
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.encode(&mut writer);
+		writer.to_bytes()
 	}
 }

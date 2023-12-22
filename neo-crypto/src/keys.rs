@@ -1,6 +1,7 @@
 use crate::error::CryptoError;
 use bytes::Bytes;
 use core::fmt;
+use neo_codec::{encode::NeoSerializable, Decoder, Encoder};
 use p256::{
 	ecdsa::{signature::Signer, Signature, SigningKey, VerifyingKey},
 	elliptic_curve::{generic_array::GenericArray, sec1::ToEncodedPoint, Field},
@@ -171,6 +172,20 @@ impl Secp256r1Signature {
 		s.to_big_endian(&mut y);
 		Secp256r1Signature { x, y }
 	}
+
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, CryptoError> {
+		if bytes.len() != 64 {
+			return Err(CryptoError::InvalidFormat("Invalid signature length".to_string()))
+		}
+
+		let mut x = [0u8; 32];
+		let mut y = [0u8; 32];
+		x.copy_from_slice(&bytes[..32]);
+		y.copy_from_slice(&bytes[32..]);
+
+		Ok(Secp256r1Signature { x, y })
+	}
+
 	pub fn to_ring_signature_bytes(&self) -> [u8; 64] {
 		let mut temp_buf: [u8; 64] = [0; 64];
 		temp_buf[..32].copy_from_slice(&self.x);
@@ -253,5 +268,26 @@ impl PublicKeyExtension for Secp256r1PublicKey {
 			return Err(CryptoError::InvalidPublicKey)
 		}
 		Self::from_slice(slice).map_err(|_| CryptoError::InvalidPublicKey)
+	}
+}
+
+impl NeoSerializable for Secp256r1PublicKey {
+	type Error = CryptoError;
+
+	fn size(&self) -> usize {
+		65
+	}
+
+	fn encode(&self, writer: &mut Encoder) {
+		writer.write_var_bytes(&self.to_ring_bytes());
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let bytes = reader.read_var_bytes().unwrap();
+		Secp256r1PublicKey::from_bytes(&bytes).map_err(|_| CryptoError::InvalidPublicKey)
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		self.to_ring_bytes().to_vec()
 	}
 }

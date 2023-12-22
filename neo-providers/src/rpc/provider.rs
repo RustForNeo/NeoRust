@@ -258,45 +258,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("web3_clientVersion", ()).await?
 	}
 
-	async fn fill_transaction(
-		&self,
-		tx: &mut Transaction,
-		block: Option<BlockId>,
-	) -> Result<(), Self::Error> {
-		if let Some(default_sender) = self.default_sender() {
-			if tx.from().is_none() {
-				tx.set_from(default_sender);
-			}
-		}
-
-		// TODO: Join the name resolution and gas price future
-
-		// set the NNS name
-		if let Some(NameOrAddress::Name(ref nns_name)) = tx.to() {
-			let addr = self.resolve_name(nns_name).await?;
-			tx.set_to(addr);
-		}
-
-		// Set gas to estimated value only if it was not set by the caller,
-		// even if the access list has been populated and saves gas
-		if tx.gas().is_none() {
-			let gas_estimate = self.estimate_gas(tx, block).await?;
-			tx.set_gas(gas_estimate);
-		}
-
-		Ok(())
-	}
-
 	async fn get_block_number(&self) -> Result<u64, ProviderError> {
 		self.fetch("neo_blockNumber", ()).await?
 	}
-
-	// async fn get_block<T: Into<BlockId> + Send + Sync>(
-	// 	&self,
-	// 	block_hash_or_number: T,
-	// ) -> Result<Option<Block>, Self::Error> {
-	// 	self.get_block_gen(block_hash_or_number.into(), false).await?
-	// }
 
 	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
@@ -868,7 +832,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	// More blockchain methods
 
-	async fn invoke_function<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_function<T: AccountTrait + Serialize>(
 		&self,
 		contract_hash: &H160,
 		method: String,
@@ -888,7 +852,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		.await?
 	}
 
-	async fn invoke_script<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_script<T: AccountTrait + Serialize>(
 		&self,
 		hex: String,
 		signers: Vec<Signer<T>>,
@@ -1138,9 +1102,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("getblock", vec![index.to_value(), 0.to_value()]).await?
 	}
 
-	async fn invoke_function_diagnostics<
-		T: AccountTrait + Serialize + for<'de> Deserialize<'de>,
-	>(
+	async fn invoke_function_diagnostics<T: AccountTrait + Serialize>(
 		&self,
 		contract_hash: H160,
 		name: String,
@@ -1157,7 +1119,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("invokefunction", params).await?
 	}
 
-	async fn invoke_script_diagnostics<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_script_diagnostics<T: AccountTrait + Serialize>(
 		&self,
 		hex: String,
 		signers: Vec<Signer<T>>,
@@ -1180,7 +1142,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("terminatesession", vec![session_id.to_value()]).await?
 	}
 
-	async fn invoke_contract_verify<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
+	async fn invoke_contract_verify<T: AccountTrait + Serialize>(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,

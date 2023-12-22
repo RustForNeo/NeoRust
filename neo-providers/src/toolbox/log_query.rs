@@ -102,7 +102,7 @@ where
 						// paginatable i.e. from block is set
 						let from_block = self.filter.get_from_block().unwrap();
 						let to_block = from_block + self.page_size;
-						self.from_block = Some(to_block + 1);
+						self.from_block = Some((to_block + 1).as_u64());
 
 						let filter = self.filter.clone().from_block(from_block).to_block(to_block);
 						let provider = self.provider;
