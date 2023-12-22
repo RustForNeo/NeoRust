@@ -137,8 +137,6 @@ impl From<NNSName> for ContractParameter {
 	}
 }
 
-// From<Vec<serde_json::Value>>` is not implemented for `ContractParameter`
-
 impl From<Value> for ContractParameter {
 	fn from(value: Value) -> Self {
 		match value {

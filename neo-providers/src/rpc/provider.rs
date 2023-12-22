@@ -4,39 +4,44 @@ use crate::{
 	ext::nns,
 	rpc::pubsub::{PubsubClient, SubscriptionStream},
 	stream::{FilterWatcher, DEFAULT_LOCAL_POLL_INTERVAL, DEFAULT_POLL_INTERVAL},
-	utils, Http as HttpProvider, JsonRpcClient, JsonRpcClientWrapper, LogQuery, MiddlewareError,
-	MockProvider, NodeInfo, PeerInfo, PendingTransaction, QuorumProvider, RwClient,
+	utils, EscalatingPending, EscalationPolicy, Http as HttpProvider, JsonRpcClient,
+	JsonRpcClientWrapper, LogQuery, MiddlewareError, MockProvider, NodeInfo, PeerInfo,
+	PendingTransaction, QuorumProvider, RwClient,
 };
 
-use crate::core::{
-	responses::{
-		neo_address::NeoAddress,
-		neo_application_log::ApplicationLog,
-		neo_balances::{Nep11Balances, Nep17Balances},
-		neo_block::NeoBlock,
-		neo_find_states::States,
-		neo_get_mem_pool::MemPoolDetails,
-		neo_get_next_block_validators::Validator,
-		neo_get_peers::Peers,
-		neo_get_state_height::StateHeight,
-		neo_get_state_root::StateRoot,
-		neo_get_unclaimed_gas::UnclaimedGas,
-		neo_get_version::NeoVersion,
-		neo_get_wallet_balance::Balance,
-		neo_list_plugins::Plugin,
-		neo_send_raw_transaction::RawTransaction,
-		neo_transfers::{Nep11Transfers, Nep17Transfers},
-		neo_validate_address::ValidateAddress,
-	},
-	transaction::{
-		signers::{signer::Signer, transaction_signer::TransactionSigner},
-		transaction::Transaction,
-		transaction_send_token::TransactionSendToken,
-		witness::Witness,
-	},
-	utils::VecValueExtension,
-};
 pub use crate::Middleware;
+use crate::{
+	core::{
+		account::AccountTrait,
+		responses::{
+			neo_address::NeoAddress,
+			neo_application_log::ApplicationLog,
+			neo_balances::{Nep11Balances, Nep17Balances},
+			neo_block::NeoBlock,
+			neo_find_states::States,
+			neo_get_mem_pool::MemPoolDetails,
+			neo_get_next_block_validators::Validator,
+			neo_get_peers::Peers,
+			neo_get_state_height::StateHeight,
+			neo_get_state_root::StateRoot,
+			neo_get_unclaimed_gas::UnclaimedGas,
+			neo_get_version::NeoVersion,
+			neo_get_wallet_balance::Balance,
+			neo_list_plugins::Plugin,
+			neo_send_raw_transaction::RawTransaction,
+			neo_transfers::{Nep11Transfers, Nep17Transfers},
+			neo_validate_address::ValidateAddress,
+		},
+		transaction::{
+			signers::{signer::Signer, transaction_signer::TransactionSigner},
+			transaction::Transaction,
+			transaction_send_token::TransactionSendToken,
+			witness::Witness,
+		},
+		utils::VecValueExtension,
+	},
+	rpc::provider::sealed::Sealed,
+};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{HttpRateLimitRetryPolicy, RetryClient};
 use async_trait::async_trait;
@@ -59,13 +64,15 @@ use neo_types::{
 	Bytes,
 };
 use primitive_types::{H160, H256 as TxHash, H256, U256};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 use std::{
 	collections::{HashMap, VecDeque},
 	convert::TryFrom,
 	fmt::Debug,
+	future::Future,
 	net::Ipv4Addr,
+	pin::Pin,
 	str::FromStr,
 	sync::Arc,
 	time::Duration,
@@ -218,37 +225,6 @@ impl<P: JsonRpcClient> Provider<P> {
 		})
 	}
 
-	/// Analogous to [`Middleware::call`], but returns a [`CallBuilder`] that can either be
-	/// `.await`d or used to override the parameters sent to `neo_call`.
-	///
-	/// See the [`neo_types::spoof`] for functions to construct state override
-	/// parameters.
-	///
-	/// Note: this method _does not_ send a transaction from your account
-	///
-	/// [`neo_types::spoof`]: neo_types::spoof
-	///
-	/// # Example
-	///
-	/// ```no_run
-	/// # use neo_providers::{Provider, Http, Middleware, call_raw::RawCall};
-	/// use neo_types::address::Address;
-	/// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
-	/// let geth = Geth::new().spawn();
-	/// let provider = Provider::<Http>::try_from(geth.endpoint()).unwrap();
-	///
-	/// let adr1: Address = "0x6fC21092DA55B392b045eD78F4732bff3C580e2c".parse()?;
-	/// let adr2: Address = "0x295a70b2de5e3953354a6a8344e616ed314d7251".parse()?;
-	/// let pay_amt = parse_ether(1u64)?;
-	///
-	/// // Not enough ether to pay for the transaction
-	/// let tx = TransactionRequest::pay(adr2, pay_amt).from(adr1).into();
-	///
-	/// // override the sender's balance for the call
-	/// let mut state = spoof::balance(adr1, pay_amt * 2);
-	/// provider.call_raw(&tx).state(&state).await?;
-	/// # Ok(()) }
-	/// ```
 	pub fn call_raw<'a>(&'a self, tx: &'a Transaction) -> CallBuilder<'a, P> {
 		CallBuilder::new(self, tx)
 	}
@@ -773,11 +749,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	async fn get_block(&self, block_hash: H256, full_tx: bool) -> Result<NeoBlock, ProviderError> {
-		if full_tx {
+		return Ok(if full_tx {
 			self.fetch("getblock", [block_hash.to_value(), 1.to_value()].to_vec()).await?
 		} else {
 			self.get_block_header_hash(block_hash).await?
-		}
+		})
 	}
 
 	async fn get_raw_block(&self, block_hash: H256) -> Result<String, ProviderError> {
@@ -892,12 +868,12 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	// More blockchain methods
 
-	async fn invoke_function(
+	async fn invoke_function<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
 		self.fetch(
@@ -912,10 +888,10 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		.await?
 	}
 
-	async fn invoke_script(
+	async fn invoke_script<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hex: String,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> =
 			signers.into_iter().map(|signer| signer.into()).collect::<Vec<_>>();
@@ -1162,12 +1138,14 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("getblock", vec![index.to_value(), 0.to_value()]).await?
 	}
 
-	async fn invoke_function_diagnostics(
+	async fn invoke_function_diagnostics<
+		T: AccountTrait + Serialize + for<'de> Deserialize<'de>,
+	>(
 		&self,
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let params = vec![
 			contract_hash.to_value(),
@@ -1179,10 +1157,10 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("invokefunction", params).await?
 	}
 
-	async fn invoke_script_diagnostics(
+	async fn invoke_script_diagnostics<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hex: String,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let params = vec![hex.to_value(), signers.to_value(), true.to_value()];
 		self.fetch("invokescript", params).await?
@@ -1202,11 +1180,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.fetch("terminatesession", vec![session_id.to_value()]).await?
 	}
 
-	async fn invoke_contract_verify(
+	async fn invoke_contract_verify<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		self.fetch(
 			"invokecontractverify",
@@ -1347,11 +1325,11 @@ impl Provider<MockProvider> {
 /// # Panics
 ///
 /// If the provided bytes were not an interpretation of an address
-fn decode_bytes<T: Detokenize>(param: ParamType, bytes: Bytes) -> T {
-	let tokens = abi::decode(&[param], bytes.as_ref())
-		.expect("could not abi-decode bytes to address tokens");
-	T::from_tokens(tokens).expect("could not parse tokens as address")
-}
+// fn decode_bytes<T: Detokenize>(param: ParamType, bytes: Bytes) -> T {
+// 	let tokens = abi::decode(&[param], bytes.as_ref())
+// 		.expect("could not abi-decode bytes to address tokens");
+// 	T::from_tokens(tokens).expect("could not parse tokens as address")
+// }
 
 impl TryFrom<&str> for Provider<HttpProvider> {
 	type Error = ParseError;
@@ -1424,7 +1402,7 @@ mod sealed {
 /// ```
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-pub trait ProviderExt: sealed::Sealed {
+pub trait ProviderExt: Sealed {
 	/// The error type that can occur when creating a provider
 	type Error: Debug;
 
@@ -1447,16 +1425,16 @@ pub trait ProviderExt: sealed::Sealed {
 	/// tune the polling interval.
 	///
 	/// Returns the customized `Provider`
-	fn for_chain(mut self, chain: impl Into<Chain>) -> Self
+	fn for_network(mut self, network: impl Into<u64>) -> Self
 	where
 		Self: Sized,
 	{
-		self.set_chain(chain);
+		self.set_network(network);
 		self
 	}
 
 	/// Customized `Provider` settings for chain
-	fn set_chain(&mut self, chain: impl Into<Chain>) -> &mut Self;
+	fn set_network(&mut self, chain: impl Into<u64>) -> &mut Self;
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -1471,16 +1449,14 @@ impl ProviderExt for Provider<HttpProvider> {
 		let mut provider = Provider::try_from(url)?;
 		if is_local_endpoint(url) {
 			provider.set_interval(DEFAULT_LOCAL_POLL_INTERVAL);
-		} else if let Some(chain) =
-			provider.get_network_magic().await.ok().and_then(|id| Chain::try_from(id).ok())
-		{
-			provider.set_chain(chain);
+		} else if let Some(chain) = provider.get_network_magic().await.ok() {
+			provider.set_network(chain);
 		}
 
 		Ok(provider)
 	}
 
-	fn set_chain(&mut self, chain: impl Into<Chain>) -> &mut Self {
+	fn set_network(&mut self, chain: impl Into<u64>) -> &mut Self {
 		let chain = chain.into();
 		if let Some(blocktime) = chain.average_blocktime_hint() {
 			// use half of the block time

@@ -1,4 +1,5 @@
 use crate::error::CryptoError;
+use bytes::Bytes;
 use core::fmt;
 use p256::{
 	ecdsa::{signature::Signer, Signature, SigningKey, VerifyingKey},
@@ -6,8 +7,10 @@ use p256::{
 };
 use primitive_types::U256;
 use rand_core::OsRng;
+use rlp::DecoderError;
 use serde::{Deserialize, Serialize};
 use signature::{Keypair, SignerMut, Verifier};
+use std::collections::BTreeMap;
 use typenum::U32;
 
 #[cfg_attr(feature = "substrate", serde(crate = "serde_substrate"))]

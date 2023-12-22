@@ -262,7 +262,6 @@ mod aliases {
 	pub type WsError = tungstenite::Error;
 	pub type WsStreamItem = Result<Message, WsError>;
 
-	pub use http::Request as HttpRequest;
 	pub use tracing::{debug, error, trace, warn};
 	pub use tungstenite::client::IntoClientRequest;
 
@@ -275,12 +274,12 @@ mod aliases {
 		fn into_client_request(
 			self,
 		) -> tungstenite::Result<tungstenite::handshake::client::Request> {
-			let mut request: HttpRequest<()> = self.url.into_client_request()?;
+			let mut request = self.url.into_client_request()?;
 			if let Some(auth) = self.auth {
-				let mut auth_value = http::HeaderValue::from_str(&auth.to_string())?;
+				let mut auth_value = reqwest::header::HeaderValue::from_str(&auth.to_string())?;
 				auth_value.set_sensitive(true);
 
-				request.headers_mut().insert(http::header::AUTHORIZATION, auth_value);
+				request.headers_mut().insert(reqwest::header::AUTHORIZATION, auth_value);
 			}
 
 			request.into_client_request()

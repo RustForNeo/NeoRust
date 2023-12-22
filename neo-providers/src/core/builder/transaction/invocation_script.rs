@@ -1,10 +1,11 @@
 use crate::core::{error::BuilderError, script::script_builder::ScriptBuilder};
 use getset::{Getters, Setters};
+use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
 use neo_crypto::{hash::HashableForVec, key_pair::KeyPair, keys::Secp256r1Signature};
 use neo_types::Bytes;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters)]
 #[getset(get_copy, set)]
 #[derive(educe::Educe)]
 // note `new` below: generate `new()` that calls Default
@@ -53,5 +54,27 @@ impl InvocationScript {
 			builder.push_data(signature_bytes.to_vec()).expect("Incorrect signature length");
 		}
 		Self { script: builder.to_bytes() }
+	}
+}
+
+impl NeoSerializable for InvocationScript {
+	type Error = BuilderError;
+
+	fn size(&self) -> usize {
+		self.script.len()
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		writer.write_var_bytes(&self.script);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let script = reader.read_var_bytes()?;
+		Ok(Self { script })
+	}
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
 	}
 }

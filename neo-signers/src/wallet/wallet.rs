@@ -1,4 +1,5 @@
 use crate::wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError};
+use neo_providers::core::{account::AccountTrait, wallet::WalletTrait};
 use neo_types::{address::AddressExtension, ScryptParamsDef, *};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
@@ -11,10 +12,58 @@ pub struct Wallet {
 	scrypt_params: ScryptParamsDef,
 	#[serde(deserialize_with = "deserialize_hash_map_h160_account")]
 	#[serde(serialize_with = "serialize_hash_map_h160_account")]
-	pub(crate) accounts: HashMap<H160, Account>,
+	pub accounts: HashMap<H160, Account>,
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	default_account: H160,
+}
+
+impl WalletTrait for Wallet {
+	type Account = Account;
+
+	fn name(&self) -> &String {
+		&self.name
+	}
+
+	fn version(&self) -> &String {
+		&self.version
+	}
+
+	fn scrypt_params(&self) -> &ScryptParamsDef {
+		&self.scrypt_params
+	}
+
+	fn accounts(&self) -> &HashMap<H160, Self::Account> {
+		&self.accounts
+	}
+
+	fn default_account(&self) -> &H160 {
+		&self.default_account
+	}
+
+	fn set_name(&mut self, name: String) {
+		self.name = name;
+	}
+
+	fn set_version(&mut self, version: String) {
+		self.version = version;
+	}
+
+	fn set_scrypt_params(&mut self, params: ScryptParamsDef) {
+		self.scrypt_params = params;
+	}
+
+	fn set_default_account(&mut self, default_account: H160) {
+		self.default_account = default_account;
+	}
+
+	fn add_account(&mut self, account: Self::Account) {
+		self.accounts.insert(account.script_hash().clone(), account);
+	}
+
+	fn remove_account(&mut self, hash: &H160) -> Option<Self::Account> {
+		self.accounts.remove(hash)
+	}
 }
 
 impl Wallet {
@@ -30,19 +79,17 @@ impl Wallet {
 		}
 	}
 
-	// Configuration methods
+	// pub fn set_name(&mut self, name: &str) {
+	// 	self.name = name.to_string();
+	// }
 
-	pub fn set_name(&mut self, name: &str) {
-		self.name = name.to_string();
-	}
+	// pub fn add_account(&mut self, account: Account) {
+	// 	self.accounts.insert(account.get_script_hash().clone(), account);
+	// }
 
-	pub fn add_account(&mut self, account: Account) {
-		self.accounts.insert(account.get_script_hash().clone(), account);
-	}
-
-	pub fn set_default_account(&mut self, script_hash: H160) {
-		self.default_account = script_hash;
-	}
+	// pub fn set_default_account(&mut self, script_hash: H160) {
+	// 	self.default_account = script_hash;
+	// }
 
 	// Serialization methods
 

@@ -604,7 +604,7 @@ mod tests {
 
 	async fn test_quorum(q: Quorum) {
 		let num = 5u64;
-		let value = u64::from(42);
+		let value = 42u64;
 		let mut providers = Vec::new();
 		let mut mocked = Vec::new();
 		for _ in 0..num {

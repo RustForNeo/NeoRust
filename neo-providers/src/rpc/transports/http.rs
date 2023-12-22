@@ -3,7 +3,7 @@
 use super::common::{Authorization, JsonRpcError, Request, Response};
 use crate::{errors::ProviderError, JsonRpcClient};
 use async_trait::async_trait;
-use reqwest::{header::HeaderValue, Client, Error as ReqwestError};
+use reqwest::{header, header::HeaderValue, Client, Error as ReqwestError};
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
 	str::FromStr,
@@ -208,7 +208,7 @@ impl Clone for Provider {
 pub enum HttpClientError {
 	/// Thrown if unable to build headers for client
 	#[error(transparent)]
-	InvalidHeader(#[from] http::header::InvalidHeaderValue),
+	InvalidHeader(#[from] header::InvalidHeaderValue),
 
 	/// Thrown if unable to build client
 	#[error(transparent)]

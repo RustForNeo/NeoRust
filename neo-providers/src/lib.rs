@@ -32,6 +32,7 @@ pub use stream::{
 };
 
 mod middleware;
+
 pub use middleware::Middleware;
 
 #[allow(deprecated)]

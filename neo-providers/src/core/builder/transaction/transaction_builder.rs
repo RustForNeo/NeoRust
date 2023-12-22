@@ -20,7 +20,7 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_config::NeoConstants;
 use neo_types::{public_key_to_script_hash, Bytes};
 use primitive_types::H160;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashSet,
 	convert::Into,
@@ -29,6 +29,7 @@ use std::{
 };
 
 use crate::core::{
+	account::AccountTrait,
 	builder::{
 		error::BuilderError,
 		transaction::{
@@ -43,13 +44,13 @@ use crate::core::{
 };
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
-pub struct TransactionBuilder {
+pub struct TransactionBuilder<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> {
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
 	// setter and getter
 	#[getset(get = "pub", set = "pub")]
-	signers: Vec<Signer>,
+	signers: Vec<Signer<T>>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
 	attributes: Vec<TransactionAttribute>,
@@ -58,7 +59,7 @@ pub struct TransactionBuilder {
 	fee_error: Option<TransactionError>,
 }
 
-impl Debug for TransactionBuilder {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Debug for TransactionBuilder<T> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TransactionBuilder")
 			.field("version", &self.version)
@@ -75,7 +76,7 @@ impl Debug for TransactionBuilder {
 	}
 }
 
-impl Clone for TransactionBuilder {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Clone for TransactionBuilder<T> {
 	fn clone(&self) -> Self {
 		Self {
 			version: self.version,
@@ -93,9 +94,9 @@ impl Clone for TransactionBuilder {
 	}
 }
 
-impl Eq for TransactionBuilder {}
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Eq for TransactionBuilder<T> {}
 
-impl PartialEq for TransactionBuilder {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> PartialEq for TransactionBuilder<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -108,7 +109,7 @@ impl PartialEq for TransactionBuilder {
 	}
 }
 
-impl Hash for TransactionBuilder {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for TransactionBuilder<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.version.hash(state);
 		self.nonce.hash(state);
@@ -121,7 +122,7 @@ impl Hash for TransactionBuilder {
 	}
 }
 
-impl TransactionBuilder {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> TransactionBuilder<T> {
 	pub const GAS_TOKEN_HASH: [u8; 20] =
 		hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap().into();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
@@ -180,7 +181,9 @@ impl TransactionBuilder {
 	}
 
 	// Get unsigned transaction
-	pub async fn get_unsigned_tx(&mut self) -> Result<SerializableTransaction, TransactionError> {
+	pub async fn get_unsigned_tx(
+		&mut self,
+	) -> Result<SerializableTransaction<T>, TransactionError> {
 		// Validate configuration
 		if self.signers.is_empty() {
 			return Err(TransactionError::NoSigners)
@@ -294,7 +297,7 @@ impl TransactionBuilder {
 	// 	Err(TransactionError::InvalidSender)
 	// }
 
-	fn is_account_signer(signer: &Signer) -> bool {
+	fn is_account_signer(signer: &Signer<T>) -> bool {
 		// let sig = <T as Signer>::SignerType;
 		if signer.get_type() == SignerType::Account {
 			return true
@@ -303,8 +306,8 @@ impl TransactionBuilder {
 	}
 
 	// Sign transaction
-	pub async fn sign(&mut self) -> Result<SerializableTransaction, BuilderError> {
-		let mut transaction = self.get_unsigned_transaction().await.unwrap();
+	pub async fn sign(&mut self) -> Result<SerializableTransaction<T>, BuilderError> {
+		let mut transaction = self.get_unsigned_tx().await.unwrap();
 		let tx_bytes = transaction.get_hash_data().await.unwrap();
 
 		let mut witnesses_to_add = Vec::new();
@@ -430,7 +433,7 @@ impl TransactionBuilder {
 		for signer in &self.signers {
 			if let Some(account_signer) = signer.as_account_signer() {
 				if account_signer.is_multi_sig() {
-					if let Some(script) = &account_signer.account().verification_script {
+					if let Some(script) = &account_signer.account().verification_script() {
 						for pubkey in script.get_public_keys().unwrap() {
 							let hash = public_key_to_script_hash(&pubkey);
 							if committee.contains(&hash) {

@@ -432,32 +432,32 @@ where
 	}
 }
 
-pub fn serialize_vec_methodtoken<S>(
-	item: &Vec<MethodToken>,
-	serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-	S: Serializer,
-{
-	let mut seq = serializer.serialize_seq(Some(item.len()))?;
-	for i in item {
-		seq.serialize_element(&i)?;
-	}
-	seq.end()
-}
-
-pub fn deserialize_vec_methodtoken<'de, D>(deserializer: D) -> Result<Vec<MethodToken>, D::Error>
-where
-	D: Deserializer<'de>,
-{
-	let string_seq = <Vec<MethodToken>>::deserialize(deserializer)?;
-	let mut vec: Vec<MethodToken> = Vec::new();
-	for v_str in string_seq {
-		let v = v_str;
-		vec.push(v);
-	}
-	Ok(vec)
-}
+// pub fn serialize_vec_methodtoken<S>(
+// 	item: &Vec<MethodToken>,
+// 	serializer: S,
+// ) -> Result<S::Ok, S::Error>
+// where
+// 	S: Serializer,
+// {
+// 	let mut seq = serializer.serialize_seq(Some(item.len()))?;
+// 	for i in item {
+// 		seq.serialize_element(&i)?;
+// 	}
+// 	seq.end()
+// }
+//
+// pub fn deserialize_vec_methodtoken<'de, D>(deserializer: D) -> Result<Vec<MethodToken>, D::Error>
+// where
+// 	D: Deserializer<'de>,
+// {
+// 	let string_seq = <Vec<MethodToken>>::deserialize(deserializer)?;
+// 	let mut vec: Vec<MethodToken> = Vec::new();
+// 	for v_str in string_seq {
+// 		let v = v_str;
+// 		vec.push(v);
+// 	}
+// 	Ok(vec)
+// }
 
 pub fn serialize_h256<S>(item: &H256, serializer: S) -> Result<S::Ok, S::Error>
 where

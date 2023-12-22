@@ -1,8 +1,14 @@
+use crate::core::transaction::transaction_error::TransactionError;
+use neo_codec::{serializable::NeoSerializable, CodecError, Decoder, Encoder};
+use neo_types::{Base64Encode, ExternBase64};
+use num_bigint::BigInt;
+use rustc_serialize::base64::FromBase64;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::hash::Hasher;
 
 use super::oracle_response_code::OracleResponseCode;
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Debug, Clone)]
+#[derive(PartialEq, Hash, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum TransactionAttribute {
 	#[serde(rename = "HighPriority")]
@@ -67,5 +73,57 @@ impl TransactionAttribute {
 
 	pub fn to_json(&self) -> String {
 		serde_json::to_string(self).unwrap()
+	}
+}
+
+impl NeoSerializable for TransactionAttribute {
+	type Error = TransactionError;
+
+	fn size(&self) -> usize {
+		match self {
+			TransactionAttribute::HighPriority => 1,
+			TransactionAttribute::OracleResponse(OracleResponse { id, response_code, result }) =>
+				1 + 9 + result.len(),
+		}
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		match self {
+			TransactionAttribute::HighPriority => {
+				writer.write_u8(0x01);
+			},
+			TransactionAttribute::OracleResponse(OracleResponse { id, response_code, result }) => {
+				writer.write_u8(0x11);
+				let mut v = id.to_be_bytes();
+				v.reverse();
+				writer.write(&v);
+				writer.write_u8(response_code.clone() as u8);
+				writer.write_var_bytes(result.from_base64().unwrap().as_slice());
+			},
+		}
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		match reader.read_u8() {
+			0x01 => Ok(TransactionAttribute::HighPriority),
+			0x11 => {
+				let id = reader.read_u32();
+				let response_code = OracleResponseCode::try_from(reader.read_u8()?).unwrap();
+				let result = reader.read_var_bytes().unwrap().to_base64();
+
+				Ok(TransactionAttribute::OracleResponse(OracleResponse {
+					id,
+					response_code,
+					result,
+				}))
+			},
+			_ => Err(CodecError::InvalidOpCode),
+		}
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.into_bytes()
 	}
 }

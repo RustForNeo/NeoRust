@@ -1,21 +1,24 @@
-use crate::core::transaction::{
-	signers::signer::Signer, transaction_attribute::TransactionAttribute,
-	transaction_error::TransactionError, witness::Witness,
+use crate::core::{
+	account::AccountTrait,
+	transaction::{
+		signers::signer::Signer, transaction_attribute::TransactionAttribute,
+		transaction_error::TransactionError, witness::Witness,
+	},
 };
 use getset::{Getters, Setters};
-use neo_codec::{Decoder, Encoder};
+use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
 use neo_types::{nef_file::HEADER_SIZE, Bytes};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use std::hash::Hash;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[derive(Debug, Clone, Setters, Getters)]
-pub struct SerializableTransaction {
+pub struct SerializableTransaction<T: AccountTrait + Serialize + DeserializeOwned> {
 	version: u8,
 	nonce: u32,
 	valid_until_block: u32,
 	#[getset(get = "pub")]
-	pub(crate) signers: Vec<Signer>,
+	pub(crate) signers: Vec<Signer<T>>,
 	#[getset(get = "pub", set = "pub")]
 	system_fee: i64,
 	#[getset(get = "pub", set = "pub")]
@@ -26,8 +29,8 @@ pub struct SerializableTransaction {
 	block_count_when_sent: Option<u32>,
 }
 
-impl Eq for SerializableTransaction {}
-impl PartialEq for SerializableTransaction {
+impl<T: AccountTrait + Serialize + DeserializeOwned> Eq for SerializableTransaction<T> {}
+impl<T: AccountTrait + Serialize + DeserializeOwned> PartialEq for SerializableTransaction<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -41,13 +44,13 @@ impl PartialEq for SerializableTransaction {
 	}
 }
 
-impl SerializableTransaction {
+impl<T: AccountTrait + Serialize + DeserializeOwned> SerializableTransaction<T> {
 	// Constructor
 	pub fn new(
 		version: u8,
 		nonce: u32,
 		valid_until_block: u32,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 		system_fee: i64,
 		network_fee: i64,
 		attributes: Vec<TransactionAttribute>,
@@ -155,7 +158,7 @@ impl SerializableTransaction {
 		// let mut signers = Vec::new();
 		// for _ in 0..signers_len {
 
-		let signers: Vec<Signer> = reader.read_serializable_list::<Signer>().unwrap();
+		let signers: Vec<Signer<T>> = reader.read_serializable_list::<Signer<T>>().unwrap();
 		// signers.push();
 		// }
 
@@ -189,57 +192,84 @@ impl SerializableTransaction {
 	pub fn size(&self) -> usize {
 		let mut size = HEADER_SIZE;
 
-		// Add signers
-		for signer in &self.signers {
-			size += bincode::serialize(signer).unwrap().len();
-		}
-
-		// Add attributes
-		for attribute in &self.attributes {
-			size += attribute.serialize(); //attribute.serialized_size();
-		}
-
-		// Add script
-		size += self.script.len() + 1;
-
-		// Add witnesses
-		for witness in &self.witnesses {
-			size += bincode::serialize(witness).unwrap().len(); //witness.serialized_size();
-		}
-
-		size
+		HEADER_SIZE
+			+ self.signers.varSize
+			+ self.attributes.varSize
+			+ self.script.varSize
+			+ self.witnesses.varSize
 	}
 
-	fn serialize_without_witnesses(&self) -> Vec<u8> {
-		let mut result = Encoder::new();
+	fn serialize_without_witnesses(&self, writer: &mut Encoder) {
+		writer.write_u8(self.version);
+		writer.write_u32(self.nonce);
+		writer.write_i64(self.system_fee);
+		writer.write_i64(self.network_fee);
+		writer.write_u32(self.valid_until_block);
+		writer.write_serializable_list(&self.signers);
+		writer.write_serializable_list(&self.attributes);
+		writer.write_var_bytes(&self.script);
+	}
+}
 
-		// Write version
-		result.push(self.version);
+impl<T: AccountTrait> NeoSerializable for SerializableTransaction<T> {
+	type Error = TransactionError;
 
-		// Write nonce
-		result.extend_from_slice(&self.nonce.to_le_bytes());
+	fn size(&self) -> usize {
+		let mut size = HEADER_SIZE;
 
-		// Write valid until block
-		// if let Some(valid_until_block) = self.valid_until_block {
-		result.extend_from_slice(&self.valid_until_block.to_le_bytes());
-		// }
+		HEADER_SIZE
+			+ self.signers.varSize
+			+ self.attributes.varSize
+			+ self.script.varSize
+			+ self.witnesses.varSize
+	}
 
-		// Write signers
-		for signer in &self.signers {
-			result.extend_from_slice(&serde_json::to_vec(&signer).unwrap());
+	fn serialize(&self, writer: &mut Encoder) {
+		self.serialize_without_witnesses(writer);
+		writer.write_serializable_list(&self.witnesses);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		let version = reader.read_u8();
+		let nonce = reader.read_u32();
+		let system_fee = reader.read_i64();
+		let network_fee = reader.read_i64();
+		let valid_until_block = reader.read_u32();
+
+		// Read signers
+		let signers: Vec<Signer<T>> = reader.read_serializable_list::<Signer<T>>().unwrap();
+
+		// Read attributes
+		let attributes: Vec<TransactionAttribute> =
+			reader.read_serializable_list::<TransactionAttribute>().unwrap();
+
+		let script = reader.read_var_bytes().unwrap().to_vec();
+
+		let mut witnesses = vec![];
+		if (reader.available() > 0) {
+			witnesses.append(&mut reader.read_serializable_list::<Witness>().unwrap());
 		}
 
-		// Write attributes
-		for attribute in &self.attributes {
-			result.extend_from_slice(&serde_json::to_vec(&attribute).unwrap());
-		}
+		Ok(Self {
+			version,
+			nonce,
+			valid_until_block,
+			signers,
+			system_fee,
+			network_fee,
+			attributes,
+			script,
+			witnesses,
+			block_count_when_sent: None,
+		})
+	}
 
-		// Write script
-		// if let Some(script) = &self.script {
-		result.push(0x00); // push 0
-		result.extend_from_slice(&self.script);
-		// }
-
-		result.to_bytes()
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_array()
 	}
 }

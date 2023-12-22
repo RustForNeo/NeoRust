@@ -1,10 +1,11 @@
+use crate::serializable::NeoSerializable;
 /// This module provides a binary decoder that can read various types of data from a byte slice.
 ///
 /// # Examples
 ///
 /// ```
-/// use neo_codec::binary_decoder::Decoder;
 ///
+/// use neo_codec::Decoder;
 /// let data = [0x01, 0x02, 0x03, 0x04];
 /// let mut decoder = Decoder::new(&data);
 ///
@@ -99,19 +100,6 @@ impl<'a> Decoder<'a> {
 		u64::from_ne_bytes(bytes.try_into().unwrap())
 	}
 
-	/// Reads a signed 64-bit integer from the byte slice.
-	pub fn read_i64(&mut self) -> i64 {
-		let bytes = self.read_bytes(8).unwrap();
-		i64::from_ne_bytes(bytes.try_into().unwrap())
-	}
-
-	/// Reads an unsigned 128-bit integer from the byte slice.
-	pub fn read_u128(&mut self) -> u128 {
-		let bytes = self.read_bytes(16).unwrap();
-		u128::from_ne_bytes(bytes.try_into().unwrap())
-	}
-
-	/// Reads a signed big integer from the byte slice.
 	pub fn read_bigint(&mut self) -> Result<BigInt, CodecError> {
 		let byte = self.read_u8();
 
@@ -135,17 +123,11 @@ impl<'a> Decoder<'a> {
 			// bytes.get_mut()[len - 1] ^= 0x80;
 		}
 		//TODO:: need to check be or le and sign
-		Ok(BigInt::from_bytes_be(Sign::Minus, bytes))
-	}
-
-	/// Reads a signed 128-bit integer from the byte slice.
-	pub fn read_i128(&mut self) -> i128 {
-		let bytes = self.read_bytes(16).unwrap();
-		i128::from_ne_bytes(bytes.try_into().unwrap())
+		Ok(BigInt::from_bytes_be(Sign::Minus, &bytes))
 	}
 
 	/// Reads an encoded EC point from the byte slice.
-	pub fn read_encoded_ec_point(&mut self) -> Result<&'a [u8], &'static str> {
+	pub fn read_encoded_ec_point(&mut self) -> Result<Vec<u8>, &'static str> {
 		let byte = self.read_u8();
 		match byte {
 			0x02 | 0x03 => Ok(self.read_bytes(32).unwrap()),
@@ -154,16 +136,17 @@ impl<'a> Decoder<'a> {
 	}
 
 	/// Reads a byte slice of the given length from the byte slice.
-	pub fn read_bytes(&mut self, count: usize) -> Result<&'a [u8], CodecError> {
-		let start = self.pointer;
-		self.pointer += count;
-		self.data
-			.get(start..self.pointer)
-			.ok_or_else(|| CodecError::IndexOutOfBounds("Out of bounds".to_string()))
+	pub fn read_bytes(&mut self, length: usize) -> Result<Vec<u8>, CodecError> {
+		if self.pointer + length > self.data.len() {
+			return Err(CodecError::IndexOutOfBounds("Read beyond end of buffer".to_string()))
+		}
+		let result = self.data[self.pointer..self.pointer + length].to_vec();
+		self.pointer += length;
+		Ok(result)
 	}
 
 	/// Reads a variable-length byte slice from the byte slice.
-	pub fn read_var_bytes(&mut self) -> Result<&'a [u8], CodecError> {
+	pub fn read_var_bytes(&mut self) -> Result<Vec<u8>, CodecError> {
 		let len = self.read_var_int().unwrap() as usize;
 		self.read_bytes(len)
 	}
@@ -179,8 +162,7 @@ impl<'a> Decoder<'a> {
 		}
 	}
 
-	/// Reads a string from the byte slice.
-	pub fn read_string(&mut self) -> Result<String, CodecError> {
+	pub fn read_var_string(&mut self) -> Result<String, CodecError> {
 		let bytes = self.read_var_bytes().unwrap();
 
 		let string = match String::from_utf8(bytes.to_vec()) {
@@ -198,7 +180,7 @@ impl<'a> Decoder<'a> {
 	}
 
 	/// Reads a push byte slice from the byte slice.
-	pub fn read_push_bytes(&mut self) -> Result<&'a [u8], CodecError> {
+	pub fn read_push_bytes(&mut self) -> Result<Vec<u8>, CodecError> {
 		let opcode = self.read_u8();
 		let len = match opcode {
 			0x01..=0x4B => opcode as usize,
@@ -240,27 +222,38 @@ impl<'a> Decoder<'a> {
 			.map_err(|_| CodecError::InvalidEncoding("Invalid UTF-8".to_string()))
 	}
 
-	// Serialization helper methods
-
 	/// Reads a deserializable value from the byte slice.
-	pub fn read_serializable<T: Deserialize<'a>>(&mut self) -> Result<T, CodecError> {
-		let value: T = bincode::deserialize(&self.data[self.pointer..])
-			.map_err(|_e| CodecError::InvalidFormat)
-			.unwrap();
-		Ok(value)
+	pub fn read_serializable<T: NeoSerializable>(&mut self) -> Result<T, CodecError> {
+		T::deserialize(self).map_err(|_e| CodecError::InvalidFormat)
 	}
 
 	/// Reads a list of deserializable values from the byte slice.
-	pub fn read_serializable_list<T: Deserialize<'a>>(&mut self) -> Result<Vec<T>, CodecError> {
+	pub fn read_serializable_list<T: NeoSerializable>(&mut self) -> Result<Vec<T>, CodecError> {
 		let len = self.read_var_int().unwrap();
 		let mut list = Vec::with_capacity(len as usize);
 		for _ in 0..len {
-			list.push(self.read_serializable().unwrap());
+			T::deserialize(self)
+				.and_then(|item| Ok(list.push(item)))
+				.expect("TODO: panic message");
 		}
 		Ok(list)
 	}
 
-	// Other methods like `mark`, `reset`, etc.
+	pub fn read_serializable_list_var_bytes<T: NeoSerializable>(
+		&mut self,
+	) -> Result<Vec<T>, CodecError> {
+		let len = self.read_var_int().unwrap();
+		let mut bytes_read = 0;
+		let mut offset = self.pointer;
+		let mut list = Vec::with_capacity(len as usize);
+		while bytes_read < len {
+			T::deserialize(self)
+				.and_then(|item| Ok(list.push(item)))
+				.expect("TODO: panic message");
+			bytes_read = (self.pointer - offset) as i64;
+		}
+		Ok(list)
+	}
 
 	pub fn mark(&mut self) {
 		self.marker = self.pointer;
@@ -285,4 +278,8 @@ impl<'a> Decoder<'a> {
 	// 		None => Err("Invalid EC point"),
 	// 	}
 	// }
+
+	pub fn available(&self) -> usize {
+		self.data.len() - self.pointer
+	}
 }

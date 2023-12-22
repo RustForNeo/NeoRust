@@ -37,7 +37,7 @@ where
 		Self {
 			provider,
 			filter: filter.clone(),
-			from_block: filter.get_from_block(),
+			from_block: filter.get_from_block().map(|b| b.as_u64()),
 			page_size: 10000,
 			current_logs: VecDeque::new(),
 			last_block: None,

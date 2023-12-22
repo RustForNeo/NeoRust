@@ -1,5 +1,3 @@
-use enr::Enr;
-use neo_crypto::keys::Secp256r1PrivateKey;
 use primitive_types::{H256, U256};
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
@@ -69,7 +67,7 @@ pub struct NeoProtocolInfo {
 	pub genesis: H256,
 
 	/// The chain configuration for the host's fork rules.
-	pub config: ChainConfig,
+	pub config: u64,
 
 	/// The hash of the host's best known block.
 	pub head: H256,
@@ -156,10 +154,9 @@ pub struct SnapInfo {
 /// See [geth's `PeerInfo` struct](https://github.com/neo/go-neo/blob/64dccf7aa411c5c7cd36090c3d9b9892945ae813/p2p/peer.go#L484) for the source of each field.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PeerInfo {
-	/// The peer's ENR.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub enr: Option<Enr<Secp256r1PrivateKey>>,
-
+	// /// The peer's ENR.
+	// #[serde(default, skip_serializing_if = "Option::is_none")]
+	// pub enr: Option<Enr<Secp256r1PrivateKey>>,
 	/// The peer's enode URL.
 	pub enode: String,
 

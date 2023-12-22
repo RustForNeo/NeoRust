@@ -1,5 +1,6 @@
 use crate::{
 	core::{
+		account::AccountTrait,
 		responses::{
 			neo_address::NeoAddress,
 			neo_application_log::ApplicationLog,
@@ -46,79 +47,10 @@ use neo_types::{
 	Bytes, TxHash,
 };
 use primitive_types::{H160, H256, U256};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, vec};
 use url::Url;
 
-/// A middleware allows customizing requests send and received from a neo node.
-///
-/// Writing a middleware is as simple as:
-/// 1. implementing the [`inner`](crate::Middleware::inner) method to point to the next layer in the
-/// "middleware onion", 2. implementing the
-/// [`MiddlewareError`](crate::MiddlewareError) trait on your middleware's
-/// error type 3. implementing any of the methods you want to override
-///
-/// ```
-/// use thiserror::Error;
-/// use async_trait::async_trait;
-/// use num_traits::Zero;
-/// use primitive_types::U256;
-/// use neo_providers::core::transaction::transaction::Transaction;
-/// use neo_providers::{Middleware, MiddlewareError};
-/// use neo_types::block::BlockId;
-///
-/// #[derive(Debug)]
-/// struct MyMiddleware<M>(M);
-///
-/// #[derive(Error, Debug)]
-/// pub enum MyError<M: Middleware> {
-///     #[error("{0}")]
-///     MiddlewareError(M::Error),
-///
-///     // Add your middleware's specific errors here
-/// }
-///
-/// impl<M: Middleware> MiddlewareError for MyError<M> {
-///     type Inner = M::Error;
-///
-///     fn from_err(src: M::Error) -> MyError<M> {
-///         MyError::MiddlewareError(src)
-///     }
-///
-///     fn as_inner(&self) -> Option<&Self::Inner> {
-///         match self {
-///             MyError::MiddlewareError(e) => Some(e),
-///             _ => None,
-///         }
-///     }
-/// }
-///
-/// #[async_trait]
-/// impl<M> Middleware for MyMiddleware<M>
-/// where
-///     M: Middleware,
-/// {
-///     type Error = MyError<M>;
-///     type Provider = M::Provider;
-///     type Inner = M;
-///
-///     fn inner(&self) -> &M {
-///         &self.0
-///     }
-///
-///     /// Overrides the default `get_block_number` method to always return 0
-///     async fn get_block_number(&self) -> Result<u64, Self::Error> {
-///         Ok(u64::zero())
-///     }
-///
-///     /// Overrides the default `estimate_gas` method to log that it was called,
-///     /// before forwarding the call to the next layer.
-///     async fn estimate_gas(&self, tx: &Transaction, block: Option<BlockId>) -> Result<U256, Self::Error> {
-///         println!("Estimating gas...");
-///         self.inner().estimate_gas(tx, block).await.map_err(MiddlewareError::from_err)
-///     }
-/// }
-/// ```
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[auto_impl(&, Box, Arc)]
@@ -156,23 +88,6 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().client_version().await.map_err(MiddlewareError::from_err)
 	}
 
-	/// Fill necessary details of a transaction for dispatch
-	///
-	/// This function is defined on providers to behave as follows:
-	/// 1. populate the `from` field with the default sender
-	/// 2. resolve any NNS names in the tx `to` field
-	/// 3. Estimate gas usage
-	/// 4. Poll and set legacy or 1559 gas prices
-	/// 5. Set the network_magic with the provider's, if not already set
-	///
-	/// It does NOT set the nonce by default.
-	///
-	/// Middleware are encouraged to override any values _before_ delegating
-	/// to the inner implementation AND/OR modify the values provided by the
-	/// default implementation _after_ delegating.
-	///
-	/// E.g. a middleware wanting to double gas prices should consider doing so
-	/// _after_ delegating and allowing the default implementation to poll gas.
 	async fn fill_transaction(
 		&self,
 		tx: &mut Transaction,
@@ -202,52 +117,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.send_transaction(tx, block)
 			.await
 			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Send a transaction with a simple escalation policy.
-	///
-	/// `policy` should be a boxed function that maps `original_gas_price`
-	/// and `number_of_previous_escalations` -> `new_gas_price`.
-	///
-	/// e.g. `Box::new(|start, escalation_index| start * 1250.pow(escalations) /
-	/// 1000.pow(escalations))`
-	async fn send_escalating<'a>(
-		&'a self,
-		tx: &Transaction,
-		escalations: usize,
-		policy: EscalationPolicy,
-	) -> Result<EscalatingPending<'a, Self::Provider>, Self::Error> {
-		let mut original = tx.clone();
-		self.fill_transaction(&mut original, None).await?;
-
-		// set the nonce, if no nonce is found
-		if original.nonce().is_none() {
-			let nonce =
-				self.get_transaction_count(tx.from().copied().unwrap_or_default(), None).await?;
-			original.set_nonce(nonce);
-		}
-
-		let gas_price = original.gas_price().expect("filled");
-		let sign_futs: Vec<_> = (0..escalations)
-			.map(|i| {
-				let new_price = policy(gas_price, i);
-				let mut r = original.clone();
-				r.set_gas_price(new_price);
-				r
-			})
-			.map(|req| async move {
-				self.sign_transaction(&req, self.default_sender().unwrap_or_default())
-					.await
-					.map(|sig| req.rlp_signed(&sig))
-			})
-			.collect();
-
-		// we reverse for convenience. Ensuring that we can always just
-		// `pop()` the next tx off the back later
-		let mut signed = join_all(sign_futs).await.into_iter().collect::<Result<Vec<_>, _>>()?;
-		signed.reverse();
-
-		Ok(EscalatingPending::new(self.provider(), signed))
 	}
 
 	////// Neo Naming Service
@@ -613,12 +482,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	// Personal namespace
-	// NOTE: This will eventually need to be enabled by users explicitly because the personal
-	// namespace is being deprecated:
-	// Issue: https://github.com/neo/go-neo/issues/25948
-	// PR: https://github.com/neo/go-neo/pull/26390
-
 	/// Sends the given key to the node to be encrypted with the provided
 	/// passphrase and stored.
 	///
@@ -980,12 +843,12 @@ pub trait Middleware: Sync + Send + Debug {
 
 	// More blockchain methods
 
-	async fn invoke_function(
+	async fn invoke_function<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_function(contract_hash, method, params, signers)
@@ -993,10 +856,10 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script(
+	async fn invoke_script<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hex: String,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_script(hex, signers)
@@ -1268,12 +1131,14 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_function_diagnostics(
+	async fn invoke_function_diagnostics<
+		T: AccountTrait + Serialize + for<'de> Deserialize<'de>,
+	>(
 		&self,
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_function_diagnostics(contract_hash, name, params, signers)
@@ -1281,10 +1146,10 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script_diagnostics(
+	async fn invoke_script_diagnostics<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hex: String,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_script_diagnostics(hex, signers)
@@ -1311,11 +1176,11 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_contract_verify(
+	async fn invoke_contract_verify<T: AccountTrait + Serialize + for<'de> Deserialize<'de>>(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_contract_verify(hash, params, signers)

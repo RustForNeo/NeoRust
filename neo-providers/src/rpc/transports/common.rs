@@ -61,10 +61,10 @@ impl JsonRpcError {
 			.then(|| self.data.as_ref().and_then(spelunk_revert).unwrap_or_default())
 	}
 
-	/// Decode revert data (if any) into a decodeable type
-	pub fn decode_revert_data<E: AbiDecode>(&self) -> Option<E> {
-		E::decode(&self.as_revert_data()?).ok()
-	}
+	// Decode revert data (if any) into a decodeable type
+	// pub fn decode_revert_data<E: AbiDecode>(&self) -> Option<E> {
+	// 	E::decode(&self.as_revert_data()?).ok()
+	// }
 }
 
 impl fmt::Display for JsonRpcError {

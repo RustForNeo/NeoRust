@@ -273,7 +273,7 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 					.expect("Receipt did not have a block number. This should never happen");
 				// if the transaction has at least K confirmations, return the receipt
 				// (subtract 1 since the tx already has 1 conf when it's mined)
-				if current_block > (inclusion_block + *this.confirmations - 1) as u64 {
+				if current_block > (inclusion_block + *this.confirmations as i32 - 1) as u64 {
 					let receipt = Some(receipt);
 					*this.state = PendingTxState::Completed;
 					return Poll::Ready(Ok(receipt))

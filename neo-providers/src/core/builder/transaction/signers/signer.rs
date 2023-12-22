@@ -1,4 +1,5 @@
 use crate::core::{
+	account::AccountTrait,
 	error::BuilderError,
 	transaction::{
 		signers::{
@@ -153,13 +154,13 @@ pub trait SignerTrait {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-pub enum Signer {
-	Account(AccountSigner),
+pub enum Signer<T: AccountTrait + Serialize> {
+	Account(AccountSigner<T>),
 	Contract(ContractSigner),
 	Transaction(TransactionSigner),
 }
 
-impl Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Signer<T> {
 	pub fn get_type(&self) -> SignerType {
 		match self {
 			Signer::Account(account_signer) => account_signer.get_type(),
@@ -175,7 +176,7 @@ impl Signer {
 		}
 	}
 
-	pub fn as_account_signer(&self) -> Option<&AccountSigner> {
+	pub fn as_account_signer(&self) -> Option<&AccountSigner<T>> {
 		match self {
 			Signer::Account(account_signer) => Some(account_signer),
 			_ => None,
@@ -197,7 +198,7 @@ impl Signer {
 	}
 }
 
-impl Hash for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Hash for Signer<T> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		match self {
 			Signer::Account(account_signer) => account_signer.hash(state),
@@ -207,20 +208,20 @@ impl Hash for Signer {
 	}
 }
 
-impl From<AccountSigner> for Signer {
-	fn from(account_signer: AccountSigner) -> Self {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> From<AccountSigner<T>> for Signer<T> {
+	fn from(account_signer: AccountSigner<T>) -> Self {
 		Signer::Account(account_signer)
 	}
 }
 
-impl From<ContractSigner> for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> From<ContractSigner> for Signer<T> {
 	fn from(contract_signer: ContractSigner) -> Self {
 		Signer::Contract(contract_signer)
 	}
 }
 
-impl Into<AccountSigner> for Signer {
-	fn into(self) -> AccountSigner {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner<T>> for Signer<T> {
+	fn into(self) -> AccountSigner<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer,
 			_ => panic!("Cannot convert ContractSigner into AccountSigner"),
@@ -228,7 +229,9 @@ impl Into<AccountSigner> for Signer {
 	}
 }
 
-impl Into<TransactionSigner> for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
+	for Signer<T>
+{
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -240,7 +243,9 @@ impl Into<TransactionSigner> for Signer {
 	}
 }
 
-impl Into<TransactionSigner> for &Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
+	for &Signer<T>
+{
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -252,7 +257,9 @@ impl Into<TransactionSigner> for &Signer {
 	}
 }
 
-impl Into<TransactionSigner> for &mut Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<TransactionSigner>
+	for &mut Signer<T>
+{
 	fn into(self) -> TransactionSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -264,8 +271,10 @@ impl Into<TransactionSigner> for &mut Signer {
 	}
 }
 
-impl Into<AccountSigner> for &mut Signer {
-	fn into(self) -> AccountSigner {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<AccountSigner<T>>
+	for &mut Signer<T>
+{
+	fn into(self) -> AccountSigner<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer.clone(),
 			Signer::Contract(contract_signer) =>
@@ -276,7 +285,9 @@ impl Into<AccountSigner> for &mut Signer {
 	}
 }
 
-impl Into<ContractSigner> for &mut Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigner>
+	for &mut Signer<T>
+{
 	fn into(self) -> ContractSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -288,7 +299,7 @@ impl Into<ContractSigner> for &mut Signer {
 	}
 }
 
-impl Into<ContractSigner> for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Into<ContractSigner> for Signer<T> {
 	fn into(self) -> ContractSigner {
 		match self {
 			Signer::Account(account_signer) =>
@@ -300,7 +311,7 @@ impl Into<ContractSigner> for Signer {
 	}
 }
 
-impl Serialize for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> Serialize for Signer<T> {
 	fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
 	where
 		S: Serializer,

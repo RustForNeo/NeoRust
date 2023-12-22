@@ -17,11 +17,15 @@ use neo_types::{
 };
 
 use neo_crypto::keys::Secp256r1PublicKey;
-use neo_providers::core::transaction::verification_script::VerificationScript;
+use neo_providers::core::{
+	account::AccountTrait, transaction::verification_script::VerificationScript,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{
+	cell::RefCell,
 	hash::{Hash, Hasher},
+	rc::Weak,
 	str::FromStr,
 };
 
@@ -38,7 +42,7 @@ pub struct Account {
 	pub verification_script: Option<VerificationScript>,
 	is_locked: bool,
 	encrypted_private_key: Option<String>,
-	wallet: Option<Wallet>,
+	wallet: Option<Weak<RefCell<Wallet>>>,
 	signing_threshold: Option<u32>,
 	nr_of_participants: Option<u32>,
 }
@@ -67,9 +71,85 @@ impl Hash for Account {
 	}
 }
 
-impl Account {
+impl AccountTrait for Account {
+	type Wallet = Wallet;
+	type Error = WalletError;
+	type NEP6Account = NEP6Account;
+
+	fn key_pair(&self) -> &Option<KeyPair> {
+		&self.key_pair
+	}
+
+	fn address_or_scripthash(&self) -> &AddressOrScriptHash {
+		&self.address_or_scripthash
+	}
+
+	fn label(&self) -> &Option<String> {
+		&self.label
+	}
+
+	fn verification_script(&self) -> &Option<VerificationScript> {
+		&self.verification_script
+	}
+
+	fn is_locked(&self) -> bool {
+		self.is_locked
+	}
+
+	fn encrypted_private_key(&self) -> &Option<String> {
+		&self.encrypted_private_key
+	}
+
+	fn wallet(&self) -> &Option<Weak<RefCell<Self::Wallet>>> {
+		&self.wallet
+	}
+
+	fn signing_threshold(&self) -> &Option<u32> {
+		&self.signing_threshold
+	}
+
+	fn nr_of_participants(&self) -> &Option<u32> {
+		&self.nr_of_participants
+	}
+
+	fn set_key_pair(&mut self, key_pair: Option<KeyPair>) {
+		self.key_pair = key_pair;
+	}
+
+	fn set_address_or_scripthash(&mut self, address_or_scripthash: AddressOrScriptHash) {
+		self.address_or_scripthash = address_or_scripthash;
+	}
+
+	fn set_label(&mut self, label: Option<String>) {
+		self.label = label;
+	}
+
+	fn set_verification_script(&mut self, verification_script: Option<VerificationScript>) {
+		self.verification_script = verification_script;
+	}
+
+	fn set_locked(&mut self, is_locked: bool) {
+		self.is_locked = is_locked;
+	}
+
+	fn set_encrypted_private_key(&mut self, encrypted_private_key: Option<String>) {
+		self.encrypted_private_key = encrypted_private_key;
+	}
+
+	fn set_wallet(&mut self, wallet: Option<Weak<RefCell<Self::Wallet>>>) {
+		self.wallet = wallet;
+	}
+
+	fn set_signing_threshold(&mut self, signing_threshold: Option<u32>) {
+		self.signing_threshold = signing_threshold;
+	}
+
+	fn set_nr_of_participants(&mut self, nr_of_participants: Option<u32>) {
+		self.nr_of_participants = nr_of_participants;
+	}
+
 	// Constructor
-	pub fn new(
+	fn new(
 		address: AddressOrScriptHash,
 		label: Option<String>,
 		verification_script: Option<VerificationScript>,
@@ -89,11 +169,11 @@ impl Account {
 		}
 	}
 
-	pub fn from_key_pair(
+	fn from_key_pair(
 		key_pair: KeyPair,
 		signing_threshold: Option<u32>,
 		nr_of_participants: Option<u32>,
-	) -> Result<Self, WalletError> {
+	) -> Result<Self, Self::Error> {
 		let address = public_key_to_address(&key_pair.public_key);
 		Ok(Self {
 			key_pair: Some(key_pair.clone()),
@@ -110,14 +190,14 @@ impl Account {
 		})
 	}
 
-	pub fn from_key_pair_opt(
+	fn from_key_pair_opt(
 		key_pair: Option<KeyPair>,
 		address: AddressOrScriptHash,
 		label: Option<String>,
 		verification_script: Option<VerificationScript>,
 		is_locked: bool,
 		encrypted_private_key: Option<String>,
-		wallet: Option<Wallet>,
+		wallet: Option<Weak<RefCell<Wallet>>>,
 		signing_threshold: Option<u32>,
 		nr_of_participants: Option<u32>,
 	) -> Self {
@@ -134,12 +214,12 @@ impl Account {
 		}
 	}
 
-	pub fn from_wif(wif: &str) -> Result<Self, WalletError> {
+	fn from_wif(wif: &str) -> Result<Self, Self::Error> {
 		let key_pair = KeyPair::from_secret_key(&private_key_from_wif(wif).unwrap());
 		Self::from_key_pair(key_pair, None, None)
 	}
 
-	pub fn from_nep6_account(nep6_account: &NEP6Account) -> Result<Self, WalletError> {
+	fn from_nep6_account(nep6_account: &Self::NEP6Account) -> Result<Self, Self::Error> {
 		let (verification_script, signing_threshold, nr_of_participants) =
 			match nep6_account.contract {
 				Some(ref contract) if contract.script.is_some() => {
@@ -172,25 +252,7 @@ impl Account {
 		})
 	}
 
-	// Instance methods
-
-	pub fn label(&mut self, label: &str) {
-		self.label = Some(label.to_string());
-	}
-
-	pub fn wallet(&mut self, wallet: Option<Wallet>) {
-		self.wallet = wallet;
-	}
-
-	pub fn lock(&mut self) {
-		self.is_locked = true;
-	}
-
-	pub fn unlock(&mut self) {
-		self.is_locked = false;
-	}
-
-	pub fn decrypt_private_key(&mut self, password: &str) -> Result<(), WalletError> {
+	fn decrypt_private_key(&mut self, password: &str) -> Result<(), Self::Error> {
 		if self.key_pair.is_some() {
 			return Ok(())
 		}
@@ -198,18 +260,18 @@ impl Account {
 		let encrypted_private_key = self
 			.encrypted_private_key
 			.as_ref()
-			.ok_or(WalletError::AccountState("No encrypted private key present".to_string()))
+			.ok_or(Self::Error::AccountState("No encrypted private key present".to_string()))
 			.unwrap();
 		let key_pair = NEP2::decrypt(password, encrypted_private_key).unwrap();
 		self.key_pair = Some(KeyPair::from_secret_key(&key_pair.private_key().clone()));
 		Ok(())
 	}
 
-	pub fn encrypt_private_key(&mut self, password: &str) -> Result<(), WalletError> {
+	fn encrypt_private_key(&mut self, password: &str) -> Result<(), Self::Error> {
 		let key_pair = self
 			.key_pair
 			.as_ref()
-			.ok_or(WalletError::AccountState("No decrypted key pair present".to_string()))
+			.ok_or(Self::Error::AccountState("No decrypted key pair present".to_string()))
 			.unwrap();
 		let encrypted_private_key = NEP2::encrypt(password, key_pair).unwrap();
 		self.encrypted_private_key = Some(encrypted_private_key);
@@ -217,21 +279,21 @@ impl Account {
 		Ok(())
 	}
 
-	pub fn get_script_hash(&self) -> ScriptHash {
+	fn get_script_hash(&self) -> ScriptHash {
 		self.address_or_scripthash.script_hash()
 	}
 
-	pub fn get_signing_threshold(&self) -> Result<u32, WalletError> {
+	fn get_signing_threshold(&self) -> Result<u32, Self::Error> {
 		self.signing_threshold
-			.ok_or_else(|| WalletError::AccountState("Account is not MultiSig".to_string()))
+			.ok_or_else(|| Self::Error::AccountState("Account is not MultiSig".to_string()))
 	}
 
-	pub fn get_nr_of_participants(&self) -> Result<u32, WalletError> {
+	fn get_nr_of_participants(&self) -> Result<u32, Self::Error> {
 		self.nr_of_participants
-			.ok_or_else(|| WalletError::AccountState("Account is not MultiSig".to_string()))
+			.ok_or_else(|| Self::Error::AccountState("Account is not MultiSig".to_string()))
 	}
 
-	// pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
+	// pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, Self::Error> {
 	// 	let balances = HTTP_PROVIDER
 	// 		.read()
 	// 		.unwrap()
@@ -246,9 +308,9 @@ impl Account {
 	// 	Ok(nep17_balances)
 	// }
 
-	pub fn to_nep6_account(&self) -> Result<NEP6Account, WalletError> {
+	fn to_nep6_account(&self) -> Result<Self::NEP6Account, Self::Error> {
 		if self.key_pair.is_some() && self.encrypted_private_key.is_none() {
-			return Err(WalletError::AccountState(
+			return Err(Self::Error::AccountState(
 				"Account private key is decrypted but not encrypted".to_string(),
 			))
 		}
@@ -282,7 +344,7 @@ impl Account {
 			None => None,
 		};
 
-		Ok(NEP6Account {
+		Ok(Self::NEP6Account {
 			address: self.address_or_scripthash.address(),
 			label: self.label.clone(),
 			is_default: false, // TODO
@@ -295,7 +357,7 @@ impl Account {
 
 	// Static methods
 
-	pub fn from_verification_script(script: &VerificationScript) -> Result<Self, WalletError> {
+	fn from_verification_script(script: &VerificationScript) -> Result<Self, Self::Error> {
 		let address = ScriptHash::from_script(&script.script());
 
 		let (signing_threshold, nr_of_participants) = if script.is_multi_sig() {
@@ -317,7 +379,7 @@ impl Account {
 		})
 	}
 
-	pub fn from_public_key(public_key: &Secp256r1PublicKey) -> Result<Self, WalletError> {
+	fn from_public_key(public_key: &Secp256r1PublicKey) -> Result<Self, Self::Error> {
 		let script = VerificationScript::from_public_key(public_key);
 		let address = ScriptHash::from_script(&script.script());
 
@@ -329,10 +391,10 @@ impl Account {
 		})
 	}
 
-	pub fn create_multi_sig(
+	fn create_multi_sig(
 		public_keys: &[Secp256r1PublicKey],
 		signing_threshold: u32,
-	) -> Result<Self, WalletError> {
+	) -> Result<Self, Self::Error> {
 		let script = VerificationScript::from_multi_sig(public_keys, signing_threshold as u8);
 
 		Ok(Self {
@@ -344,7 +406,7 @@ impl Account {
 		})
 	}
 
-	pub fn from_address(address: &str) -> Result<Self, WalletError> {
+	fn from_address(address: &str) -> Result<Self, Self::Error> {
 		let address = Address::from_str(address).unwrap();
 		Ok(Self {
 			address_or_scripthash: AddressOrScriptHash::Address(address.clone()),
@@ -353,17 +415,17 @@ impl Account {
 		})
 	}
 
-	pub fn from_script_hash(script_hash: &H160) -> Result<Self, WalletError> {
+	fn from_script_hash(script_hash: &H160) -> Result<Self, Self::Error> {
 		let address = script_hash.to_address();
 		Self::from_address(&address)
 	}
 
-	pub fn create() -> Result<Self, WalletError> {
+	fn create() -> Result<Self, Self::Error> {
 		let key_pair = KeyPair::new_random();
 		Self::from_key_pair(key_pair, None, None)
 	}
 
-	pub fn is_multi_sig(&self) -> bool {
+	fn is_multi_sig(&self) -> bool {
 		self.signing_threshold.is_some() && self.nr_of_participants.is_some()
 	}
 }

@@ -41,12 +41,6 @@ pub enum WsClientError {
 	TooManyReconnects,
 }
 
-impl Display for WsClientError {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		todo!()
-	}
-}
-
 impl crate::RpcError for WsClientError {
 	fn as_error_response(&self) -> Option<&JsonRpcError> {
 		if let WsClientError::JsonRpcError(err) = self {

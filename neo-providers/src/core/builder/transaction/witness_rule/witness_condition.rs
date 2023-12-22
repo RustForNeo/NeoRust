@@ -1,38 +1,35 @@
 use neo_types::*;
 
+use crate::core::transaction::{
+	signers::signer::SignerType::Transaction, transaction_error::TransactionError,
+	witness_scope::WitnessScope::WitnessRules,
+};
+use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::hash::{Hash, Hasher};
 
 /// Enum representing the different types of witness conditions that can be used in a smart contract.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WitnessCondition {
 	/// Boolean value.
 	Boolean(bool),
 	/// Not operator.
-	Not(Box<WitnessCondition>),
+	Not(WitnessCondition),
 	/// And operator.
 	And(Vec<WitnessCondition>),
 	/// Or operator.
 	Or(Vec<WitnessCondition>),
 	/// Script hash.
-	#[serde(deserialize_with = "deserialize_script_hash")]
-	#[serde(serialize_with = "serialize_script_hash")]
 	ScriptHash(H160),
 	/// Public key group.
-	#[serde(deserialize_with = "deserialize_public_key")]
-	#[serde(serialize_with = "serialize_public_key")]
 	Group(Secp256r1PublicKey),
 	/// Called by entry.
 	CalledByEntry,
 	/// Called by contract.
-	#[serde(deserialize_with = "deserialize_script_hash")]
-	#[serde(serialize_with = "serialize_script_hash")]
 	CalledByContract(H160),
 	/// Called by public key group.
-	#[serde(deserialize_with = "deserialize_public_key")]
-	#[serde(serialize_with = "serialize_public_key")]
 	CalledByGroup(Secp256r1PublicKey),
 }
 
@@ -166,5 +163,106 @@ impl WitnessCondition {
 			WitnessCondition::Group(group) | WitnessCondition::CalledByGroup(group) => Some(group),
 			_ => None,
 		}
+	}
+}
+
+impl NeoSerializable for WitnessCondition {
+	type Error = TransactionError;
+
+	fn size(&self) -> usize {
+		match self {
+			WitnessCondition::Boolean(_) => 2,
+			WitnessCondition::Not(_) => 1 + self.expression().unwrap().size(),
+			WitnessCondition::And(_) | WitnessCondition::Or(_) => {
+				let exp = self.expression_list().unwrap();
+				1 + 1 + exp.len() + exp.iter().map(|e| e.size()).sum::<usize>()
+			},
+			WitnessCondition::ScriptHash(_) | WitnessCondition::CalledByContract(_) => 1 + 20,
+			WitnessCondition::Group(_) | WitnessCondition::CalledByGroup(_) => 1 + 33,
+			WitnessCondition::CalledByEntry => 1,
+		}
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		match self {
+			WitnessCondition::Boolean(b) => {
+				writer.write_u8(WitnessCondition::BOOLEAN_BYTE);
+				writer.write_bool(*b);
+			},
+			WitnessCondition::Not(exp) => {
+				writer.write_u8(WitnessCondition::NOT_BYTE);
+				exp.writeSerializableFixed(writer);
+			},
+			WitnessCondition::And(exp) => {
+				writer.write_u8(WitnessCondition::AND_BYTE);
+				writer.write_serializable_variable_list(exp);
+			},
+			WitnessCondition::Or(exp) => {
+				writer.write_u8(WitnessCondition::OR_BYTE);
+				writer.write_serializable_variable_list(exp)
+			},
+			WitnessCondition::ScriptHash(hash) => {
+				writer.write_u8(WitnessCondition::SCRIPT_HASH_BYTE);
+				writer.write_serializable_fixed(hash.as_bytes());
+			},
+			WitnessCondition::Group(group) => {
+				writer.write_u8(WitnessCondition::GROUP_BYTE);
+				writer.write_serializable_fixed(group);
+			},
+			WitnessCondition::CalledByEntry => {
+				writer.write_u8(WitnessCondition::CALLED_BY_ENTRY_BYTE);
+			},
+			WitnessCondition::CalledByContract(hash) => {
+				writer.write_u8(WitnessCondition::CALLED_BY_CONTRACT_BYTE);
+				writer.write_serializable_fixed(hash);
+			},
+			WitnessCondition::CalledByGroup(group) => {
+				writer.write_u8(WitnessCondition::CALLED_BY_GROUP_BYTE);
+				writer.write_serializable_fixed(group);
+			},
+		}
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let byte = reader.read_u8();
+		match byte {
+			WitnessCondition::BOOLEAN_BYTE => {
+				let b = reader.read_bool();
+				Ok(WitnessCondition::Boolean(b))
+			},
+			WitnessCondition::NOT_BYTE => {
+				let exp = WitnessCondition::deserialize(reader)?;
+				Ok(WitnessCondition::Not(exp))
+			},
+			WitnessCondition::OR_BYTE | WitnessCondition::AND_BYTE => {
+				let len = reader.read_var_int()?;
+				if len > WitnessCondition::MAX_SUBITEMS as i64 {
+					return Err(TransactionError::InvalidWitnessCondition)
+				}
+				let exp = WitnessCondition::deserialize(reader)?;
+				if byte == WitnessCondition::OR_BYTE {
+					Ok(WitnessCondition::Or(vec![exp]))
+				} else {
+					Ok(WitnessCondition::And(vec![exp]))
+				}
+			},
+			WitnessCondition::SCRIPT_HASH_BYTE | WitnessCondition::CALLED_BY_CONTRACT_BYTE => {
+				let hash = H160::deserialize(reader)?;
+				if byte == WitnessCondition::SCRIPT_HASH_BYTE {
+					Ok(WitnessCondition::ScriptHash(hash))
+				} else {
+					Ok(WitnessCondition::CalledByContract(hash))
+				}
+			},
+			WitnessCondition::GROUP_BYTE | WitnessCondition::CALLED_BY_GROUP_BYTE => {},
+			WitnessCondition::CALLED_BY_ENTRY_BYTE => Ok(WitnessCondition::CalledByEntry),
+			_ => {},
+		}
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
 	}
 }

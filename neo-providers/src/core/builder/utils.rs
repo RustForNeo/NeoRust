@@ -1,4 +1,5 @@
 use crate::core::{
+	account::AccountTrait,
 	script::script_builder::ScriptBuilder,
 	transaction::{
 		signers::{signer::Signer, transaction_signer::TransactionSigner},
@@ -11,6 +12,7 @@ use neo_types::{
 	script_hash::{ScriptHash, ScriptHashExtension},
 	serde_value::ValueExtension,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 // pub type ScriptHash = H160;
@@ -75,13 +77,13 @@ impl VecValueExtension for Vec<TransactionAttribute> {
 		self.iter().map(|x| x.to_value()).collect()
 	}
 }
-impl ValueExtension for Signer {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> ValueExtension for Signer<T> {
 	fn to_value(&self) -> Value {
 		Value::String(serde_json::to_string(self).unwrap())
 	}
 }
 
-impl VecValueExtension for Vec<Signer> {
+impl<T: AccountTrait + Serialize + for<'de> Deserialize<'de>> VecValueExtension for Vec<Signer<T>> {
 	fn to_value(&self) -> Value {
 		self.iter().map(|x| x.to_value()).collect()
 	}

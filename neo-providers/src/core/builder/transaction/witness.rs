@@ -3,6 +3,7 @@ use crate::core::{
 	script::script_builder::ScriptBuilder,
 	transaction::{invocation_script::InvocationScript, verification_script::VerificationScript},
 };
+use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
 use neo_crypto::{
 	key_pair::KeyPair,
 	keys::{Secp256r1PublicKey, Secp256r1Signature},
@@ -84,5 +85,29 @@ impl Witness {
 			invocation: InvocationScript::from(invocation_script),
 			verification: VerificationScript::new(),
 		})
+	}
+}
+
+impl NeoSerializable for Witness {
+	type Error = BuilderError;
+
+	fn size(&self) -> usize {
+		self.invocation.size() + self.verification.size()
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		self.invocation.serialize(writer);
+		self.verification.serialize(writer);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let invocation = InvocationScript::deserialize(reader)?;
+		let verification = VerificationScript::deserialize(reader)?;
+		Ok(Self { invocation, verification })
+	}
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
 	}
 }

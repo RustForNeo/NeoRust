@@ -1,3 +1,4 @@
+use crate::{serializable::NeoSerializable, CodecError};
 /// A binary encoder that can write various primitive types and serializable objects to a byte vector.
 ///
 /// # Examples
@@ -28,6 +29,10 @@ impl Encoder {
 
 	pub fn size(&self) -> usize {
 		self.data.len()
+	}
+
+	pub fn write_bool(&mut self, value: bool) {
+		self.write_u8(if value { 1 } else { 0 });
 	}
 
 	pub fn write_u8(&mut self, value: u8) {
@@ -73,17 +78,18 @@ impl Encoder {
 		}
 	}
 
-	pub fn write_string(&mut self, v: &str) {
-		self.write_bytes(v.as_bytes());
+	pub fn write_var_string(&mut self, v: &str) {
+		self.write_var_bytes(v.as_bytes());
 	}
 
-	pub fn write_fixed_string(&mut self, v: &Option<String>, length: usize) -> std::io::Result<()> {
+	pub fn write_fixed_string(
+		&mut self,
+		v: &Option<String>,
+		length: usize,
+	) -> Result<(), CodecError> {
 		let bytes = v.as_deref().unwrap_or_default().as_bytes();
 		if bytes.len() > length {
-			return Err(std::io::Error::new(
-				std::io::ErrorKind::InvalidInput,
-				"String longer than specified length",
-			))
+			return Err(CodecError::InvalidEncoding("String too long".to_string()))
 		}
 		let mut padded = vec![0; length];
 		padded[0..bytes.len()].copy_from_slice(bytes);
@@ -95,16 +101,27 @@ impl Encoder {
 		self.write_bytes(bytes);
 	}
 
-	pub fn write_serializable<S: Serialize>(&mut self, value: &S) {
-		let a = bincode::serialize(value).expect("Failed to serialize value");
-		self.write_var_bytes(&a);
+	pub fn write_serializable_fixed<S: NeoSerializable>(&mut self, value: &S) {
+		value.serialize(self);
+	}
+	pub fn write_serializable_list_fixed<S: NeoSerializable>(&mut self, value: &[S]) {
+		value.iter().for_each(|v| v.serialize(self));
 	}
 
-	pub fn write_serializable_list<S: Serialize>(&mut self, values: &[S]) {
+	pub fn write_serializable_variable_bytes<S: NeoSerializable>(&mut self, values: &S) {
+		self.write_var_int(values.to_array().len() as i64);
+		values.serialize(self);
+	}
+
+	pub fn write_serializable_variable_list<S: NeoSerializable>(&mut self, values: &[S]) {
 		self.write_var_int(values.len() as i64);
-		for item in values {
-			self.write_serializable(item);
-		}
+		self.write_serializable_list_fixed(values);
+	}
+
+	pub fn write_serializable_variable_list_bytes<S: NeoSerializable>(&mut self, values: &[S]) {
+		let total_size: usize = values.iter().map(|item| item.to_array().len()).sum();
+		self.write_var_int(total_size as i64);
+		self.write_serializable_list_fixed(values);
 	}
 
 	pub fn reset(&mut self) {

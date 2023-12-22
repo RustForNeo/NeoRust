@@ -1,31 +1,36 @@
 use crate::{
-	contract_parameter::ContractParameter, deserialize_script_hash, deserialize_vec_methodtoken,
-	error::TypeError, serialize_script_hash, serialize_vec_methodtoken, stack_item::StackItem,
-	Bytes,
+	contract_parameter::ContractParameter, error::TypeError, stack_item::StackItem, Bytes,
 };
-use neo_codec::Decoder;
+use neo_codec::{serializable::NeoSerializable, CodecError, Decoder, Encoder};
 use neo_crypto::hash::HashableForVec;
 use primitive_types::H160;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserializer, Serializer};
 use std::hash::Hasher;
 use tokio::io::AsyncReadExt;
 
-const MAGIC: u32 = 0x3346454E;
-const MAGIC_SIZE: usize = 4;
-const COMPILER_SIZE: usize = 64;
-const MAX_SOURCE_URL_SIZE: usize = 256;
-const MAX_SCRIPT_LENGTH: usize = 512 * 1024;
-const CHECKSUM_SIZE: usize = 4;
-pub const HEADER_SIZE: usize = MAGIC_SIZE + COMPILER_SIZE;
+/*
+┌───────────────────────────────────────────────────────────────────────┐
+│                    NEO Executable Format 3 (NEF3)                     │
+├──────────┬───────────────┬────────────────────────────────────────────┤
+│  Field   │     Type      │                  Comment                   │
+├──────────┼───────────────┼────────────────────────────────────────────┤
+│ Magic    │ uint32        │ Magic header                               │
+│ Compiler │ byte[64]      │ Compiler name and version                  │
+├──────────┼───────────────┼────────────────────────────────────────────┤
+│ Source   │ byte[]        │ The url of the source files, max 255 bytes │
+│ Reserve  │ byte[2]       │ Reserved for future extensions. Must be 0. │
+│ Tokens   │ MethodToken[] │ Method tokens                              │
+│ Reserve  │ byte[2]       │ Reserved for future extensions. Must be 0. │
+│ Script   │ byte[]        │ Var bytes for the payload                  │
+├──────────┼───────────────┼────────────────────────────────────────────┤
+│ Checksum │ uint32        │ First four bytes of double SHA256 hash     │
+└──────────┴───────────────┴────────────────────────────────────────────┘
+ */
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct NefFile {
-	#[serde(skip_serializing_if = "Option::is_none")]
 	compiler: Option<String>,
 	source_url: String,
-	#[serde(skip_serializing_if = "Vec::is_empty")]
-	#[serde(serialize_with = "serialize_vec_methodtoken")]
-	#[serde(deserialize_with = "deserialize_vec_methodtoken")]
 	method_tokens: Vec<MethodToken>,
 	script: Bytes,
 	checksum: Bytes,
@@ -33,11 +38,19 @@ pub struct NefFile {
 
 impl Into<ContractParameter> for NefFile {
 	fn into(self) -> ContractParameter {
-		ContractParameter::string(serde_json::to_string(&self).unwrap())
+		ContractParameter::string(self.to_array())
 	}
 }
 
 impl NefFile {
+	const MAGIC: u32 = 0x3346454E;
+	const MAGIC_SIZE: usize = 4;
+	const COMPILER_SIZE: usize = 64;
+	const MAX_SOURCE_URL_SIZE: usize = 256;
+	const MAX_SCRIPT_LENGTH: usize = 512 * 1024;
+	const CHECKSUM_SIZE: usize = 4;
+	pub const HEADER_SIZE: usize = Self::MAGIC_SIZE + Self::COMPILER_SIZE;
+
 	fn get_checksum_as_integer(bytes: &Bytes) -> i32 {
 		let mut bytes = bytes.clone();
 		bytes.reverse();
@@ -45,13 +58,13 @@ impl NefFile {
 	}
 
 	fn compute_checksum(file: &NefFile) -> Bytes {
-		Self::compute_checksum_from_bytes(serde_json::to_vec(file).unwrap())
+		Self::compute_checksum_from_bytes(file.to_array())
 	}
 
 	fn compute_checksum_from_bytes(bytes: Bytes) -> Bytes {
 		let mut file_bytes = bytes.clone();
-		file_bytes.truncate(bytes.len() - CHECKSUM_SIZE);
-		file_bytes.hash256()[..CHECKSUM_SIZE].try_into().unwrap()
+		file_bytes.truncate(bytes.len() - Self::CHECKSUM_SIZE);
+		file_bytes.hash256()[..Self::CHECKSUM_SIZE].try_into().unwrap()
 	}
 
 	fn read_from_file(file: &str) -> Result<Self, TypeError> {
@@ -78,10 +91,82 @@ impl NefFile {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl NeoSerializable for NefFile {
+	type Error = TypeError;
+
+	fn size(&self) -> usize {
+		let mut size = Self::HEADER_SIZE;
+		size += self.source_url.len() + 1;
+		size += self.method_tokens.len() + 2;
+		size += self.script.len();
+		size += Self::CHECKSUM_SIZE;
+
+		size
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		writer.write_u32(Self::MAGIC);
+		writer
+			.write_fixed_string(&self.compiler, Self::COMPILER_SIZE)
+			.expect("Failed to serialize compiler");
+		writer.write_var_string(&self.source_url);
+		writer.write_u8(0);
+		writer.write_serializable_variable_list(&self.method_tokens);
+		writer.write_u16(0);
+		writer.write_var_bytes(&self.script);
+		writer.write_bytes(&self.checksum);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let magic = reader.read_u32();
+		if magic != Self::MAGIC {
+			return Err(TypeError::InvalidEncoding("Invalid magic".to_string()))
+		}
+
+		let compiler_bytes = reader.read_bytes(Self::COMPILER_SIZE)?;
+		let compiler = String::from_utf8(compiler_bytes.to_vec())
+			.map_err(|_| CodecError::InvalidEncoding("Invalid compiler".to_string()))?;
+
+		let source_url = reader.read_var_string()?;
+		if source_url.len() > Self::MAX_SOURCE_URL_SIZE {
+			return Err(TypeError::InvalidEncoding("Invalid source url".to_string()))
+		}
+
+		if reader.read_u8() != 0 {
+			return Err(TypeError::InvalidEncoding("Invalid reserve bytes".to_string()))
+		}
+
+		let method_tokens = reader.read_serializable_list()?;
+
+		if reader.read_u16() != 0 {
+			return Err(TypeError::InvalidEncoding("Invalid reserve bytes".to_string()))
+		}
+
+		let script = reader.read_var_bytes()?;
+		if script.is_empty() {
+			return Err(TypeError::InvalidEncoding("Invalid script".to_string()))
+		}
+
+		let file =
+			Self { compiler: Some(compiler), source_url, method_tokens, script, checksum: vec![] };
+
+		let checksum = reader.read_bytes(Self::CHECKSUM_SIZE)?;
+		if checksum != Self::compute_checksum(&file) {
+			return Err(TypeError::InvalidEncoding("Invalid checksum".to_string()))
+		}
+
+		Ok(file)
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
+	}
+}
+
+#[derive(Debug, Clone)]
 pub struct MethodToken {
-	#[serde(deserialize_with = "deserialize_script_hash")]
-	#[serde(serialize_with = "serialize_script_hash")]
 	hash: H160,
 	method: String,
 	params_count: u16,
@@ -93,4 +178,45 @@ impl MethodToken {
 	const PARAMS_COUNT_SIZE: usize = 2;
 	const HAS_RETURN_VALUE_SIZE: usize = 1;
 	const CALL_FLAGS_SIZE: usize = 1;
+}
+
+impl NeoSerializable for MethodToken {
+	type Error = TypeError;
+
+	fn size(&self) -> usize {
+		let mut size = H160::len_bytes();
+		size += self.method.len();
+		size += MethodToken::PARAMS_COUNT_SIZE;
+		size += MethodToken::HAS_RETURN_VALUE_SIZE;
+		size += MethodToken::CALL_FLAGS_SIZE;
+
+		size
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		writer.write_serializable_fixed(&self.hash);
+		writer.write_var_string(&self.method);
+		writer.write_u16(self.params_count);
+		writer.write_bool(self.has_return_value);
+		writer.write_u8(self.call_flags);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		let hash = reader.read_serializable()?;
+		let method = reader.read_var_string()?;
+		let params_count = reader.read_u16();
+		let has_return_value = reader.read_bool();
+		let call_flags = reader.read_u8();
+
+		Ok(Self { hash, method, params_count, has_return_value, call_flags })
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
+	}
 }

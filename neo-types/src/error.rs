@@ -50,4 +50,6 @@ pub enum TypeError {
 	NumericOverflow,
 	#[error("Wif error {0}")]
 	WifError(String),
+	#[error(transparent)]
+	CodecError(#[from] neo_codec::CodecError),
 }

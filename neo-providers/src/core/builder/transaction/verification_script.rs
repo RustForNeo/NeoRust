@@ -3,7 +3,7 @@ use crate::core::{
 	script::{interop_service::InteropService, script_builder::ScriptBuilder},
 };
 use getset::{Getters, Setters};
-use neo_codec::Decoder;
+use neo_codec::{serializable::NeoSerializable, Decoder, Encoder};
 use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey, Secp256r1Signature};
 use neo_types::{op_code::OpCode, Bytes};
 use num_bigint::BigInt;
@@ -11,7 +11,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, vec};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Getters, Setters)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Getters, Setters)]
 pub struct VerificationScript {
 	#[getset(get = "pub", set = "pub")]
 	script: Bytes,
@@ -170,5 +170,27 @@ impl VerificationScript {
 			Ok(keys) => Ok(keys.len()),
 			Err(e) => Err(e),
 		}
+	}
+}
+
+impl NeoSerializable for VerificationScript {
+	type Error = BuilderError;
+
+	fn size(&self) -> usize {
+		self.script.len()
+	}
+
+	fn serialize(&self, writer: &mut Encoder) {
+		writer.write_var_bytes(&self.script);
+	}
+
+	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+		let script = reader.read_var_bytes()?;
+		Ok(Self { script })
+	}
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.serialize(&mut writer);
+		writer.to_bytes()
 	}
 }

@@ -4,6 +4,7 @@
 use super::{common::JsonRpcError, http::ClientError};
 use crate::{errors::ProviderError, JsonRpcClient};
 use async_trait::async_trait;
+use reqwest::StatusCode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
 	fmt::Debug,
@@ -287,8 +288,8 @@ where
 			// R: Send + Sync
 			{
 				let resp = match params {
-					RetryParams::Value(ref params) => self.inner.request(method, params).await,
-					RetryParams::Zst(unit) => self.inner.request(method, unit).await,
+					RetryParams::Value(ref params) => self.inner.fetch(method, params).await,
+					RetryParams::Zst(unit) => self.inner.fetch(method, unit).await,
 				};
 				match resp {
 					Ok(ret) => {
@@ -392,8 +393,7 @@ impl RetryPolicy<ClientError> for HttpRateLimitRetryPolicy {
 		}
 
 		match error {
-			ClientError::ReqwestError(err) =>
-				err.status() == Some(http::StatusCode::TOO_MANY_REQUESTS),
+			ClientError::ReqwestError(err) => err.status() == Some(StatusCode::TOO_MANY_REQUESTS),
 			ClientError::JsonRpcError(err) => should_retry_json_rpc_error(err),
 			ClientError::SerdeJson { text, .. } => {
 				// some providers send invalid JSON RPC in the error case (no `id:u64`), but the

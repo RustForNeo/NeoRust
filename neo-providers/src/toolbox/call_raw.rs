@@ -1,8 +1,10 @@
 //! Overrides for the `neo_call` rpc method
 
 use crate::{
-	core::transaction::transaction::Transaction, utils, utils::PinBoxFut, JsonRpcClient, Provider,
-	ProviderError,
+	core::{responses::neo_find_states::States, transaction::transaction::Transaction},
+	utils,
+	utils::PinBoxFut,
+	JsonRpcClient, Provider, ProviderError,
 };
 use neo_types::{block::BlockId, Bytes};
 use pin_project::pin_project;
@@ -18,9 +20,8 @@ use std::{
 pub trait RawCall<'a> {
 	/// Sets the block number to execute against
 	fn block(self, id: BlockId) -> Self;
-	/// Sets the [state override set](https://geth.neo.org/docs/rpc/ns-eth#3-object---state-override-set).
-	/// Note that not all client implementations will support this as a parameter.
-	fn state(self, state: &'a spoof::State) -> Self;
+
+	fn state(self, state: &'a States) -> Self;
 
 	/// Maps a closure `f` over the result of `.await`ing this call
 	fn map<F>(self, f: F) -> Map<Self, F>
@@ -88,7 +89,7 @@ impl<'a, P> RawCall<'a> for CallBuilder<'a, P> {
 	fn block(self, id: BlockId) -> Self {
 		self.map_input(|call| call.input.block = Some(id))
 	}
-	fn state(self, state: &'a spoof::State) -> Self {
+	fn state(self, state: &'a States) -> Self {
 		self.map_input(|call| call.input.state = Some(state))
 	}
 }
@@ -137,7 +138,7 @@ impl<'a, P: JsonRpcClient> Caller<'a, P> {
 struct CallInput<'a> {
 	tx: &'a Transaction,
 	block: Option<BlockId>,
-	state: Option<&'a spoof::State>,
+	state: Option<&'a States>,
 }
 
 impl<'a> CallInput<'a> {
@@ -202,9 +203,8 @@ where
 		Self { inner: self.inner.block(id), f: self.f }
 	}
 
-	/// Sets the [state override set](https://geth.neo.org/docs/rpc/ns-eth#3-object---state-override-set).
 	/// Note that not all client implementations will support this as a parameter.
-	fn state(self, state: &'a spoof::State) -> Self {
+	fn state(self, state: &'a States) -> Self {
 		Self { inner: self.inner.state(state), f: self.f }
 	}
 }

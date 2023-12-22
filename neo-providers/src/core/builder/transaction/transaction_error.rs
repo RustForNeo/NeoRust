@@ -1,3 +1,4 @@
+use neo_codec::CodecError;
 use std::error;
 use thiserror::Error;
 
@@ -13,6 +14,8 @@ pub enum TransactionError {
 	InvalidBlock,
 	#[error("Invalid transaction")]
 	InvalidTransaction,
+	#[error("Invalid witness condition")]
+	InvalidWitnessCondition,
 	#[error("Too many signers")]
 	TooManySigners,
 	#[error("Duplicate signer")]
@@ -31,4 +34,6 @@ pub enum TransactionError {
 	TxTooLarge,
 	#[error("Transaction configuration error: {0}")]
 	TransactionConfiguration(String),
+	#[error("Codec error: {0}")]
+	CodecError(#[from] CodecError),
 }
