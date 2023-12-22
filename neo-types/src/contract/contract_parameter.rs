@@ -5,6 +5,7 @@ use crate::{
 use base64::encode;
 use elliptic_curve::sec1::ToEncodedPoint;
 
+use neo_codec::encode::NeoSerializable;
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
@@ -115,7 +116,7 @@ impl From<&[(ContractParameter, ContractParameter)]> for ContractParameter {
 
 impl From<&NefFile> for ContractParameter {
 	fn from(value: &NefFile) -> Self {
-		Self::string(serde_json::to_string(&value).unwrap())
+		Self::byte_array(value.to_array())
 	}
 }
 

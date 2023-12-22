@@ -1,7 +1,7 @@
 use crate::{
 	contract_parameter::ContractParameter, error::TypeError, stack_item::StackItem, Bytes,
 };
-use neo_codec::{serializable::NeoSerializable, CodecError, Decoder, Encoder};
+use neo_codec::{encode::NeoSerializable, CodecError, Decoder, Encoder};
 use neo_crypto::hash::HashableForVec;
 use primitive_types::H160;
 use serde::{Deserializer, Serializer};
@@ -38,7 +38,7 @@ pub struct NefFile {
 
 impl Into<ContractParameter> for NefFile {
 	fn into(self) -> ContractParameter {
-		ContractParameter::string(self.to_array())
+		ContractParameter::byte_array(self.to_array())
 	}
 }
 
@@ -104,7 +104,7 @@ impl NeoSerializable for NefFile {
 		size
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		writer.write_u32(Self::MAGIC);
 		writer
 			.write_fixed_string(&self.compiler, Self::COMPILER_SIZE)
@@ -117,7 +117,7 @@ impl NeoSerializable for NefFile {
 		writer.write_bytes(&self.checksum);
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error> {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> {
 		let magic = reader.read_u32();
 		if magic != Self::MAGIC {
 			return Err(TypeError::InvalidEncoding("Invalid magic".to_string()))
@@ -160,7 +160,7 @@ impl NeoSerializable for NefFile {
 
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
+		self.encode(&mut writer);
 		writer.to_bytes()
 	}
 }
@@ -193,7 +193,7 @@ impl NeoSerializable for MethodToken {
 		size
 	}
 
-	fn serialize(&self, writer: &mut Encoder) {
+	fn encode(&self, writer: &mut Encoder) {
 		writer.write_serializable_fixed(&self.hash);
 		writer.write_var_string(&self.method);
 		writer.write_u16(self.params_count);
@@ -201,7 +201,7 @@ impl NeoSerializable for MethodToken {
 		writer.write_u8(self.call_flags);
 	}
 
-	fn deserialize(reader: &mut Decoder) -> Result<Self, Self::Error>
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
 	where
 		Self: Sized,
 	{
@@ -216,7 +216,7 @@ impl NeoSerializable for MethodToken {
 
 	fn to_array(&self) -> Vec<u8> {
 		let mut writer = Encoder::new();
-		self.serialize(&mut writer);
+		self.encode(&mut writer);
 		writer.to_bytes()
 	}
 }

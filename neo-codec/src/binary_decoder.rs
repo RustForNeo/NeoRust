@@ -1,4 +1,4 @@
-use crate::serializable::NeoSerializable;
+use crate::encode::NeoSerializable;
 /// This module provides a binary decoder that can read various types of data from a byte slice.
 ///
 /// # Examples
@@ -224,7 +224,7 @@ impl<'a> Decoder<'a> {
 
 	/// Reads a deserializable value from the byte slice.
 	pub fn read_serializable<T: NeoSerializable>(&mut self) -> Result<T, CodecError> {
-		T::deserialize(self).map_err(|_e| CodecError::InvalidFormat)
+		T::decode(self).map_err(|_e| CodecError::InvalidFormat)
 	}
 
 	/// Reads a list of deserializable values from the byte slice.
@@ -232,7 +232,7 @@ impl<'a> Decoder<'a> {
 		let len = self.read_var_int().unwrap();
 		let mut list = Vec::with_capacity(len as usize);
 		for _ in 0..len {
-			T::deserialize(self)
+			T::decode(self)
 				.and_then(|item| Ok(list.push(item)))
 				.expect("TODO: panic message");
 		}
@@ -247,7 +247,7 @@ impl<'a> Decoder<'a> {
 		let mut offset = self.pointer;
 		let mut list = Vec::with_capacity(len as usize);
 		while bytes_read < len {
-			T::deserialize(self)
+			T::decode(self)
 				.and_then(|item| Ok(list.push(item)))
 				.expect("TODO: panic message");
 			bytes_read = (self.pointer - offset) as i64;

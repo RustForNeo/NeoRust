@@ -1,7 +1,7 @@
 mod binary_decoder;
 pub mod binary_encoder;
 mod error;
-pub mod serializable;
+pub mod encode;
 
 pub use binary_decoder::*;
 pub use binary_encoder::*;

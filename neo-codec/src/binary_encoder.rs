@@ -1,4 +1,4 @@
-use crate::{serializable::NeoSerializable, CodecError};
+use crate::{encode::NeoSerializable, CodecError};
 /// A binary encoder that can write various primitive types and serializable objects to a byte vector.
 ///
 /// # Examples
@@ -102,15 +102,15 @@ impl Encoder {
 	}
 
 	pub fn write_serializable_fixed<S: NeoSerializable>(&mut self, value: &S) {
-		value.serialize(self);
+		value.encode(self);
 	}
 	pub fn write_serializable_list_fixed<S: NeoSerializable>(&mut self, value: &[S]) {
-		value.iter().for_each(|v| v.serialize(self));
+		value.iter().for_each(|v| v.encode(self));
 	}
 
 	pub fn write_serializable_variable_bytes<S: NeoSerializable>(&mut self, values: &S) {
 		self.write_var_int(values.to_array().len() as i64);
-		values.serialize(self);
+		values.encode(self);
 	}
 
 	pub fn write_serializable_variable_list<S: NeoSerializable>(&mut self, values: &[S]) {
