@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Debug};
 use thiserror::Error;
 
@@ -133,11 +134,12 @@ pub trait MiddlewareError: Error + Sized + Send + Sync {
 	}
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 /// An error thrown when making a call to the provider
 pub enum ProviderError {
 	/// An internal error in the JSON RPC Client
 	#[error("{0}")]
+	#[serde(skip)]
 	JsonRpcClientError(Box<dyn crate::RpcError + Send + Sync>),
 
 	/// An error during NNS name resolution
@@ -150,14 +152,17 @@ pub enum ProviderError {
 
 	/// Error in underlying lib `serde_json`
 	#[error(transparent)]
+	#[serde(skip)]
 	SerdeJson(#[from] serde_json::Error),
 
 	/// Error in underlying lib `hex`
 	#[error(transparent)]
+	#[serde(skip)]
 	HexError(#[from] hex::FromHexError),
 
 	/// Error in underlying lib `reqwest`
 	#[error(transparent)]
+	#[serde(skip)]
 	HTTPError(#[from] reqwest::Error),
 
 	/// Custom error from unknown source

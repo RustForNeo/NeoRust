@@ -23,7 +23,7 @@ use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashSet,
-	convert::Into,
+	convert::{Into, TryInto},
 	fmt::Debug,
 	hash::{Hash, Hasher},
 };
@@ -123,8 +123,11 @@ impl<T: AccountTrait + Serialize> Hash for TransactionBuilder<T> {
 }
 
 impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
-	pub const GAS_TOKEN_HASH: [u8; 20] =
-		hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap().into();
+	pub const GAS_TOKEN_HASH: [u8; 20] = hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf")
+		.unwrap()
+		.iter()
+		.try_into()
+		.unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
 	pub const DUMMY_PUB_KEY: &'static str =
 		"02ec143f00b88524caf36a0121c2de09eef0519ddbe1c710a00f0e2663201ee4c0";
@@ -323,7 +326,7 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 					))
 				}
 
-				let key_pair = acc.key_pair.as_ref().ok_or_else(|| {
+				let key_pair = acc.key_pair().as_ref().ok_or_else(|| {
 					BuilderError::InvalidConfiguration(
 						"Cannot create transaction signature because account does not hold a private key.".to_string(),
 					)
@@ -345,8 +348,6 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 
 		Ok(transaction)
 	}
-
-	// Inside TransactionBuilder impl
 
 	// pub async fn get_unsigned_transaction(
 	// 	&mut self,
@@ -446,32 +447,6 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 		}
 
 		false
-	}
-
-	fn size(&self) -> usize {
-		let mut size = 0;
-
-		// Add fixed header sizes
-		size += 1; // version
-		size += 4; // nonce
-		size += 4; // valid until block
-
-		// Add signers
-		for signer in &self.signers {
-			size += bincode::serialize(signer).unwrap().len();
-		}
-
-		// Add attributes
-		for attr in &self.attributes {
-			size += bincode::serialize(attr).unwrap().len();
-		}
-
-		// Add script
-		if let Some(script) = &self.script {
-			size += script.len() + 1;
-		}
-
-		size
 	}
 
 	pub fn is_high_priority(&self) -> bool {

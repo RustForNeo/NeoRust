@@ -533,9 +533,9 @@ mod tests {
 	async fn request() {
 		let (ipc, _geth) = connect().await;
 
-		let block_num: U256 = ipc.request("neo_blockNumber", ()).await.unwrap();
+		let block_num: U256 = ipc.fetch("neo_blockNumber", ()).await.unwrap();
 		tokio::time::sleep(Duration::from_secs(2)).await;
-		let block_num2: U256 = ipc.request("neo_blockNumber", ()).await.unwrap();
+		let block_num2: U256 = ipc.fetch("neo_blockNumber", ()).await.unwrap();
 		assert!(block_num2 > block_num);
 	}
 
@@ -545,7 +545,7 @@ mod tests {
 
 		// Subscribing requires sending the sub request and then subscribing to
 		// the returned sub_id
-		let sub_id: U256 = ipc.request("neo_subscribe", ["newHeads"]).await.unwrap();
+		let sub_id: U256 = ipc.fetch("neo_subscribe", ["newHeads"]).await.unwrap();
 		let stream = ipc.subscribe(sub_id).unwrap();
 
 		let blocks: Vec<u64> = stream

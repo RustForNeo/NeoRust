@@ -323,7 +323,8 @@ impl<T: AccountTrait + Serialize> NeoSerializable for Signer<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer.size(),
 			Signer::Contract(contract_signer) => contract_signer.size(),
-			Signer::Transaction(transaction_signer) => transaction_signer.size(),
+			// Signer::Transaction(transaction_signer) => transaction_signer.size(),
+			_ => panic!("Unsupported signer type"),
 		}
 	}
 
@@ -331,7 +332,8 @@ impl<T: AccountTrait + Serialize> NeoSerializable for Signer<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer.encode(writer),
 			Signer::Contract(contract_signer) => contract_signer.encode(writer),
-			Signer::Transaction(transaction_signer) => transaction_signer.encode(writer),
+			// Signer::Transaction(transaction_signer) => transaction_signer.encode(writer),
+			_ => panic!("Unsupported signer type"),
 		}
 	}
 
@@ -342,7 +344,7 @@ impl<T: AccountTrait + Serialize> NeoSerializable for Signer<T> {
 		match reader.read_u8() {
 			0 => Ok(Signer::Account(AccountSigner::decode(reader)?)),
 			1 => Ok(Signer::Contract(ContractSigner::decode(reader)?)),
-			2 => Ok(Signer::Transaction(TransactionSigner::decode(reader)?)),
+			// 2 => Ok(Signer::Transaction(TransactionSigner::decode(reader)?)),
 			_ => Err(TransactionError::InvalidTransaction),
 		}
 	}
@@ -351,7 +353,8 @@ impl<T: AccountTrait + Serialize> NeoSerializable for Signer<T> {
 		match self {
 			Signer::Account(account_signer) => account_signer.to_array(),
 			Signer::Contract(contract_signer) => contract_signer.to_array(),
-			Signer::Transaction(transaction_signer) => transaction_signer.to_array(),
+			// Signer::Transaction(transaction_signer) => transaction_signer.to_array(),
+			_ => panic!("Unsupported signer type"),
 		}
 	}
 }

@@ -22,7 +22,7 @@ use url::Url;
 ///
 /// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 /// let provider = Http::from_str("http://localhost:8545")?;
-/// let block_number: u64 = provider.request("neo_blockNumber", ()).await?;
+/// let block_number: u64 = provider.fetch("neo_blockNumber", ()).await?;
 /// # Ok(())
 /// # }
 /// ```

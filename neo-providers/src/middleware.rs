@@ -262,15 +262,15 @@ pub trait Middleware: Sync + Send + Debug {
 	}
 
 	/// Gets the transaction with `transaction_hash`
-	async fn get_transaction<T: Send + Sync + Into<TxHash>>(
-		&self,
-		transaction_hash: T,
-	) -> Result<Option<Transaction>, Self::Error> {
-		self.inner()
-			.get_transaction(transaction_hash)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
+	// async fn get_transaction<T: Send + Sync + Into<TxHash>>(
+	// 	&self,
+	// 	transaction_hash: T,
+	// ) -> Result<Option<Transaction>, Self::Error> {
+	// 	self.inner()
+	// 		.get_transaction(transaction_hash)
+	// 		.await
+	// 		.map_err(MiddlewareError::from_err)
+	// }
 
 	/// Gets the transaction with block and index
 	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
@@ -681,7 +681,7 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
 	}
 
-	async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, Self::Error> {
+	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
 		self.inner()
 			.get_network_magic_number_bytes()
 			.await
@@ -780,9 +780,9 @@ pub trait Middleware: Sync + Send + Debug {
 
 	// Application logs
 
-	// async fn get_transaction(&self, hash: H256) -> Result<Transaction, Self::Error>{
-	// 	self.inner().get_transaction(hash).await.map_err(MiddlewareError::from_err)
-	// }
+	async fn get_transaction(&self, hash: H256) -> Result<Transaction, Self::Error> {
+		self.inner().get_transaction(hash).await.map_err(MiddlewareError::from_err)
+	}
 
 	// State service
 

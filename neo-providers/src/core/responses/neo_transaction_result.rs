@@ -10,7 +10,7 @@ use neo_types::invocation_result::NeoVMStateType;
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Hash, Clone)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 pub struct TransactionResult {
 	pub hash: H256,
 	pub size: i32,

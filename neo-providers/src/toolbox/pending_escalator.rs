@@ -192,7 +192,8 @@ where
 				// broadcast, broadcast it
 				if this.last.elapsed() > *this.broadcast_interval {
 					if let Some(next_to_broadcast) = this.txns.pop() {
-						let fut = this.provider.send_raw_transaction(next_to_broadcast);
+						let fut =
+							this.provider.send_raw_transaction(hex::encode(next_to_broadcast));
 						*this.state = BroadcastingNew(fut);
 						cx.waker().wake_by_ref();
 						return Poll::Pending

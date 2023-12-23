@@ -1,12 +1,10 @@
 use crate::{
 	call_raw::CallBuilder,
 	errors::ProviderError,
-	ext::nns,
 	rpc::pubsub::{PubsubClient, SubscriptionStream},
 	stream::{FilterWatcher, DEFAULT_LOCAL_POLL_INTERVAL, DEFAULT_POLL_INTERVAL},
-	utils, EscalatingPending, EscalationPolicy, Http as HttpProvider, JsonRpcClient,
-	JsonRpcClientWrapper, LogQuery, MiddlewareError, MockProvider, NodeInfo, PeerInfo,
-	PendingTransaction, QuorumProvider, RwClient,
+	utils, Http as HttpProvider, JsonRpcClient, LogQuery, MiddlewareError, MockProvider, NodeInfo,
+	PeerInfo, PendingTransaction, RwClient,
 };
 
 pub use crate::Middleware;
@@ -41,6 +39,7 @@ use crate::{
 		utils::VecValueExtension,
 	},
 	rpc::provider::sealed::Sealed,
+	stream::TransactionResult,
 };
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{HttpRateLimitRetryPolicy, RetryClient};
@@ -60,7 +59,6 @@ use neo_types::{
 	serde_value::ValueExtension,
 	stack_item::StackItem,
 	syncing::SyncingStatus,
-	tx_pool::{TxpoolContent, TxpoolInspect, TxpoolStatus},
 	Bytes,
 };
 use primitive_types::{H160, H256 as TxHash, H256, U256};
@@ -72,7 +70,6 @@ use std::{
 	fmt::Debug,
 	future::Future,
 	net::Ipv4Addr,
-	pin::Pin,
 	str::FromStr,
 	sync::Arc,
 	time::Duration,
@@ -97,6 +94,19 @@ impl FromStr for NodeClient {
 			_ => Err(ProviderError::UnsupportedNodeClient),
 		}
 	}
+}
+
+/// Types of filters supported by the JSON-RPC.
+#[derive(Clone, Debug)]
+pub enum FilterKind<'a> {
+	/// `neo_newBlockFilter`
+	Logs(&'a Filter),
+
+	/// `neo_newBlockFilter` filter
+	NewBlocks,
+
+	/// `neo_newPendingTransactionFilter` filter
+	PendingTransactions,
 }
 
 /// An abstract provider for interacting with the [Neo JSON RPC
@@ -133,19 +143,6 @@ impl<P> AsRef<P> for Provider<P> {
 	fn as_ref(&self) -> &P {
 		&self.inner
 	}
-}
-
-/// Types of filters supported by the JSON-RPC.
-#[derive(Clone, Debug)]
-pub enum FilterKind<'a> {
-	/// `neo_newBlockFilter`
-	Logs(&'a Filter),
-
-	/// `neo_newBlockFilter` filter
-	NewBlocks,
-
-	/// `neo_newPendingTransactionFilter` filter
-	PendingTransactions,
 }
 
 // JSON RPC bindings
@@ -197,7 +194,7 @@ impl<P: JsonRpcClient> Provider<P> {
 		// https://docs.rs/tracing/0.1.22/tracing/span/struct.Span.html#in-asynchronous-code
 		let res = async move {
 			trace!("tx");
-			let res: R = self.inner.request(method, params).await.map_err(Into::into)?;
+			let res: R = self.inner.fetch(method, params).await.map_err(Into::into)?;
 			trace!(rx = ?serde_json::to_string(&res)?);
 			Ok::<_, ProviderError>(res)
 		}
@@ -216,11 +213,11 @@ impl<P: JsonRpcClient> Provider<P> {
 		Ok(match id {
 			BlockId::Hash(hash) => {
 				let hash = utils::serialize(&hash);
-				self.fetch("neo_getBlockByHash", [hash, include_txs]).await?
+				self.request("neo_getBlockByHash", [hash, include_txs]).await?
 			},
 			BlockId::Number(num) => {
 				let num = utils::serialize(&num);
-				self.fetch::<[Value; 2], _>("neo_getBlockByNumber", [num, include_txs]).await?
+				self.request("neo_getBlockByNumber", [num, include_txs]).await?
 			},
 		})
 	}
@@ -241,13 +238,13 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		unreachable!("There is no inner provider here")
 	}
 
-	fn provider(&self) -> &Provider<Self::Provider> {
-		self
-	}
-
 	fn convert_err(p: ProviderError) -> Self::Error {
 		// no conversion necessary
 		p
+	}
+
+	fn provider(&self) -> &Provider<Self::Provider> {
+		self
 	}
 
 	fn default_sender(&self) -> Option<Address> {
@@ -255,18 +252,23 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	async fn client_version(&self) -> Result<String, Self::Error> {
-		self.fetch("web3_clientVersion", ()).await?
+		self.request("web3_clientVersion", ()).await?
 	}
 
 	async fn get_block_number(&self) -> Result<u64, ProviderError> {
-		self.fetch("neo_blockNumber", ()).await?
+		self.request("neo_blockNumber", ()).await?
 	}
 
-	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
+	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
-		block_hash_or_number: T,
-	) -> Result<Option<Block<Transaction, Witness>>, ProviderError> {
-		self.get_block_gen(block_hash_or_number.into(), true).await?
+		tx: T,
+		block: Option<BlockId>,
+	) -> Result<PendingTransaction<'_, P>, ProviderError> {
+		let mut tx = tx.into();
+		self.fill_transaction(&mut tx, block).await?;
+		let tx_hash = self.request("neo_sendTransaction", [tx]).await?;
+
+		Ok(PendingTransaction::new(tx_hash, self))
 	}
 
 	// async fn get_transaction<T: Send + Sync + Into<TxHash>>(
@@ -274,34 +276,14 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	// 	transaction_hash: T,
 	// ) -> Result<Option<Transaction>, ProviderError> {
 	// 	let hash = transaction_hash.into();
-	// 	self.fetch("neo_getTransactionByHash", [hash]).await?
+	// 	self.request("neo_getTransactionByHash", [hash]).await?
 	// }
 
-	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
+	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-		idx: u64,
-	) -> Result<Option<Transaction>, ProviderError> {
-		let blk_id = block_hash_or_number.into();
-		let idx = utils::serialize(&idx);
-		Ok(match blk_id {
-			BlockId::Hash(hash) => {
-				let hash = utils::serialize(&hash);
-				self.fetch("neo_getTransactionByBlockHashAndIndex", [hash, idx]).await?
-			},
-			BlockId::Number(num) => {
-				let num = utils::serialize(&num);
-				self.fetch("neo_getTransactionByBlockNumberAndIndex", [num, idx]).await?
-			},
-		})
-	}
-
-	async fn get_gas_price(&self) -> Result<U256, ProviderError> {
-		self.fetch("neo_gasPrice", ()).await?
-	}
-
-	async fn get_accounts(&self) -> Result<Vec<Address>, ProviderError> {
-		self.fetch("neo_accounts", ()).await?
+	) -> Result<Option<Block<Transaction, Witness>>, ProviderError> {
+		self.get_block_gen(block_hash_or_number.into(), true).await?
 	}
 
 	async fn get_transaction_count<T: Into<NameOrAddress> + Send + Sync>(
@@ -316,41 +298,8 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 		let from = utils::serialize(&from);
 		let block = utils::serialize(&block.unwrap());
-		self.fetch("neo_getTransactionCount", [from, block]).await?
+		self.request("neo_getTransactionCount", [from, block]).await?
 	}
-
-	async fn get_balance<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		block: Option<BlockId>,
-	) -> Result<U256, ProviderError> {
-		let from = match from.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		let from = utils::serialize(&from);
-		let block = utils::serialize(&block.unwrap());
-		self.fetch("neo_getBalance", [from, block]).await?
-	}
-
-	async fn get_network_magic(&self) -> Result<U256, ProviderError> {
-		self.fetch("neo_chainId", ()).await?
-	}
-
-	async fn syncing(&self) -> Result<SyncingStatus, Self::Error> {
-		self.fetch("neo_syncing", ()).await?
-	}
-
-	async fn get_net_version(&self) -> Result<String, ProviderError> {
-		self.fetch("net_version", ()).await?
-	}
-
-	// async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, ProviderError> {
-	// 	let tx = utils::serialize(tx);
-	// 	let block = utils::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
-	// 	self.fetch("neo_call", [tx, block]).await?
-	// }
 
 	async fn estimate_gas(
 		&self,
@@ -365,19 +314,67 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		} else {
 			vec![tx]
 		};
-		self.fetch("neo_estimateGas", params).await?
+		self.request("neo_estimateGas", params).await?
 	}
 
-	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
-		&self,
-		tx: T,
-		block: Option<BlockId>,
-	) -> Result<PendingTransaction<'_, P>, ProviderError> {
-		let mut tx = tx.into();
-		self.fill_transaction(&mut tx, block).await?;
-		let tx_hash = self.fetch("neo_sendTransaction", [tx]).await?;
+	async fn syncing(&self) -> Result<SyncingStatus, Self::Error> {
+		self.request("neo_syncing", ()).await?
+	}
 
-		Ok(PendingTransaction::new(tx_hash, self))
+	async fn get_network_magic(&self) -> Result<U256, ProviderError> {
+		self.request("neo_chainId", ()).await?
+	}
+
+	async fn get_net_version(&self) -> Result<String, ProviderError> {
+		self.request("net_version", ()).await?
+	}
+
+	async fn get_balance<T: Into<NameOrAddress> + Send + Sync>(
+		&self,
+		from: T,
+		block: Option<BlockId>,
+	) -> Result<U256, ProviderError> {
+		let from = match from.into() {
+			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
+			NameOrAddress::Address(addr) => addr,
+		};
+
+		let from = utils::serialize(&from);
+		let block = utils::serialize(&block.unwrap());
+		self.request("neo_getBalance", [from, block]).await?
+	}
+
+	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
+		&self,
+		block_hash_or_number: T,
+		idx: u64,
+	) -> Result<Option<Transaction>, ProviderError> {
+		let blk_id = block_hash_or_number.into();
+		let idx = utils::serialize(&idx);
+		Ok(match blk_id {
+			BlockId::Hash(hash) => {
+				let hash = utils::serialize(&hash);
+				self.request("neo_getTransactionByBlockHashAndIndex", [hash, idx]).await?
+			},
+			BlockId::Number(num) => {
+				let num = utils::serialize(&num);
+				self.request("neo_getTransactionByBlockNumberAndIndex", [num, idx]).await?
+			},
+		})
+	}
+
+	// async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, ProviderError> {
+	// 	let tx = utils::serialize(tx);
+	// 	let block = utils::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
+	// 	self.request("neo_call", [tx, block]).await?
+	// }
+
+	async fn get_gas_price(&self) -> Result<U256, ProviderError> {
+		self.request("neo_gasPrice", ()).await?
+	}
+
+	async fn get_accounts(&self) -> Result<Vec<Address>, ProviderError> {
+		self.request("neo_accounts", ()).await?
 	}
 
 	// async fn send_raw_transaction<'a>(
@@ -385,7 +382,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	// 	tx: Bytes,
 	// ) -> Result<PendingTransaction<'a, P>, ProviderError> {
 	// 	let rlp = utils::serialize(&tx);
-	// 	let tx_hash = self.fetch("neo_sendRawTransaction", [rlp]).await?;
+	// 	let tx_hash = self.request("neo_sendRawTransaction", [rlp]).await?;
 	// 	Ok(PendingTransaction::new(tx_hash, self))
 	// }
 
@@ -405,11 +402,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		let from = utils::serialize(from);
 
 		// get the response from `neo_sign` call
-		let sig: String = self.fetch("neo_sign", [from, data]).await?;
+		let sig: String = self.request("neo_sign", [from, data]).await?;
 
 		// decode the signature
 		let sig = hex::decode(sig)?;
-		Ok(Secp256r1Signature::try_from(sig.as_slice())
+		Ok(Secp256r1Signature::from_bytes(sig.as_slice())
 			.map_err(|e| ProviderError::CustomError(e.to_string()))?)
 	}
 
@@ -425,11 +422,29 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	////// Contract state
 
 	async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>, ProviderError> {
-		self.fetch("neo_getLogs", [filter]).await?
+		self.request("neo_getLogs", [filter]).await?
 	}
 
 	fn get_logs_paginated<'a>(&'a self, filter: &Filter, page_size: u64) -> LogQuery<'a, P> {
 		LogQuery::new(self, filter).with_page_size(page_size)
+	}
+
+	async fn new_filter(&self, filter: FilterKind<'_>) -> Result<U256, ProviderError> {
+		let (method, args) = match filter {
+			FilterKind::NewBlocks => ("neo_newBlockFilter", vec![]),
+			FilterKind::PendingTransactions => ("neo_newPendingTransactionFilter", vec![]),
+			FilterKind::Logs(filter) => ("neo_newFilter", vec![utils::serialize(&filter)]),
+		};
+
+		self.request(method, args).await?
+	}
+
+	async fn uninstall_filter<T: Into<U256> + Send + Sync>(
+		&self,
+		id: T,
+	) -> Result<bool, ProviderError> {
+		let id = utils::serialize(&id.into());
+		self.request("neo_uninstallFilter", [id]).await?
 	}
 
 	async fn watch<'a>(
@@ -437,12 +452,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		filter: &Filter,
 	) -> Result<FilterWatcher<'a, P, Log>, ProviderError> {
 		let id = self.new_filter(FilterKind::Logs(filter)).await?;
-		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
-		Ok(filter)
-	}
-
-	async fn watch_blocks(&self) -> Result<FilterWatcher<'_, P, H256>, ProviderError> {
-		let id = self.new_filter(FilterKind::NewBlocks).await?;
 		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
 		Ok(filter)
 	}
@@ -456,31 +465,34 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		Ok(filter)
 	}
 
-	async fn new_filter(&self, filter: FilterKind<'_>) -> Result<U256, ProviderError> {
-		let (method, args) = match filter {
-			FilterKind::NewBlocks => ("neo_newBlockFilter", vec![]),
-			FilterKind::PendingTransactions => ("neo_newPendingTransactionFilter", vec![]),
-			FilterKind::Logs(filter) => ("neo_newFilter", vec![utils::serialize(&filter)]),
-		};
-
-		self.fetch(method, args).await?
-	}
-
-	async fn uninstall_filter<T: Into<U256> + Send + Sync>(
-		&self,
-		id: T,
-	) -> Result<bool, ProviderError> {
-		let id = utils::serialize(&id.into());
-		self.fetch("neo_uninstallFilter", [id]).await?
-	}
-
 	async fn get_filter_changes<T, R>(&self, id: T) -> Result<Vec<R>, ProviderError>
 	where
 		T: Into<U256> + Send + Sync,
 		R: Serialize + DeserializeOwned + Send + Sync + Debug,
 	{
 		let id = utils::serialize(&id.into());
-		self.fetch("neo_getFilterChanges", [id]).await?
+		self.request("neo_getFilterChanges", [id]).await?
+	}
+
+	async fn watch_blocks(&self) -> Result<FilterWatcher<'_, P, H256>, ProviderError> {
+		let id = self.new_filter(FilterKind::NewBlocks).await?;
+		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
+		Ok(filter)
+	}
+
+	async fn get_code<T: Into<NameOrAddress> + Send + Sync>(
+		&self,
+		at: T,
+		block: Option<BlockId>,
+	) -> Result<Bytes, ProviderError> {
+		let at = match at.into() {
+			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
+			NameOrAddress::Address(addr) => addr,
+		};
+
+		let at = utils::serialize(&at);
+		let block = utils::serialize(&block.unwrap());
+		self.request("neo_getCode", [at, block]).await?
 	}
 
 	async fn get_storage_at<T: Into<NameOrAddress> + Send + Sync>(
@@ -502,7 +514,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		let block = utils::serialize(&block.unwrap());
 
 		// get the hex encoded value
-		let value: String = self.fetch("neo_getStorageAt", [from, position, block]).await?;
+		let value: String = self.request("neo_getStorageAt", [from, position, block]).await?;
 		// decode and left-pad to 32 bytes
 		let bytes = hex::decode(value)?;
 		if bytes.len() > 32 {
@@ -512,21 +524,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 			buf[32 - bytes.len()..].copy_from_slice(&bytes);
 			Ok(H256(buf))
 		}
-	}
-
-	async fn get_code<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		at: T,
-		block: Option<BlockId>,
-	) -> Result<Bytes, ProviderError> {
-		let at = match at.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		let at = utils::serialize(&at);
-		let block = utils::serialize(&block.unwrap());
-		self.fetch("neo_getCode", [at, block]).await?
 	}
 
 	async fn import_raw_key(
@@ -541,7 +538,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		let private_key_hex = hex::encode(private_key);
 		let private_key = utils::serialize(&private_key_hex);
 		let passphrase = utils::serialize(&passphrase);
-		self.fetch("personal_importRawKey", [private_key, passphrase]).await?
+		self.request("personal_importRawKey", [private_key, passphrase]).await?
 	}
 
 	async fn unlock_account<T: Into<Address> + Send + Sync>(
@@ -553,35 +550,35 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		let account = utils::serialize(&account.into());
 		let duration = utils::serialize(&duration.unwrap_or(0));
 		let passphrase = utils::serialize(&passphrase);
-		self.fetch("personal_unlockAccount", [account, passphrase, duration]).await?
+		self.request("personal_unlockAccount", [account, passphrase, duration]).await?
 	}
 
 	async fn add_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
 		let enode_url = utils::serialize(&enode_url);
-		self.fetch("admin_addPeer", [enode_url]).await?
+		self.request("admin_addPeer", [enode_url]).await?
 	}
 
 	async fn add_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
 		let enode_url = utils::serialize(&enode_url);
-		self.fetch("admin_addTrustedPeer", [enode_url]).await?
+		self.request("admin_addTrustedPeer", [enode_url]).await?
 	}
 
 	async fn node_info(&self) -> Result<NodeInfo, Self::Error> {
-		self.fetch("admin_nodeInfo", ()).await?
+		self.request("admin_nodeInfo", ()).await?
 	}
 
 	async fn peers(&self) -> Result<Vec<PeerInfo>, Self::Error> {
-		self.fetch("admin_peers", ()).await?
+		self.request("admin_peers", ()).await?
 	}
 
 	async fn remove_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
 		let enode_url = utils::serialize(&enode_url);
-		self.fetch("admin_removePeer", [enode_url]).await?
+		self.request("admin_removePeer", [enode_url]).await?
 	}
 
 	async fn remove_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
 		let enode_url = utils::serialize(&enode_url);
-		self.fetch("admin_removeTrustedPeer", [enode_url]).await?
+		self.request("admin_removeTrustedPeer", [enode_url]).await?
 	}
 
 	async fn subscribe<T, R>(
@@ -593,7 +590,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		R: DeserializeOwned + Send + Sync,
 		P: PubsubClient,
 	{
-		let id: U256 = self.fetch("neo_subscribe", params).await?;
+		let id: U256 = self.request("neo_subscribe", params).await?;
 		SubscriptionStream::new(id, self).map_err(Into::into)
 	}
 
@@ -602,7 +599,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		T: Into<U256> + Send + Sync,
 		P: PubsubClient,
 	{
-		self.fetch("neo_unsubscribe", [id.into()]).await?
+		self.request("neo_unsubscribe", [id.into()]).await?
 	}
 
 	async fn subscribe_blocks(
@@ -678,10 +675,10 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	async fn dump_private_key(&self, script_hash: H160) -> Result<String, ProviderError> {
-		self.fetch("dumpprivkey", [script_hash.to_address()]).await?
+		self.request("dumpprivkey", [script_hash.to_address()]).await?
 	}
 
-	async fn get_network_magic_number(&mut self) -> Result<u32, ProviderError> {
+	async fn get_network_magic_number(&self) -> Result<u32, ProviderError> {
 		if self.config().network_magic.is_none() {
 			let magic = self
 				.get_version()
@@ -698,136 +695,139 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		Ok(self.config().network_magic.unwrap())
 	}
 
-	async fn get_network_magic_number_bytes(&mut self) -> Result<Bytes, ProviderError> {
+	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, ProviderError> {
 		let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
 		Ok(magic_int.to_be_bytes().to_vec())
 	}
 
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> Result<H256, ProviderError> {
-		self.fetch("getbestblockhash", vec![]).await?
+		self.request("getbestblockhash", ()).await?
 	}
 
 	async fn get_block_hash(&self, block_index: u32) -> Result<H256, ProviderError> {
-		self.fetch("getblockhash", [block_index.to_value()].to_vec()).await?
+		self.request("getblockhash", [block_index.to_value()].to_vec()).await?
 	}
 
 	async fn get_block(&self, block_hash: H256, full_tx: bool) -> Result<NeoBlock, ProviderError> {
 		return Ok(if full_tx {
-			self.fetch("getblock", [block_hash.to_value(), 1.to_value()].to_vec()).await?
+			self.request("getblock", [block_hash.to_value(), 1.to_value()].to_vec()).await?
 		} else {
 			self.get_block_header_hash(block_hash).await?
 		})
 	}
 
 	async fn get_raw_block(&self, block_hash: H256) -> Result<String, ProviderError> {
-		self.fetch("getblock", [block_hash.to_value(), 0.to_value()]).await?
+		self.request("getblock", [block_hash.to_value(), 0.to_value()]).await?
 	}
 
 	// Node methods
 
 	async fn get_block_header_count(&self) -> Result<u32, ProviderError> {
-		self.fetch("getblockheadercount", ()).await?
+		self.request("getblockheadercount", ()).await?
 	}
 
 	async fn get_block_count(&self) -> Result<u32, ProviderError> {
-		self.fetch("getblockcount", vec![]).await?
+		self.request("getblockcount", ()).await?
 	}
 
 	async fn get_block_header(&self, block_hash: H256) -> Result<NeoBlock, ProviderError> {
-		self.fetch("getblockheader", vec![block_hash.to_value(), 1.to_value()]).await?
+		self.request("getblockheader", vec![block_hash.to_value(), 1.to_value()])
+			.await?
 	}
 
 	async fn get_block_header_by_index(&self, index: u32) -> Result<NeoBlock, ProviderError> {
-		self.fetch("getblockheader", vec![index.to_value(), 1.to_value()]).await?
+		self.request("getblockheader", vec![index.to_value(), 1.to_value()]).await?
 	}
 
 	// Smart contract methods
 
 	async fn get_raw_block_header(&self, block_hash: H256) -> Result<String, ProviderError> {
-		self.fetch("getblockheader", vec![block_hash.to_value(), 0.to_value()]).await?
+		self.request("getblockheader", vec![block_hash.to_value(), 0.to_value()])
+			.await?
 	}
 
 	async fn get_raw_block_header_by_index(&self, index: u32) -> Result<String, ProviderError> {
-		self.fetch("getblockheader", vec![index.to_value(), 0.to_value()]).await?
+		self.request("getblockheader", vec![index.to_value(), 0.to_value()]).await?
 	}
 
 	// Utility methods
 
 	async fn get_native_contracts(&self) -> Result<Vec<NativeContractState>, ProviderError> {
-		self.fetch("getnativecontracts", vec![]).await?
+		self.request("getnativecontracts", ()).await?
 	}
 
 	// Wallet methods
 
 	async fn get_contract_state(&self, hash: H160) -> Result<ContractState, ProviderError> {
-		self.fetch("getcontractstate", vec![hash.to_value()]).await?
+		self.request("getcontractstate", vec![hash.to_value()]).await?
 	}
 
 	async fn get_native_contract_state(&self, name: &str) -> Result<ContractState, ProviderError> {
-		self.fetch("getcontractstate", vec![name.to_value()]).await?
+		self.request("getcontractstate", vec![name.to_value()]).await?
 	}
 
 	async fn get_mem_pool(&self) -> Result<MemPoolDetails, ProviderError> {
-		self.fetch("getrawmempool", vec![1.to_value()]).await?
+		self.request("getrawmempool", vec![1.to_value()]).await?
 	}
 
 	async fn get_raw_mem_pool(&self) -> Result<Vec<H256>, ProviderError> {
-		self.fetch("getrawmempool", vec![]).await?
+		self.request("getrawmempool", ()).await?
 	}
 
 	// Application logs
 
 	async fn get_transaction(&self, hash: H256) -> Result<Transaction, ProviderError> {
-		self.fetch("getrawtransaction", vec![hash.to_value(), 1.to_value()]).await?
+		self.request("getrawtransaction", vec![hash.to_value(), 1.to_value()]).await?
 	}
 
 	// State service
 
 	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<String, ProviderError> {
-		self.fetch("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()]).await?
+		self.request("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
+			.await?
 	}
 
 	async fn get_storage(&self, contract_hash: H160, key: &str) -> Result<String, ProviderError> {
 		let params = [contract_hash.to_value(), key.to_value()];
-		self.fetch("getstorage", params.to_vec()).await?
+		self.request("getstorage", params.to_vec()).await?
 	}
 	// Blockchain methods
 
 	async fn get_transaction_height(&self, tx_hash: H256) -> Result<u32, ProviderError> {
 		let params = [tx_hash.to_value()];
-		self.fetch("gettransactionheight", params.to_vec()).await?
+		self.request("gettransactionheight", params.to_vec()).await?
 	}
 
 	async fn get_next_block_validators(&self) -> Result<Vec<Validator>, ProviderError> {
-		self.fetch("getnextblockvalidators", vec![]).await?
+		self.request("getnextblockvalidators", ()).await?
 	}
 
 	async fn get_committee(&self) -> Result<Vec<String>, ProviderError> {
-		self.fetch("getcommittee", vec![]).await?
+		self.request("getcommittee", ()).await?
 	}
 
 	async fn get_connection_count(&self) -> Result<u32, ProviderError> {
-		self.fetch("getconnectioncount", vec![]).await?
+		self.request("getconnectioncount", ()).await?
 	}
 
 	async fn get_peers(&self) -> Result<Peers, ProviderError> {
-		self.fetch("getpeers", vec![]).await?
+		self.request("getpeers", ()).await?
 	}
 
 	// Smart contract methods
 
 	async fn get_version(&self) -> Result<NeoVersion, ProviderError> {
-		self.fetch("getversion", vec![]).await?
+		self.request("getversion", ()).await?
 	}
 
 	async fn send_raw_transaction(&self, hex: String) -> Result<RawTransaction, ProviderError> {
-		self.fetch("sendrawtransaction", vec![hex.to_value()]).await?
+		self.request("sendrawtransaction", vec![hex.to_value()]).await?
 	}
 	// More node methods
 
 	async fn submit_block(&self, hex: String) -> Result<bool, ProviderError> {
-		self.fetch("submitblock", vec![hex.to_value()]).await?
+		self.request("submitblock", vec![hex.to_value()]).await?
 	}
 
 	// More blockchain methods
@@ -840,7 +840,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
-		self.fetch(
+		self.request(
 			"invokefunction",
 			vec![
 				contract_hash.to_value(),
@@ -859,63 +859,63 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	) -> Result<InvocationResult, ProviderError> {
 		let signers: Vec<TransactionSigner> =
 			signers.into_iter().map(|signer| signer.into()).collect::<Vec<_>>();
-		self.fetch("invokescript", vec![hex.to_value(), signers.to_value()]).await?
+		self.request("invokescript", [hex.to_value(), signers.to_value()]).await?
 	}
 
 	// More smart contract methods
 
 	async fn get_unclaimed_gas(&self, hash: H160) -> Result<UnclaimedGas, ProviderError> {
-		self.fetch("getunclaimedgas", [hash.to_value()]).await?
+		self.request("getunclaimedgas", [utils::serialize(&hash)]).await?
 	}
 
 	async fn list_plugins(&self) -> Result<Vec<Plugin>, ProviderError> {
-		self.fetch("listplugins", []).await?
+		self.request("listplugins", []).await?
 	}
 
 	// More utility methods
 
 	async fn validate_address(&self, address: &str) -> Result<ValidateAddress, ProviderError> {
-		self.fetch("validateaddress", vec![address.to_value()]).await?
+		self.request("validateaddress", vec![address.to_value()]).await?
 	}
 
 	// More wallet methods
 
 	async fn close_wallet(&self) -> Result<bool, ProviderError> {
-		self.fetch("closewallet", vec![]).await?
+		self.request("closewallet", ()).await?
 	}
 
 	async fn dump_priv_key(&self, script_hash: H160) -> Result<String, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		self.fetch("dumpprivkey", params).await?
+		self.request("dumpprivkey", params).await?
 	}
 
 	async fn get_wallet_balance(&self, token_hash: H160) -> Result<Balance, ProviderError> {
-		self.fetch("getwalletbalance", vec![token_hash.to_value()]).await?
+		self.request("getwalletbalance", vec![token_hash.to_value()]).await?
 	}
 
 	async fn get_new_address(&self) -> Result<String, ProviderError> {
-		self.fetch("getnewaddress", vec![]).await?
+		self.request("getnewaddress", ()).await?
 	}
 
 	async fn get_wallet_unclaimed_gas(&self) -> Result<String, ProviderError> {
-		self.fetch("getwalletunclaimedgas", vec![]).await?
+		self.request("getwalletunclaimedgas", ()).await?
 	}
 
 	async fn import_priv_key(&self, priv_key: String) -> Result<NeoAddress, ProviderError> {
 		let params = [priv_key.to_value()].to_vec();
-		self.fetch("importprivkey", params).await?
+		self.request("importprivkey", params).await?
 	}
 
 	async fn calculate_network_fee(&self, hex: String) -> Result<u64, ProviderError> {
-		self.fetch("calculatenetworkfee", vec![hex.to_value()]).await?
+		self.request("calculatenetworkfee", vec![hex.to_value()]).await?
 	}
 
 	async fn list_address(&self) -> Result<Vec<NeoAddress>, ProviderError> {
-		self.fetch("listaddress", vec![]).await?
+		self.request("listaddress", ()).await?
 	}
 
 	async fn open_wallet(&self, path: String, password: String) -> Result<bool, ProviderError> {
-		self.fetch("openwallet", vec![path.to_value(), password.to_value()]).await?
+		self.request("openwallet", vec![path.to_value(), password.to_value()]).await?
 	}
 
 	async fn send_from(
@@ -927,7 +927,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	) -> Result<Transaction, ProviderError> {
 		let params =
 			[token_hash.to_value(), from.to_value(), to.to_value(), amount.to_value()].to_vec();
-		self.fetch("sendfrom", params).await?
+		self.request("sendfrom", params).await?
 	}
 
 	// Transaction methods
@@ -938,7 +938,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		send_tokens: Vec<TransactionSendToken>,
 	) -> Result<Transaction, ProviderError> {
 		let params = [from.unwrap().to_value(), send_tokens.to_value()].to_vec();
-		self.fetch("sendmany", params).await?
+		self.request("sendmany", params).await?
 	}
 
 	async fn send_to_address(
@@ -948,15 +948,15 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		amount: u32,
 	) -> Result<Transaction, ProviderError> {
 		let params = [token_hash.to_value(), to.to_value(), amount.to_value()].to_vec();
-		self.fetch("sendtoaddress", params).await?
+		self.request("sendtoaddress", params).await?
 	}
 
 	async fn get_application_log(&self, tx_hash: H256) -> Result<ApplicationLog, ProviderError> {
-		self.fetch("getapplicationlog", vec![tx_hash.to_value()]).await?
+		self.request("getapplicationlog", vec![tx_hash.to_value()]).await?
 	}
 
 	async fn get_nep17_balances(&self, script_hash: H160) -> Result<Nep17Balances, ProviderError> {
-		self.fetch("getnep17balances", [script_hash.to_value()].to_vec()).await?
+		self.request("getnep17balances", [script_hash.to_value()].to_vec()).await?
 	}
 
 	async fn get_nep17_transfers(
@@ -964,7 +964,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		script_hash: H160,
 	) -> Result<Nep17Transfers, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		self.fetch("getnep17transfers", params).await?
+		self.request("getnep17transfers", params).await?
 	}
 
 	// NEP-17 methods
@@ -975,7 +975,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		from: u64,
 	) -> Result<Nep17Transfers, ProviderError> {
 		// let params = [script_hash.to_value(), from.to_value()].to_vec();
-		self.fetch("getnep17transfers", [script_hash.to_value(), from.to_value()])
+		self.request("getnep17transfers", [script_hash.to_value(), from.to_value()])
 			.await?
 	}
 
@@ -986,12 +986,12 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		to: u64,
 	) -> Result<Nep17Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
-		self.fetch("getnep17transfers", params).await?
+		self.request("getnep17transfers", params).await?
 	}
 
 	async fn get_nep11_balances(&self, script_hash: H160) -> Result<Nep11Balances, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		self.fetch("getnep11balances", params).await?
+		self.request("getnep11balances", params).await?
 	}
 
 	// NEP-11 methods
@@ -1001,7 +1001,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		script_hash: H160,
 	) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value()].to_vec();
-		self.fetch("getnep11transfers", params).await?
+		self.request("getnep11transfers", params).await?
 	}
 
 	async fn get_nep11_transfers_from(
@@ -1010,7 +1010,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		from: u64,
 	) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value()].to_vec();
-		self.fetch("getnep11transfers", params).await?
+		self.request("getnep11transfers", params).await?
 	}
 
 	async fn get_nep11_transfers_range(
@@ -1020,7 +1020,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		to: u64,
 	) -> Result<Nep11Transfers, ProviderError> {
 		let params = [script_hash.to_value(), from.to_value(), to.to_value()].to_vec();
-		self.fetch("getnep11transfers", params).await?
+		self.request("getnep11transfers", params).await?
 	}
 
 	async fn get_nep11_properties(
@@ -1029,12 +1029,12 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		token_id: &str,
 	) -> Result<HashMap<String, String>, ProviderError> {
 		let params = [script_hash.to_value(), token_id.to_value()].to_vec();
-		self.fetch("getnep11properties", params).await?
+		self.request("getnep11properties", params).await?
 	}
 
 	async fn get_state_root(&self, block_index: u32) -> Result<StateRoot, ProviderError> {
 		let params = [block_index.to_value()].to_vec();
-		self.fetch("getstateroot", params).await?
+		self.request("getstateroot", params).await?
 	}
 
 	// State service methods
@@ -1045,17 +1045,20 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		contract_hash: H160,
 		key: &str,
 	) -> Result<String, ProviderError> {
-		self.fetch("getproof", vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()])
-			.await?
+		self.request(
+			"getproof",
+			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()],
+		)
+		.await?
 	}
 
 	async fn verify_proof(&self, root_hash: H256, proof: &str) -> Result<bool, ProviderError> {
 		let params = [root_hash.to_value(), proof.to_value()].to_vec();
-		self.fetch("verifyproof", params).await?
+		self.request("verifyproof", params).await?
 	}
 
 	async fn get_state_height(&self) -> Result<StateHeight, ProviderError> {
-		self.fetch("getstateheight", vec![]).await?
+		self.request("getstateheight", ()).await?
 	}
 
 	async fn get_state(
@@ -1064,12 +1067,13 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		contract_hash: H160,
 		key: &str,
 	) -> Result<String, ProviderError> {
-		self.fetch(
+		self.request(
 			"getstate",
 			vec![root_hash.to_value(), contract_hash.to_value(), key.to_value()], //key.to_base64()],
 		)
 		.await?
 	}
+
 	async fn find_states(
 		&self,
 		root_hash: H256,
@@ -1086,7 +1090,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		if let Some(count) = count {
 			params.push(count.to_value())
 		}
-		self.fetch("findstates", params).await?
+		self.request("findstates", params).await?
 	}
 
 	async fn get_block_by_index(
@@ -1095,11 +1099,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		full_tx: bool,
 	) -> Result<NeoBlock, ProviderError> {
 		let full_tx = if full_tx { 1 } else { 0 };
-		self.fetch("getblock", vec![index.to_value(), full_tx.to_value()]).await?
+		self.request("getblock", vec![index.to_value(), full_tx.to_value()]).await?
 	}
 
 	async fn get_raw_block_by_index(&self, index: u32) -> Result<String, ProviderError> {
-		self.fetch("getblock", vec![index.to_value(), 0.to_value()]).await?
+		self.request("getblock", vec![index.to_value(), 0.to_value()]).await?
 	}
 
 	async fn invoke_function_diagnostics<T: AccountTrait + Serialize>(
@@ -1116,7 +1120,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 			serde_json::to_string(&signers).unwrap().to_value(),
 			true.to_value(),
 		];
-		self.fetch("invokefunction", params).await?
+		self.request("invokefunction", params).await?
 	}
 
 	async fn invoke_script_diagnostics<T: AccountTrait + Serialize>(
@@ -1125,7 +1129,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
 		let params = vec![hex.to_value(), signers.to_value(), true.to_value()];
-		self.fetch("invokescript", params).await?
+		self.request("invokescript", params).await?
 	}
 
 	async fn traverse_iterator(
@@ -1135,11 +1139,11 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		count: u32,
 	) -> Result<Vec<StackItem>, ProviderError> {
 		let params = vec![session_id.to_value(), iterator_id.to_value(), count.to_value()];
-		self.fetch("traverseiterator", params).await?
+		self.request("traverseiterator", params).await?
 	}
 
 	async fn terminate_session(&self, session_id: &str) -> Result<bool, ProviderError> {
-		self.fetch("terminatesession", vec![session_id.to_value()]).await?
+		self.request("terminatesession", vec![session_id.to_value()]).await?
 	}
 
 	async fn invoke_contract_verify<T: AccountTrait + Serialize>(
@@ -1148,7 +1152,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		params: Vec<ContractParameter>,
 		signers: Vec<Signer<T>>,
 	) -> Result<InvocationResult, ProviderError> {
-		self.fetch(
+		self.request(
 			"invokecontractverify",
 			vec![hash.to_value(), params.to_value(), signers.to_value()],
 		)
@@ -1156,15 +1160,15 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	async fn get_raw_mempool(&self) -> Result<MemPoolDetails, ProviderError> {
-		self.fetch("getrawmempool", vec![]).await?
+		self.request("getrawmempool", ()).await?
 	}
 
 	async fn import_private_key(&self, wif: String) -> Result<NeoAddress, ProviderError> {
-		self.fetch("importprivkey", vec![wif.to_value()]).await?
+		self.request("importprivkey", vec![wif.to_value()]).await?
 	}
 
 	async fn get_block_header_hash(&self, hash: H256) -> Result<NeoBlock, ProviderError> {
-		self.fetch("getblockheader", vec![hash.to_value(), 1.to_value()]).await?
+		self.request("getblockheader", vec![hash.to_value(), 1.to_value()]).await?
 	}
 
 	async fn send_to_address_send_token(
@@ -1172,7 +1176,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		send_token: &TransactionSendToken,
 	) -> Result<Transaction, ProviderError> {
 		let params = [send_token.to_value()].to_vec();
-		self.fetch("sendtoaddress", params).await?
+		self.request("sendtoaddress", params).await?
 	}
 
 	async fn send_from_send_token(
@@ -1181,7 +1185,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		from: Address,
 	) -> Result<Transaction, ProviderError> {
 		let params = [from.to_value(), vec![send_token.to_value()].into()].to_vec();
-		self.fetch("sendmany", params).await?
+		self.request("sendmany", params).await?
 	}
 }
 
@@ -1244,13 +1248,6 @@ where
 	/// Creates a new [Provider] with a [RwClient]
 	pub fn rw(r: Read, w: Write) -> Self {
 		Self::new(RwClient::new(r, w))
-	}
-}
-
-impl<T: JsonRpcClientWrapper> Provider<QuorumProvider<T>> {
-	/// Provider that uses a quorum
-	pub fn quorum(inner: QuorumProvider<T>) -> Self {
-		Self::new(inner)
 	}
 }
 
@@ -1420,10 +1417,10 @@ impl ProviderExt for Provider<HttpProvider> {
 
 	fn set_network(&mut self, chain: impl Into<u64>) -> &mut Self {
 		let chain = chain.into();
-		if let Some(blocktime) = chain.average_blocktime_hint() {
-			// use half of the block time
-			self.set_interval(blocktime / 2);
-		}
+		// if let Some(blocktime) = chain {
+		// use half of the block time
+		self.set_interval(chain / 2);
+		// }
 		self
 	}
 }

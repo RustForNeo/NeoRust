@@ -133,7 +133,7 @@ impl<T: AccountTrait + Serialize> NeoSerializable for SerializableTransaction<T>
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
-		SerializableTransaction::HEADER_SIZE
+		SerializableTransaction::<T>::HEADER_SIZE
 			+ self.signers.var_size()
 			+ self.attributes.var_size()
 			+ self.script.var_size()

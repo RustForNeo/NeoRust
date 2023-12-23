@@ -33,7 +33,7 @@ pub struct Nep11Transfer {
 	pub tx_hash: H256,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep17Transfers {
 	pub sent: Vec<Nep17Transfer>,
 	pub received: Vec<Nep17Transfer>,
@@ -41,7 +41,7 @@ pub struct Nep17Transfers {
 	pub transfer_address: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep17Transfer {
 	pub timestamp: u64,
 	#[serde(rename = "assethash")]

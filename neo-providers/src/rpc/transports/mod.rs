@@ -9,8 +9,8 @@ mod ipc;
 #[cfg(all(feature = "ipc", any(unix, windows)))]
 pub use ipc::{Ipc, IpcError};
 
-mod quorum;
-pub use quorum::{JsonRpcClientWrapper, Quorum, QuorumError, QuorumProvider, WeightedProvider};
+// mod quorum;
+// pub use quorum::{JsonRpcClientWrapper, Quorum, QuorumError, QuorumProvider, WeightedProvider};
 
 mod rw;
 pub use rw::{RwClient, RwClientError};

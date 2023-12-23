@@ -3,7 +3,7 @@ use neo_types::*;
 use primitive_types::H256;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct MemPoolDetails {
 	pub height: u32,
 	#[serde(serialize_with = "serialize_vec_h256")]

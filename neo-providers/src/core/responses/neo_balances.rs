@@ -2,14 +2,14 @@ use getset::Getters;
 use neo_types::{script_hash::ScriptHash, *};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep11Balances {
 	pub address: String,
 	#[serde(rename = "balance")]
 	pub balances: Vec<Nep11Balance>,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep11Balance {
 	pub name: String,
 	pub symbol: String,
@@ -21,7 +21,7 @@ pub struct Nep11Balance {
 	pub asset_hash: ScriptHash,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep11Token {
 	#[serde(rename = "tokenid")]
 	pub token_id: String,
@@ -30,14 +30,14 @@ pub struct Nep11Token {
 	pub last_updated_block: u32,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep17Balances {
 	pub address: String,
 	#[serde(rename = "balance")]
 	pub balances: Vec<Nep17Balance>,
 }
 
-#[derive(Getters, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Getters, Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep17Balance {
 	pub name: Option<String>,
 	pub symbol: Option<String>,

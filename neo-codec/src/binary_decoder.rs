@@ -99,6 +99,10 @@ impl<'a> Decoder<'a> {
 		let bytes = self.read_bytes(8).unwrap();
 		u64::from_ne_bytes(bytes.try_into().unwrap())
 	}
+	pub fn read_i64(&mut self) -> i64 {
+		let bytes = self.read_bytes(8).unwrap();
+		i64::from_ne_bytes(bytes.try_into().unwrap())
+	}
 
 	pub fn read_bigint(&mut self) -> Result<BigInt, CodecError> {
 		let byte = self.read_u8();
