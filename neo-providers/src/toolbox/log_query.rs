@@ -100,9 +100,9 @@ where
 
 						// this is okay because we will only enter this state when the filter is
 						// paginatable i.e. from block is set
-						let from_block = self.filter.get_from_block().unwrap();
+						let from_block = self.filter.get_from_block().unwrap().as_u64();
 						let to_block = from_block + self.page_size;
-						self.from_block = Some((to_block + 1).as_u64());
+						self.from_block = Some((to_block + 1));
 
 						let filter = self.filter.clone().from_block(from_block).to_block(to_block);
 						let provider = self.provider;

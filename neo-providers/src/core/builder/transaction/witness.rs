@@ -36,7 +36,7 @@ impl Witness {
 		Self { invocation: invocation_script, verification: verification_script }
 	}
 
-	pub fn create(message_to_sign: Bytes, key_pair: &mut KeyPair) -> Result<Self, BuilderError> {
+	pub fn create(message_to_sign: Bytes, key_pair: &KeyPair) -> Result<Self, BuilderError> {
 		let invocation_script =
 			InvocationScript::from_message_and_key_pair(message_to_sign, key_pair).unwrap();
 		let verification_script =

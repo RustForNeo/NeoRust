@@ -34,7 +34,7 @@ impl InvocationScript {
 
 	pub fn from_message_and_key_pair(
 		message: Bytes,
-		key_pair: &mut KeyPair,
+		key_pair: &KeyPair,
 	) -> Result<Self, BuilderError> {
 		let message_hash = message.hash256();
 		let signature = key_pair.private_key.sign_tx(&message_hash)?;

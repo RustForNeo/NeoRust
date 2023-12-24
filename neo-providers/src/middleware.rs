@@ -32,6 +32,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use auto_impl::auto_impl;
+use neo_config::NeoConfig;
 use neo_crypto::keys::Secp256r1Signature;
 use neo_types::{
 	address::{Address, NameOrAddress},
@@ -74,6 +75,10 @@ pub trait Middleware: Sync + Send + Debug {
 	/// The HTTP or Websocket provider.
 	fn provider(&self) -> &Provider<Self::Provider> {
 		self.inner().provider()
+	}
+
+	fn config(&self) -> &NeoConfig {
+		&self.inner().config()
 	}
 
 	/// Return the default sender (if any). This will typically be the
@@ -243,7 +248,7 @@ pub trait Middleware: Sync + Send + Debug {
 
 	/// Returns the currently configured network magic, a value used in replay-protected
 	/// transaction signing as introduced by EIP-155.
-	async fn get_network_magic(&self) -> Result<U256, Self::Error> {
+	async fn get_network_magic(&self) -> Result<u32, Self::Error> {
 		self.inner().get_network_magic().await.map_err(MiddlewareError::from_err)
 	}
 
@@ -677,16 +682,16 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn get_network_magic_number(&self) -> Result<u32, Self::Error> {
-		self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
-	}
+	// async fn get_network_magic_number(&self) -> Result<u32, Self::Error> {
+	// 	self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
+	// }
 
-	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
-		self.inner()
-			.get_network_magic_number_bytes()
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
+	// async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
+	// 	self.inner()
+	// 		.get_network_magic_number_bytes()
+	// 		.await
+	// 		.map_err(MiddlewareError::from_err)
+	// }
 
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> Result<H256, Self::Error> {
@@ -780,13 +785,13 @@ pub trait Middleware: Sync + Send + Debug {
 
 	// Application logs
 
-	async fn get_transaction(&self, hash: H256) -> Result<Transaction, Self::Error> {
+	async fn get_transaction(&self, hash: H256) -> Result<Option<TransactionResult>, Self::Error> {
 		self.inner().get_transaction(hash).await.map_err(MiddlewareError::from_err)
 	}
 
 	// State service
 
-	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<String, Self::Error> {
+	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<RawTransaction, Self::Error> {
 		self.inner()
 			.get_raw_transaction(tx_hash)
 			.await
@@ -848,7 +853,7 @@ pub trait Middleware: Sync + Send + Debug {
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<T>>,
+		signers: Option<Vec<Signer<T>>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_function(contract_hash, method, params, signers)

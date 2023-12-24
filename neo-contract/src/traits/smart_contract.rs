@@ -39,7 +39,7 @@ pub trait SmartContractTrait: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<T, P>, ContractError> {
 		let script = self.build_invoke_function_script(function, params).await.unwrap();
 		let mut builder = TransactionBuilder::new();
 		builder.set_script(script);

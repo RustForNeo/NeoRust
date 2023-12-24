@@ -872,6 +872,7 @@ fn address_to_bloom_filter(address: &ValueOrArray<Address>) -> BloomFilter {
 mod tests {
 	use super::*;
 	use crate::address::AddressExtension;
+	use serde::Serialize;
 	use serde_json::json;
 
 	#[test]

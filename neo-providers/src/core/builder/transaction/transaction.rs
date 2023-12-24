@@ -77,6 +77,8 @@ impl Transaction {
 	}
 }
 
+impl Eq for Transaction {}
+
 impl PartialEq for Transaction {
 	fn eq(&self, other: &Self) -> bool {
 		self.hash == other.hash

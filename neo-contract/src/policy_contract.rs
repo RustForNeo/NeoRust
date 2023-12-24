@@ -1,5 +1,6 @@
 use crate::{error::ContractError, traits::smart_contract::SmartContractTrait};
 use async_trait::async_trait;
+use neo_providers::core::transaction::transaction_builder::TransactionBuilder;
 use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};

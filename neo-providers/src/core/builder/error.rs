@@ -1,3 +1,4 @@
+use crate::{core::transaction::transaction_error::TransactionError, ProviderError};
 use neo_codec::CodecError;
 use neo_crypto::error::CryptoError;
 use thiserror::Error;
@@ -42,4 +43,8 @@ pub enum BuilderError {
 	CodecError(#[from] CodecError),
 	#[error("Crypto error: {0}")]
 	CryptoError(#[from] CryptoError),
+	#[error(transparent)]
+	ProviderError(#[from] ProviderError),
+	#[error(transparent)]
+	TransactionError(#[from] TransactionError),
 }

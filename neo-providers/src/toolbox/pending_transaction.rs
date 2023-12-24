@@ -270,10 +270,11 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 				// Wait for the interval
 				let inclusion_block = receipt
 					.confirmations
-					.expect("Receipt did not have a block number. This should never happen");
+					.expect("Receipt did not have a block number. This should never happen")
+					as u64;
 				// if the transaction has at least K confirmations, return the receipt
 				// (subtract 1 since the tx already has 1 conf when it's mined)
-				if current_block > (inclusion_block + *this.confirmations as i32 - 1) as u64 {
+				if current_block > (inclusion_block + *this.confirmations - 1) as u64 {
 					let receipt = Some(receipt);
 					*this.state = PendingTxState::Completed;
 					return Poll::Ready(Ok(receipt))
@@ -333,7 +334,7 @@ enum PendingTxState<'a> {
 	PausedGettingTx,
 
 	/// Polling The blockchain to see if the Tx has confirmed or dropped
-	GettingTx(PinBoxFut<'a, Option<Transaction>>),
+	GettingTx(PinBoxFut<'a, Option<TransactionResult>>),
 
 	/// Waiting for interval to elapse before calling API again
 	PausedGettingReceipt,

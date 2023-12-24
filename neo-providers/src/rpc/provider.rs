@@ -39,8 +39,9 @@ use crate::{
 		utils::VecValueExtension,
 	},
 	rpc::provider::sealed::Sealed,
-	stream::TransactionResult,
 };
+
+use crate::core::responses::neo_transaction_result::TransactionResult;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{HttpRateLimitRetryPolicy, RetryClient};
 use async_trait::async_trait;
@@ -52,7 +53,7 @@ use neo_types::{
 	contract_parameter::ContractParameter,
 	contract_state::ContractState,
 	filter::{Filter, FilterBlockOption},
-	invocation_result::InvocationResult,
+	invocation_result::{InvocationResult, PendingSignature},
 	log::Log,
 	native_contract_state::NativeContractState,
 	script_hash::ScriptHashExtension,
@@ -203,11 +204,11 @@ impl<P: JsonRpcClient> Provider<P> {
 		Ok(res)
 	}
 
-	async fn get_block_gen<Tx: Default + Serialize + DeserializeOwned + Debug + Send>(
+	async fn get_block_gen(
 		&self,
 		id: BlockId,
 		include_txs: bool,
-	) -> Result<Option<Block<Transaction, Witness>>, ProviderError> {
+	) -> Result<Option<Block<TransactionResult, Witness>>, ProviderError> {
 		let include_txs = utils::serialize(&include_txs);
 
 		Ok(match id {
@@ -282,8 +283,8 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-	) -> Result<Option<Block<Transaction, Witness>>, ProviderError> {
-		self.get_block_gen(block_hash_or_number.into(), true).await?
+	) -> Result<Option<Block<TransactionResult, Witness>>, ProviderError> {
+		self.get_block_gen(block_hash_or_number.into(), true).await
 	}
 
 	async fn get_transaction_count<T: Into<NameOrAddress> + Send + Sync>(
@@ -321,10 +322,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("neo_syncing", ()).await?
 	}
 
-	async fn get_network_magic(&self) -> Result<U256, ProviderError> {
-		self.request("neo_chainId", ()).await?
-	}
-
 	async fn get_net_version(&self) -> Result<String, ProviderError> {
 		self.request("net_version", ()).await?
 	}
@@ -348,7 +345,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		&self,
 		block_hash_or_number: T,
 		idx: u64,
-	) -> Result<Option<Transaction>, ProviderError> {
+	) -> Result<Option<TransactionResult>, ProviderError> {
 		let blk_id = block_hash_or_number.into();
 		let idx = utils::serialize(&idx);
 		Ok(match blk_id {
@@ -678,27 +675,27 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		self.request("dumpprivkey", [script_hash.to_address()]).await?
 	}
 
-	async fn get_network_magic_number(&self) -> Result<u32, ProviderError> {
-		if self.config().network_magic.is_none() {
-			let magic = self
-				.get_version()
-				.await
-				.unwrap()
-				.protocol
-				.ok_or(ProviderError::IllegalState(
-					"Unable to read Network Magic Number from Version".to_string(),
-				))
-				.unwrap()
-				.network;
-			self.config().network_magic = Some(magic);
-		}
-		Ok(self.config().network_magic.unwrap())
-	}
+	// async fn get_network_magic_number(&mut self) -> Result<u32, ProviderError> {
+	// 	if self.config().network_magic.is_none() {
+	// 		let magic = self
+	// 			.get_version()
+	// 			.await
+	// 			.unwrap()
+	// 			.protocol
+	// 			.ok_or(ProviderError::IllegalState(
+	// 				"Unable to read Network Magic Number from Version".to_string(),
+	// 			))
+	// 			.unwrap()
+	// 			.network;
+	// 		self.config().network_magic = Some(magic);
+	// 	}
+	// 	Ok(self.config().network_magic.unwrap())
+	// }
 
-	async fn get_network_magic_number_bytes(&self) -> Result<Bytes, ProviderError> {
-		let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
-		Ok(magic_int.to_be_bytes().to_vec())
-	}
+	// async fn get_network_magic_number_bytes(&self) -> Result<Bytes, ProviderError> {
+	// 	let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
+	// 	Ok(magic_int.to_be_bytes().to_vec())
+	// }
 
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> Result<H256, ProviderError> {
@@ -777,13 +774,16 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	// Application logs
 
-	async fn get_transaction(&self, hash: H256) -> Result<Transaction, ProviderError> {
+	async fn get_transaction(
+		&self,
+		hash: H256,
+	) -> Result<Option<TransactionResult>, ProviderError> {
 		self.request("getrawtransaction", vec![hash.to_value(), 1.to_value()]).await?
 	}
 
 	// State service
 
-	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<String, ProviderError> {
+	async fn get_raw_transaction(&self, tx_hash: H256) -> Result<RawTransaction, ProviderError> {
 		self.request("getrawtransaction", vec![tx_hash.to_value(), 0.to_value()])
 			.await?
 	}
@@ -837,19 +837,29 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<T>>,
+		signers: Option<Vec<Signer<T>>>,
 	) -> Result<InvocationResult, ProviderError> {
-		let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
-		self.request(
-			"invokefunction",
-			vec![
-				contract_hash.to_value(),
-				method.to_value(),
-				params.to_value(),
-				signers.to_value(),
-			],
-		)
-		.await?
+		match signers {
+			Some(signers) => {
+				let signers: Vec<TransactionSigner> = signers.iter().map(|f| f.into()).collect();
+				self.request(
+					"invokefunction",
+					[
+						contract_hash.to_value(),
+						method.to_value(),
+						params.to_value(),
+						signers.to_value(),
+					],
+				)
+				.await?
+			},
+			None =>
+				self.request(
+					"invokefunction",
+					[contract_hash.to_value(), method.to_value(), params.to_value()],
+				)
+				.await?,
+		}
 	}
 
 	async fn invoke_script<T: AccountTrait + Serialize>(
@@ -869,7 +879,7 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	async fn list_plugins(&self) -> Result<Vec<Plugin>, ProviderError> {
-		self.request("listplugins", []).await?
+		self.request("listplugins", ()).await?
 	}
 
 	// More utility methods
@@ -1384,7 +1394,7 @@ pub trait ProviderExt: Sealed {
 	/// tune the polling interval.
 	///
 	/// Returns the customized `Provider`
-	fn for_network(mut self, network: impl Into<u64>) -> Self
+	fn for_network(mut self, network: u32) -> Self
 	where
 		Self: Sized,
 	{
@@ -1393,7 +1403,7 @@ pub trait ProviderExt: Sealed {
 	}
 
 	/// Customized `Provider` settings for chain
-	fn set_network(&mut self, chain: impl Into<u64>) -> &mut Self;
+	fn set_network(&mut self, network: u32) -> &mut Self;
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -1408,18 +1418,17 @@ impl ProviderExt for Provider<HttpProvider> {
 		let mut provider = Provider::try_from(url)?;
 		if is_local_endpoint(url) {
 			provider.set_interval(DEFAULT_LOCAL_POLL_INTERVAL);
-		} else if let Some(chain) = provider.get_network_magic().await.ok() {
-			provider.set_network(chain);
+		} else if let Some(chain) = provider.get_net_version().await.ok() {
+			provider.set_network(u32::from_str(&chain).unwrap());
 		}
 
 		Ok(provider)
 	}
 
-	fn set_network(&mut self, chain: impl Into<u64>) -> &mut Self {
-		let chain = chain.into();
+	fn set_network(&mut self, network: u32) -> &mut Self {
 		// if let Some(blocktime) = chain {
 		// use half of the block time
-		self.set_interval(chain / 2);
+		self.set_interval(Duration::from_millis(network as u64 / 2));
 		// }
 		self
 	}

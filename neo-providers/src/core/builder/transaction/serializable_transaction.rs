@@ -1,18 +1,22 @@
-use crate::core::{
-	account::AccountTrait,
-	transaction::{
-		signers::signer::Signer, transaction_attribute::TransactionAttribute,
-		transaction_error::TransactionError, witness::Witness,
+use crate::{
+	core::{
+		account::AccountTrait,
+		transaction::{
+			signers::signer::Signer, transaction_attribute::TransactionAttribute,
+			transaction_error::TransactionError, witness::Witness,
+		},
 	},
+	JsonRpcClient, Middleware, Provider, ProviderExt,
 };
 use getset::{Getters, Setters};
 use neo_codec::{
 	encode::{NeoSerializable, VarSizeTrait},
 	Decoder, Encoder,
 };
+use neo_config::NeoNetwork;
+use neo_crypto::hash::HashableForVec;
 use neo_types::Bytes;
 use serde::Serialize;
-use std::hash::Hash;
 
 #[derive(Debug, Clone, Setters, Getters)]
 pub struct SerializableTransaction<T: AccountTrait + Serialize> {
@@ -102,20 +106,14 @@ impl<T: AccountTrait + Serialize> SerializableTransaction<T> {
 	// }
 
 	// Get hash data
-	// pub async fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
-	// 	let network_magic = NEO_INSTANCE
-	// 		.write()
-	// 		.unwrap()
-	// 		.get_network_magic_number()
-	// 		.await
-	// 		.unwrap()
-	// 		.to_le_bytes();
-	// 	let mut data = self.serialize_without_witnesses().hash256();
-	//
-	// 	data.splice(0..0, network_magic.iter().cloned());
-	//
-	// 	Ok(data)
-	// }
+	pub async fn get_hash_data(&self, network: u32) -> Result<Bytes, TransactionError> {
+		let mut encoder = Encoder::new();
+		self.serialize_without_witnesses(&mut encoder);
+		let mut data = encoder.to_bytes().hash256();
+		data.splice(0..0, network.to_be_bytes());
+
+		Ok(data)
+	}
 
 	fn serialize_without_witnesses(&self, writer: &mut Encoder) {
 		writer.write_u8(self.version);

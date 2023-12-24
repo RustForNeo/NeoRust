@@ -42,7 +42,7 @@ impl WsClient {
 	/// Establishes a new websocket connection
 	pub async fn connect(conn: impl Into<ConnectionDetails>) -> Result<Self, WsClientError> {
 		let (man, this) = RequestManager::connect(conn.into()).await?;
-		man.spawn(());
+		man.spawn();
 		Ok(this)
 	}
 

@@ -13,8 +13,11 @@ use futures_util::{
 use neo_types::TxHash;
 
 use crate::{
-	core::transaction::transaction::Transaction, FilterWatcher, JsonRpcClient, Middleware,
-	Provider, ProviderError, PubsubClient, SubscriptionStream,
+	core::{
+		responses::neo_transaction_result::TransactionResult, transaction::transaction::Transaction,
+	},
+	FilterWatcher, JsonRpcClient, Middleware, Provider, ProviderError, PubsubClient,
+	SubscriptionStream,
 };
 
 /// Errors `TransactionStream` can throw
@@ -42,7 +45,7 @@ pub(crate) type TransactionFut<'a> = Pin<Box<dyn Future<Output = TransactionResu
 #[cfg(target_arch = "wasm32")]
 pub(crate) type TransactionFut<'a> = Pin<Box<dyn Future<Output = TransactionResult> + 'a>>;
 
-pub(crate) type TransactionResult = Result<Transaction, GetTransactionError>;
+// pub(crate) type TransactionResult = Result<Transaction, GetTransactionError>;
 
 /// Drains a stream of transaction hashes and yields entire `Transaction`.
 #[must_use = "streams do nothing unless polled"]

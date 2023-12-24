@@ -3,7 +3,7 @@ use neo_types::{script_hash::ScriptHash, *};
 use primitive_types::{H160, H256};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep11Transfers {
 	pub sent: Vec<Nep11Transfer>,
 	pub received: Vec<Nep11Transfer>,
@@ -11,7 +11,7 @@ pub struct Nep11Transfers {
 	pub transfer_address: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Nep11Transfer {
 	#[serde(rename = "tokenid")]
 	pub token_id: String,

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
-use neo_providers::{Middleware, MiddlewareError};
+use neo_providers::{core::transaction::transaction::Transaction, Middleware, MiddlewareError};
 use neo_types::{
 	block::{Block, BlockId},
 	filter::{Filter, FilterBlockOption},

@@ -17,34 +17,43 @@
 ///           .get_unsigned_tx();
 /// ```
 use getset::{CopyGetters, Getters, MutGetters, Setters};
+use neo_codec::encode::NeoSerializable;
 use neo_config::NeoConstants;
-use neo_types::{public_key_to_script_hash, Bytes};
+use neo_types::{
+	contract_parameter::ContractParameter, public_key_to_script_hash, stack_item::StackItem, Bytes,
+};
 use primitive_types::H160;
+use rustc_serialize::hex::ToHex;
 use serde::{Deserialize, Serialize};
 use std::{
 	collections::HashSet,
 	convert::{Into, TryInto},
 	fmt::Debug,
 	hash::{Hash, Hasher},
+	iter::Iterator,
 };
 
-use crate::core::{
-	account::AccountTrait,
-	builder::{
-		error::BuilderError,
+use crate::{
+	core::{
+		account::AccountTrait,
+		builder::{
+			error::BuilderError,
+			transaction::{
+				serializable_transaction::SerializableTransaction,
+				transaction_error::TransactionError, witness::Witness,
+			},
+		},
 		transaction::{
-			serializable_transaction::SerializableTransaction, transaction_error::TransactionError,
-			witness::Witness,
+			signers::signer::{Signer, SignerType},
+			transaction_attribute::TransactionAttribute,
 		},
 	},
-	transaction::{
-		signers::signer::{Signer, SignerType},
-		transaction_attribute::TransactionAttribute,
-	},
+	JsonRpcClient, Middleware, Provider,
 };
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
-pub struct TransactionBuilder<T: AccountTrait + Serialize> {
+pub struct TransactionBuilder<T: AccountTrait + Serialize, P: JsonRpcClient + 'static> {
+	provider: Option<&'static Provider<P>>,
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
@@ -59,7 +68,7 @@ pub struct TransactionBuilder<T: AccountTrait + Serialize> {
 	fee_error: Option<TransactionError>,
 }
 
-impl<T: AccountTrait + Serialize> Debug for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> Debug for TransactionBuilder<T, P> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TransactionBuilder")
 			.field("version", &self.version)
@@ -76,9 +85,10 @@ impl<T: AccountTrait + Serialize> Debug for TransactionBuilder<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> Clone for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> Clone for TransactionBuilder<T, P> {
 	fn clone(&self) -> Self {
 		Self {
+			provider: self.provider,
 			version: self.version,
 			nonce: self.nonce,
 			valid_until_block: self.valid_until_block,
@@ -89,14 +99,14 @@ impl<T: AccountTrait + Serialize> Clone for TransactionBuilder<T> {
 			script: self.script.clone(),
 			// fee_consumer: self.fee_consumer.clone(),
 			fee_consumer: None,
-			fee_error: self.fee_error.clone(),
+			fee_error: None,
 		}
 	}
 }
 
-impl<T: AccountTrait + Serialize> Eq for TransactionBuilder<T> {}
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> Eq for TransactionBuilder<T, P> {}
 
-impl<T: AccountTrait + Serialize> PartialEq for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> PartialEq for TransactionBuilder<T, P> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -109,7 +119,7 @@ impl<T: AccountTrait + Serialize> PartialEq for TransactionBuilder<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> Hash for TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> Hash for TransactionBuilder<T, P> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.version.hash(state);
 		self.nonce.hash(state);
@@ -122,10 +132,12 @@ impl<T: AccountTrait + Serialize> Hash for TransactionBuilder<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
+impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 	pub const GAS_TOKEN_HASH: [u8; 20] = hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf")
 		.unwrap()
 		.iter()
+		.copied()
+		.collect::<Vec<u8>>()
 		.try_into()
 		.unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
@@ -135,6 +147,7 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 	// Constructor
 	pub fn new() -> Self {
 		Self {
+			provider: None,
 			version: 0,
 			nonce: 0,
 			valid_until_block: None,
@@ -260,45 +273,35 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 	// 	Ok(u64::from_str(response.gas_consumed.as_str()).unwrap()) // example
 	// }
 
-	// async fn get_network_fee(
-	// 	&mut self,
-	// 	tx: &SerializableTransaction,
-	// ) -> Result<u64, TransactionError> {
-	// 	let fee = NEO_INSTANCE
-	// 		.read()
-	// 		.unwrap()
-	// 		.calculate_network_fee(tx.serialize().to_hex())
-	// 		.request()
-	// 		.await
-	// 		.unwrap()
-	// 		.network_fee;
-	// 	Ok(fee)
-	// }
+	async fn get_network_fee(
+		&mut self,
+		tx: &SerializableTransaction<T>,
+	) -> Result<u64, TransactionError> {
+		let fee = self.provider.unwrap().calculate_network_fee(tx.to_array().to_hex()).await?;
+		Ok(fee)
+	}
 
-	// Get sender balance
-	// async fn get_sender_balance(&self) -> Result<u64, TransactionError> {
-	// 	// Call network
-	// 	let sender = &self.signers[0];
-	//
-	// 	if Self::is_account_signer(sender) {
-	// 		let balance = NEO_INSTANCE
-	// 			.read()
-	// 			.unwrap()
-	// 			.invoke_function(
-	// 				&H160::from(Self::GAS_TOKEN_HASH),
-	// 				Self::BALANCE_OF_FUNCTION.to_string(),
-	// 				vec![ContractParameter::hash160(sender.get_signer_hash())],
-	// 				vec![],
-	// 			)
-	// 			.request()
-	// 			.await
-	// 			.unwrap()
-	// 			.stack[0]
-	// 			.clone();
-	// 		return Ok(balance.as_int().unwrap() as u64)
-	// 	}
-	// 	Err(TransactionError::InvalidSender)
-	// }
+	async fn get_sender_balance(&self) -> Result<u64, TransactionError> {
+		// Call network
+		let sender = &self.signers[0];
+
+		if Self::is_account_signer(sender) {
+			let balance = self
+				.provider
+				.unwrap()
+				.invoke_function::<T>(
+					&H160::from(Self::GAS_TOKEN_HASH),
+					Self::BALANCE_OF_FUNCTION.to_string(),
+					vec![ContractParameter::hash160(sender.get_signer_hash())],
+					None,
+				)
+				.await?
+				.stack[0]
+				.clone();
+			return Ok(balance.as_int().unwrap() as u64)
+		}
+		Err(TransactionError::InvalidSender)
+	}
 
 	fn is_account_signer(signer: &Signer<T>) -> bool {
 		// let sig = <T as Signer>::SignerType;
@@ -311,7 +314,9 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 	// Sign transaction
 	pub async fn sign(&mut self) -> Result<SerializableTransaction<T>, BuilderError> {
 		let mut transaction = self.get_unsigned_tx().await.unwrap();
-		let tx_bytes = transaction.get_hash_data().await.unwrap();
+		let tx_bytes = transaction
+			.get_hash_data(self.provider.unwrap().get_version().await?.protocol.unwrap().network)
+			.await?;
 
 		let mut witnesses_to_add = Vec::new();
 
@@ -332,13 +337,11 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 					)
 				})?;
 
-				witnesses_to_add.push(Witness::from_scripts(tx_bytes.clone(), key_pair));
+				witnesses_to_add.push(Witness::create(tx_bytes.clone(), key_pair)?);
 			} else {
 				let contract_signer = signer.as_contract_signer().unwrap();
-				witnesses_to_add.push(
-					Witness::create_contract_witness(contract_signer.verify_params.clone())
-						.unwrap(),
-				);
+				witnesses_to_add
+					.push(Witness::create_contract_witness(contract_signer.verify_params.clone())?);
 			}
 		}
 
@@ -455,10 +458,10 @@ impl<T: AccountTrait + Serialize> TransactionBuilder<T> {
 			.any(|attr| matches!(attr, TransactionAttribute::HighPriority))
 	}
 
-	async fn can_send_cover_fees(&self, fees: u64) -> Result<bool, BuilderError> {
-		let balance = self.get_sender_gas_balance().await?;
-		Ok(balance >= fees)
-	}
+	// async fn can_send_cover_fees(&self, fees: u64) -> Result<bool, BuilderError> {
+	// 	let balance = self.get_sender_gas_balance().await?;
+	// 	Ok(balance >= fees)
+	// }
 
 	// async fn get_sender_gas_balance(&self) -> Result<u64, BuilderError> {
 	// 	let sender_hash = self.signers[0].get_signer_hash();

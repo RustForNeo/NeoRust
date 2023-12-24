@@ -6,18 +6,22 @@ use instant::{Duration, Instant};
 use neo_types::Bytes;
 use pin_project::pin_project;
 use primitive_types::H256;
+use rustc_serialize::hex::ToHex;
 use std::{future::Future, pin::Pin, task::Poll};
 
 use crate::{
-	core::responses::neo_transaction_result::TransactionResult, utils::PinBoxFut, JsonRpcClient,
-	Middleware, PendingTransaction, Provider, ProviderError,
+	core::responses::{
+		neo_send_raw_transaction::RawTransaction, neo_transaction_result::TransactionResult,
+	},
+	utils::PinBoxFut,
+	JsonRpcClient, Middleware, PendingTransaction, Provider, ProviderError,
 };
 
 /// States for the EscalatingPending future
-enum EscalatorStates<'a, P> {
-	Initial(PinBoxFut<'a, PendingTransaction<'a, P>>),
+enum EscalatorStates<'a> {
+	Initial(PinBoxFut<'a, RawTransaction>),
 	Sleeping(Pin<Box<Delay>>),
-	BroadcastingNew(PinBoxFut<'a, PendingTransaction<'a, P>>),
+	BroadcastingNew(PinBoxFut<'a, RawTransaction>),
 	CheckingReceipts(FuturesUnordered<PinBoxFut<'a, Option<TransactionResult>>>),
 	Completed,
 }
@@ -37,7 +41,7 @@ where
 	txns: Vec<Bytes>,
 	last: Instant,
 	sent: Vec<H256>,
-	state: EscalatorStates<'a, P>,
+	state: EscalatorStates<'a>,
 }
 
 impl<'a, P> EscalatingPending<'a, P>
@@ -67,7 +71,9 @@ where
 			// future resolves
 			last: Instant::now(),
 			sent: vec![],
-			state: EscalatorStates::Initial(Box::pin(provider.send_raw_transaction(first))),
+			state: EscalatorStates::Initial(Box::pin(
+				provider.send_raw_transaction(first.to_hex()),
+			)),
 		}
 	}
 
@@ -242,7 +248,7 @@ where
 	}
 }
 
-impl<'a, P> std::fmt::Debug for EscalatorStates<'a, P> {
+impl<'a> std::fmt::Debug for EscalatorStates<'a> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		let state = match self {
 			Self::Initial(_) => "Initial",
