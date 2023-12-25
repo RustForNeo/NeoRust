@@ -1,15 +1,21 @@
-use crate::{error::ContractError, iterator::NeoIterator, transaction_builder::TransactionBuilder};
+use crate::{error::ContractError, iterator::NeoIterator};
 use async_trait::async_trait;
-use neo_providers::core::transaction::transaction_builder::TransactionBuilder;
+use neo_providers::{
+	core::{
+		account::AccountTrait,
+		script::script_builder::ScriptBuilder,
+		transaction::{
+			call_flags::CallFlags, signers::signer::Signer, transaction_builder::TransactionBuilder,
+		},
+	},
+	JsonRpcClient, Middleware, Provider,
+};
 use neo_types::{
-	call_flags::CallFlags,
-	contract_error::ContractError,
 	contract_manifest::ContractManifest,
 	contract_parameter::ContractParameter,
 	invocation_result::InvocationResult,
 	op_code::OpCode,
 	script_hash::{ScriptHash, ScriptHashExtension},
-	signers::signer::Signer,
 	stack_item::StackItem,
 	Bytes,
 };
@@ -19,7 +25,7 @@ use rustc_serialize::hex::ToHex;
 use std::sync::Arc;
 
 #[async_trait]
-pub trait SmartContractTrait: Send + Sync {
+pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
 
 	async fn name(&self) -> String {
@@ -35,11 +41,13 @@ pub trait SmartContractTrait: Send + Sync {
 		panic!("Cannot set script hash for NNS")
 	}
 
+	fn provider(&self) -> Option<&Provider<P>>;
+
 	async fn invoke_function(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-	) -> Result<TransactionBuilder<T, P>, ContractError> {
+	) -> Result<TransactionBuilder<Self::T, Self::P>, ContractError> {
 		let script = self.build_invoke_function_script(function, params).await.unwrap();
 		let mut builder = TransactionBuilder::new();
 		builder.set_script(script);
@@ -115,7 +123,7 @@ pub trait SmartContractTrait: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer>,
+		signers: Vec<Signer<Self::T>>,
 	) -> Result<InvocationResult, ContractError> {
 		if function.is_empty() {
 			return Err(ContractError::from(ContractError::InvalidNeoName(
@@ -124,13 +132,19 @@ pub trait SmartContractTrait: Send + Sync {
 		}
 
 		let req = {
-			let binding = NEO_INSTANCE.read().unwrap();
-			let res = binding
-				.invoke_function(&self.script_hash().clone(), function.into(), params, signers)
+			let res = self
+				.provider()
+				.unwrap()
+				.invoke_function(
+					&self.script_hash().clone(),
+					function.into(),
+					params,
+					Some(signers),
+				)
 				.clone();
 			res
 		};
-		req.request().await
+		req.await
 	}
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
@@ -162,7 +176,7 @@ pub trait SmartContractTrait: Send + Sync {
 		function: &str,
 		params: Vec<ContractParameter>,
 		mapper: Arc<dyn Fn(StackItem) -> U + Send + Sync>,
-	) -> NeoIterator<U>
+	) -> NeoIterator<U, Self::P>
 	where
 		U: Send + Sync, // Adding this bound if necessary
 	{
@@ -177,7 +191,7 @@ pub trait SmartContractTrait: Send + Sync {
 			.ok_or(ContractError::InvalidNeoNameServiceRoot("No session ID".to_string()))
 			.unwrap();
 
-		NeoIterator::new(session_id, id.clone(), mapper)
+		NeoIterator::new(session_id, id.clone(), mapper, None)
 	}
 
 	async fn call_function_and_unwrap_iterator<U>(
@@ -196,9 +210,9 @@ pub trait SmartContractTrait: Send + Sync {
 		)
 		.unwrap();
 
-		let output = { NEO_INSTANCE.read().unwrap().invoke_script(script.to_hex(), vec![]) };
+		let output = { self.provider().unwrap().invoke_script(script.to_hex(), vec![]) };
 
-		let output = output.request().await.unwrap();
+		let output = output.await.unwrap();
 
 		self.throw_if_fault_state(&output).unwrap();
 
@@ -226,8 +240,8 @@ pub trait SmartContractTrait: Send + Sync {
 	}
 
 	async fn get_manifest(&self) -> ContractManifest {
-		let req = { NEO_INSTANCE.read().unwrap().get_contract_state(self.script_hash()).clone() };
+		let req = { self.provider().unwrap().get_contract_state(self.script_hash()).clone() };
 
-		req.request().await.unwrap().manifest.clone()
+		req.await.unwrap().manifest.clone()
 	}
 }

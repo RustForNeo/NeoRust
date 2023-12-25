@@ -54,7 +54,7 @@ yubi = ["neo-signers/yubi"]
 
 [dependencies]
 neo-addressbook.workspace = true
-neo-contract = { workspace = true, features = ["providers"] }
+#neo-contract = { workspace = true, features = ["providers"] }
 neo-codec.workspace=true
 neo-crypto.workspace=true
 neo-config.workspace=true
@@ -62,4 +62,5 @@ neo-types.workspace=true
 neo-middleware.workspace = true
 neo-providers.workspace = true
 neo-signers.workspace = true
+neo-contract.workspace = true
 thiserror = "1.0.49"

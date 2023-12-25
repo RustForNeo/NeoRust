@@ -2,24 +2,32 @@ use crate::traits::{
 	nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 };
 use async_trait::async_trait;
+use neo_providers::{JsonRpcClient, Provider};
 use primitive_types::H160;
 
 #[derive(Debug)]
-pub struct NftContract {
+pub struct NftContract<'a, P: JsonRpcClient> {
 	script_hash: H160,
 	total_supply: Option<u64>,
 	decimals: Option<u8>,
 	symbol: Option<String>,
+	provider: Option<&'a Provider<P>>,
 }
 
-impl NftContract {
-	pub fn new(script_hash: &H160) -> Self {
-		Self { script_hash: script_hash.clone(), total_supply: None, decimals: None, symbol: None }
+impl<'a, P> NftContract<'a, P> {
+	pub fn new(script_hash: &H160, provider: Option<&'a Provider<P>>) -> Self {
+		Self {
+			script_hash: script_hash.clone(),
+			total_supply: None,
+			decimals: None,
+			symbol: None,
+			provider,
+		}
 	}
 }
 
 #[async_trait]
-impl TokenTrait for NftContract {
+impl<'a, P> TokenTrait<'a, P> for NftContract<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -46,7 +54,7 @@ impl TokenTrait for NftContract {
 }
 
 #[async_trait]
-impl SmartContractTrait for NftContract {
+impl<'a, P> SmartContractTrait<'a, P> for NftContract<'a, P> {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -54,7 +62,11 @@ impl SmartContractTrait for NftContract {
 	fn set_script_hash(&mut self, script_hash: H160) {
 		self.script_hash = script_hash;
 	}
+
+	fn provider(&self) -> Option<&Provider<P>> {
+		self.provider
+	}
 }
 
 #[async_trait]
-impl NonFungibleTokenTrait for NftContract {}
+impl<'a, P> NonFungibleTokenTrait<'a, P> for NftContract<'a, P> {}

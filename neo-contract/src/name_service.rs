@@ -1,11 +1,15 @@
 #![feature(const_trait_impl)]
 use crate::{
+	error::ContractError,
 	iterator::NeoIterator,
-	traits::{nft::NonFungibleTokenTrait, smartcontract::SmartContractTrait, token::TokenTrait},
-	transaction_builder::TransactionBuilder,
+	traits::{nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait},
 };
 use futures::FutureExt;
-use neo_types::{contract_error::ContractError, script_hash::ScriptHash, stack_item::StackItem};
+use neo_providers::{
+	core::transaction::transaction_builder::TransactionBuilder, JsonRpcClient, Middleware, Provider,
+};
+use neo_signers::Account;
+use neo_types::{script_hash::ScriptHash, stack_item::StackItem};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{string::ToString, sync::Arc};
@@ -53,13 +57,15 @@ pub struct NameState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NeoNameService {
+pub struct NeoNameService<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	script_hash: ScriptHash,
+	#[serde(skip)]
+	provider: Option<&'a Provider<P>>,
 }
 
-impl NeoNameService {
+impl<'a, P> NeoNameService<'a, P> {
 	const ADD_ROOT: &'static str = "addRoot";
 	const ROOTS: &'static str = "roots";
 	const SET_PRICE: &'static str = "setPrice";
@@ -79,18 +85,18 @@ impl NeoNameService {
 	const EXPIRATION_PROPERTY: &'static str = "expiration";
 	const ADMIN_PROPERTY: &'static str = "admin";
 
-	pub fn new() -> Self {
-		Self { script_hash: NEO_INSTANCE.read().unwrap().nns_resolver().clone() }
+	pub fn new(provider: Option<&'a Provider<P>>) -> Self {
+		Self { script_hash: provider.unwrap().nns_resolver().clone(), provider }
 	}
 
 	// Implementation
 
-	async fn add_root(&self, root: &str) -> Result<TransactionBuilder, ContractError> {
+	async fn add_root(&self, root: &str) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let args = vec![root.to_string().into()];
 		self.invoke_function(Self::ADD_ROOT, args).await
 	}
 
-	async fn get_roots(&self) -> Result<NeoIterator<String>, ContractError> {
+	async fn get_roots(&self) -> Result<NeoIterator<String, P>, ContractError> {
 		let args = vec![];
 		let roots = self
 			.call_function_returning_iterator(
@@ -117,7 +123,7 @@ impl NeoNameService {
 		&self,
 		name: &str,
 		owner: H160,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), owner.into()];
@@ -130,7 +136,7 @@ impl NeoNameService {
 		&self,
 		name: &str,
 		admin: H160,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), admin.into()];
@@ -144,7 +150,7 @@ impl NeoNameService {
 		name: &str,
 		record_type: RecordType,
 		data: &str,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into(), data.into()];
 
 		self.invoke_function(Self::SET_RECORD, args).await
@@ -156,7 +162,7 @@ impl NeoNameService {
 		&self,
 		name: &str,
 		record_type: RecordType,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into()];
 		self.invoke_function(Self::DELETE_RECORD, args).await
 	}
@@ -165,7 +171,11 @@ impl NeoNameService {
 		let args = vec![name.into()];
 		self.call_function_returning_bool(Self::IS_AVAILABLE, args).await
 	}
-	pub async fn renew(&self, name: &str, years: u32) -> Result<TransactionBuilder, ContractError> {
+	pub async fn renew(
+		&self,
+		name: &str,
+		years: u32,
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), years.into()];
@@ -175,11 +185,9 @@ impl NeoNameService {
 	// Other methods...
 	async fn get_name_state(&self, name: &[u8]) -> Result<NameState, ContractError> {
 		let args = vec![name.into()];
-		let result = NEO_INSTANCE
-			.read()
-			.unwrap()
-			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, vec![])
-			.request()
+		let result = self
+			.provider
+			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, ())
 			.await
 			.unwrap()
 			.stack[0]
@@ -225,7 +233,7 @@ impl NeoNameService {
 	}
 }
 
-impl TokenTrait for NeoNameService {
+impl<'a, P> TokenTrait<'a, P> for NeoNameService<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		todo!()
 	}
@@ -251,7 +259,7 @@ impl TokenTrait for NeoNameService {
 	}
 }
 
-impl SmartContractTrait for NeoNameService {
+impl<'a, P> SmartContractTrait<'a, P> for NeoNameService<'a, P> {
 	fn set_name(&mut self, name: String) {}
 
 	fn script_hash(&self) -> H160 {
@@ -261,6 +269,10 @@ impl SmartContractTrait for NeoNameService {
 	fn set_script_hash(&mut self, script_hash: H160) {
 		self.script_hash = script_hash;
 	}
+
+	fn provider(&self) -> Option<&Provider<P>> {
+		self.provider
+	}
 }
 
-impl NonFungibleTokenTrait for NeoNameService {}
+impl<'a, P> NonFungibleTokenTrait<'a, P> for NeoNameService<'a, P> {}

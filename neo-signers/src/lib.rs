@@ -6,7 +6,7 @@ mod utils;
 pub use utils::*;
 
 mod wallet;
-pub use wallet::{MnemonicBuilder, Wallet};
+pub use wallet::*;
 
 /// Re-export the BIP-32 crate so that wordlists can be accessed conveniently.
 pub use coins_bip39;
@@ -36,9 +36,10 @@ mod error;
 #[cfg(feature = "aws")]
 pub use aws::{AwsSigner, AwsSignerError};
 
-use crate::transaction::transaction::Transaction;
+use crate::wallet::wallet::Wallet;
 use async_trait::async_trait;
 use neo_crypto::keys::Secp256r1Signature;
+use neo_providers::core::transaction::transaction::Transaction;
 use neo_types::address::Address;
 use std::error::Error;
 

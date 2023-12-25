@@ -1,17 +1,17 @@
 use async_trait::async_trait;
 use num_traits::real::Real;
-use rust_decimal::Decimal;
 
-use crate::{name_service::NeoNameService, traits::smart_contract::SmartContractTrait};
+use crate::{
+	error::ContractError, name_service::NeoNameService, traits::smart_contract::SmartContractTrait,
+};
+use neo_providers::{JsonRpcClient, Middleware};
 use neo_types::{
-	contract_error::ContractError, contract_parameter::ContractParameter, nns_name::NNSName,
-	record_type::RecordType,
+	contract_parameter::ContractParameter, nns_name::NNSName, record_type::RecordType,
 };
 use primitive_types::H160;
-use rust_decimal::prelude::*;
 
 #[async_trait]
-pub trait TokenTrait: SmartContractTrait {
+pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P> {
 	const TOTAL_SUPPLY: &'static str = "totalSupply";
 	const SYMBOL: &'static str = "symbol";
 	const DECIMALS: &'static str = "decimals";
@@ -65,7 +65,7 @@ pub trait TokenTrait: SmartContractTrait {
 		Ok(symbol)
 	}
 
-	fn to_fractions(&self, amount: Decimal, decimals: u32) -> Result<i32, ContractError> {
+	fn to_fractions(&self, amount: u64, decimals: u32) -> Result<i32, ContractError> {
 		if amount.scale() > decimals {
 			return Err(ContractError::RuntimeError(
 				"Amount has too many decimal points".to_string(),
@@ -111,8 +111,7 @@ pub trait TokenTrait: SmartContractTrait {
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
 		let req = {
-			NEO_INSTANCE
-				.read()
+			self.provider()
 				.unwrap()
 				.invoke_function(
 					&NeoNameService::new().script_hash(),
@@ -121,12 +120,12 @@ pub trait TokenTrait: SmartContractTrait {
 						ContractParameter::from(name.name()),
 						ContractParameter::from(RecordType::TXT.byte_repr()),
 					],
-					vec![],
+					(),
 				)
 				.clone()
 		};
 
-		let address = req.request().await.unwrap().stack.first().unwrap().clone();
+		let address = req.await.unwrap().stack.first().unwrap().clone();
 		// .map(|item| ScriptHash::from_address)
 		// ;
 

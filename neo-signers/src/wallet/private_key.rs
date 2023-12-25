@@ -1,7 +1,5 @@
 //! Specific helper functions for loading an offline P256 Private Key stored on disk
-use super::Wallet;
-
-use crate::wallet::mnemonic::MnemonicBuilderError;
+use crate::wallet::{mnemonic::MnemonicBuilderError, wallet::Wallet};
 use coins_bip32::Bip32Error;
 use coins_bip39::MnemonicError;
 use derive_more::Display;

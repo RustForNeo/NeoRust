@@ -3,22 +3,29 @@ use async_trait::async_trait;
 use neo_types::{script_hash::ScriptHash, serde_value::ValueExtension, stack_item::StackItem};
 use num_enum::TryFromPrimitive;
 
+use neo_crypto::keys::Secp256r1PublicKey;
+use neo_providers::{
+	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
+	JsonRpcClient, Provider,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RoleManagement {
+pub struct RoleManagement<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	script_hash: ScriptHash,
+	#[serde(skip)]
+	provider: Option<&'a Provider<P>>,
 }
 
-impl RoleManagement {
+impl<'a, P> RoleManagement<'a, P> {
 	const NAME: &'static str = "RoleManagement";
 	// const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
-	pub fn new() -> Self {
-		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap() }
+	pub fn new(provider: Option<&'a Provider<P>>) -> Self {
+		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(), provider }
 	}
 
 	pub async fn get_designated_by_role(
@@ -54,8 +61,7 @@ impl RoleManagement {
 			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
 		}
 
-		let current_block_count =
-			NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
+		let current_block_count = self.provider.get_block_count().await.unwrap();
 
 		if block_index > current_block_count as i32 {
 			return Err(ContractError::InvalidNeoName(format!(
@@ -67,11 +73,11 @@ impl RoleManagement {
 		Ok(())
 	}
 
-	pub async fn designate_as_role(
+	pub async fn designate_as_role<T: AccountTrait>(
 		&self,
 		role: Role,
 		pub_keys: Vec<Secp256r1PublicKey>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<T, P>, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),
@@ -85,13 +91,17 @@ impl RoleManagement {
 }
 
 #[async_trait]
-impl SmartContractTrait for RoleManagement {
+impl<'a, P> SmartContractTrait<'a, P> for RoleManagement<'a, P> {
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
 	}
 
 	fn set_script_hash(&mut self, script_hash: H160) {
 		self.script_hash = script_hash;
+	}
+
+	fn provider(&self) -> Option<&Provider<P>> {
+		self.provider
 	}
 }
 

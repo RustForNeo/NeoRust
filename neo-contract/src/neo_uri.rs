@@ -8,6 +8,11 @@ use crate::{
 	},
 };
 use getset::{Getters, Setters};
+use neo_providers::{
+	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
+	JsonRpcClient, Provider,
+};
+use neo_signers::Account;
 use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
 use primitive_types::H160;
 use reqwest::Url;
@@ -19,7 +24,7 @@ use std::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
-pub struct NeoURI {
+pub struct NeoURI<'a, P: JsonRpcClient> {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(deserialize_with = "deserialize_url_option")]
 	#[serde(serialize_with = "serialize_url_option")]
@@ -37,17 +42,19 @@ pub struct NeoURI {
 	token: Option<ScriptHash>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[getset(get = "pub", set = "pub")]
-	amount: Option<Decimal>,
+	amount: Option<u64>,
+	#[serde(skip)]
+	provider: Option<&'a Provider<P>>,
 }
 
-impl NeoURI {
+impl<'a, P> NeoURI<'a, P> {
 	const NEO_SCHEME: &'static str = "neo";
 	const MIN_NEP9_URI_LENGTH: usize = 38;
 	const NEO_TOKEN_STRING: &'static str = "neo";
 	const GAS_TOKEN_STRING: &'static str = "gas";
 
-	pub fn new() -> Self {
-		Self { uri: None, recipient: None, token: None, amount: None }
+	pub fn new(provider: Option<&'a Provider<P>>) -> Self {
+		Self { uri: None, recipient: None, token: None, amount: None, provider }
 	}
 
 	pub fn from_uri(uri_string: &str) -> Result<Self, ContractError> {
@@ -63,7 +70,7 @@ impl NeoURI {
 			return Err(ContractError::InvalidNeoName("Invalid NEP-9 URI".to_string()))
 		}
 
-		let mut neo_uri = Self::new();
+		let mut neo_uri = Self::new(None);
 		neo_uri.set_recipient(ScriptHash::from_address(base_parts[1]).ok());
 
 		if let Some(query_str) = query {
@@ -100,8 +107,10 @@ impl NeoURI {
 
 	pub fn token_string(&self) -> Option<String> {
 		self.token.as_ref().map(|token| match token {
-			token if *token == NeoToken::new().script_hash() => Self::NEO_TOKEN_STRING.to_owned(),
-			token if *token == GasToken::new().script_hash() => Self::GAS_TOKEN_STRING.to_owned(),
+			token if *token == NeoToken::new(None).script_hash() =>
+				Self::NEO_TOKEN_STRING.to_owned(),
+			token if *token == GasToken::new(None).script_hash() =>
+				Self::GAS_TOKEN_STRING.to_owned(),
 			_ => ScriptHashExtension::to_string(token),
 		})
 	}
@@ -111,7 +120,7 @@ impl NeoURI {
 	pub async fn build_transfer_from(
 		&self,
 		sender: &Account,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))
@@ -125,7 +134,7 @@ impl NeoURI {
 			.ok_or(ContractError::InvalidStateError("Token not set".to_string()))
 			.unwrap();
 
-		let mut token = &mut FungibleTokenContract::new(&token_hash);
+		let mut token = &mut FungibleTokenContract::new(&token_hash, self.provider);
 
 		// Validate amount precision
 		let amount_scale = amount.scale() as u8; //.scale();
@@ -136,7 +145,8 @@ impl NeoURI {
 			)))
 		}
 
-		if Self::is_gas_token(&token_hash) && amount_scale > GasToken::new().decimals().unwrap() {
+		if Self::is_gas_token(&token_hash) && amount_scale > GasToken::new(None).decimals().unwrap()
+		{
 			return Err(ContractError::from(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
 			)))
@@ -159,19 +169,19 @@ impl NeoURI {
 	// Helpers
 
 	fn is_neo_token(token: &H160) -> bool {
-		token == &NeoToken::new().script_hash()
+		token == &NeoToken::new(None).script_hash()
 	}
 
 	fn is_gas_token(token: &H160) -> bool {
-		token == &GasToken::new().script_hash()
+		token == &GasToken::new(None).script_hash()
 	}
 
 	// Setters
 
 	pub fn token_str(&mut self, token_str: &str) {
 		self.token = match token_str {
-			Self::NEO_TOKEN_STRING => Some(NeoToken::new().script_hash()),
-			Self::GAS_TOKEN_STRING => Some(GasToken::new().script_hash()),
+			Self::NEO_TOKEN_STRING => Some(NeoToken::new(self.provider).script_hash()),
+			Self::GAS_TOKEN_STRING => Some(GasToken::new(self.provider).script_hash()),
 			_ => Some(token_str.parse().unwrap()),
 		};
 	}
@@ -183,9 +193,9 @@ impl NeoURI {
 
 		if let Some(token) = &self.token {
 			let token_str = match token {
-				token if *token == NeoToken::new().script_hash() =>
+				token if *token == NeoToken::new(self.provider).script_hash() =>
 					Self::NEO_TOKEN_STRING.to_owned(),
-				token if *token == GasToken::new().script_hash() =>
+				token if *token == GasToken::new(self.provider).script_hash() =>
 					Self::GAS_TOKEN_STRING.to_owned(),
 				_ => ScriptHashExtension::to_string(token),
 			};

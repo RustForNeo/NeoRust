@@ -1,3 +1,5 @@
+use neo_crypto::error::SignError;
+use neo_providers::core::transaction::transaction_error::TransactionError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]

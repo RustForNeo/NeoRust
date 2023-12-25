@@ -125,6 +125,7 @@ impl<'a, P> Caller<'a, P> {
 		Self { provider, input: CallInput::new(tx) }
 	}
 }
+
 impl<'a, P: JsonRpcClient> Caller<'a, P> {
 	/// Executes an `neo_call` rpc request with the overriden parameters. Returns a future that
 	/// resolves to the result of the request.

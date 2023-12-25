@@ -144,7 +144,7 @@ macro_rules! poll_broadcast_fut {
         match $fut.as_mut().poll($cx) {
             Poll::Ready(Ok(pending)) => {
                 *$this.last = Instant::now();
-                $this.sent.push(*pending);
+                $this.sent.push(pending);
                 tracing::info!(
                     tx_hash = ?*pending,
                     escalation = $this.sent.len(),

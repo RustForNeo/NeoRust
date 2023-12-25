@@ -196,7 +196,7 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 				// If it hasn't confirmed yet, poll again later
 				let tx = tx_opt.unwrap();
 				rewake_with_new_state_if!(
-					tx.block_number.is_none(),
+					tx.confirmations.is_none(),
 					ctx,
 					this,
 					PendingTxState::PausedGettingTx
@@ -274,7 +274,7 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 					as u64;
 				// if the transaction has at least K confirmations, return the receipt
 				// (subtract 1 since the tx already has 1 conf when it's mined)
-				if current_block > (inclusion_block + *this.confirmations - 1) as u64 {
+				if current_block > (inclusion_block + (*this.confirmations as u64) - 1) {
 					let receipt = Some(receipt);
 					*this.state = PendingTxState::Completed;
 					return Poll::Ready(Ok(receipt))

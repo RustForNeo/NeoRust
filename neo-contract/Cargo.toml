@@ -37,6 +37,8 @@ async-trait = "0.1.73"
 primitive-types.workspace = true
 neo-types.workspace = true
 neo-crypto.workspace = true
+neo-signers.workspace = true
+#neo-providers.workspace = true
 futures = "0.3.28"
 reqwest = "0.11.22"
 num_enum = "0.7.0"
@@ -47,7 +49,7 @@ num-bigint = "0.4.4"
 num-traits = "0.2.16"
 
 [dev-dependencies]
-neo-providers = { workspace = true, features = ["ws"] }
+neo-providers = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -89,7 +89,7 @@ pub struct SnapProtocolInfo {}
 pub struct PeerProtocolInfo {
 	/// Details about the peer's supported eth protocol. `None` if unsupported
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub eth: Option<EthPeerInfo>,
+	pub neo: Option<NeoPeerInfo>,
 
 	/// Details about the peer's supported snap protocol. `None` if unsupported
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -100,7 +100,7 @@ pub struct PeerProtocolInfo {
 /// still completing the handshake for the protocol.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(untagged)]
-pub enum EthPeerInfo {
+pub enum NeoPeerInfo {
 	/// The `eth` sub-protocol metadata known about the host peer.
 	Info(Box<NeoInfo>),
 
@@ -388,7 +388,7 @@ mod tests {
         }"#;
 
 		let info: PeerInfo = serde_json::from_str(response).unwrap();
-		assert_eq!(info.protocols.eth, Some(EthPeerInfo::Handshake));
+		assert_eq!(info.protocols.neo, Some(NeoPeerInfo::Handshake));
 		assert_eq!(info.protocols.snap, Some(SnapPeerInfo::Handshake));
 	}
 }

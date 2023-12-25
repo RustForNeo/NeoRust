@@ -2,12 +2,13 @@ use crate::traits::{
 	fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
 };
 use async_trait::async_trait;
+use neo_providers::{JsonRpcClient, Provider};
 use neo_types::script_hash::ScriptHash;
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GasToken {
+pub struct GasToken<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	script_hash: ScriptHash,
@@ -17,25 +18,28 @@ pub struct GasToken {
 	decimals: Option<u8>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	symbol: Option<String>,
+	#[serde(skip)]
+	provider: Option<&'a Provider<P>>,
 }
 
-impl GasToken {
+impl<P: JsonRpcClient> GasToken<P> {
 	pub const NAME: &'static str = "GasToken";
 	pub const DECIMALS: u8 = 8;
 	pub const SYMBOL: &'static str = "GAS";
 
-	pub fn new() -> Self {
+	pub fn new(provider: Option<&Provider<P>>) -> Self {
 		Self {
 			script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(),
 			total_supply: None,
 			decimals: Some(Self::DECIMALS),
 			symbol: Some(Self::SYMBOL.to_string()),
+			provider,
 		}
 	}
 }
 
 #[async_trait]
-impl TokenTrait for GasToken {
+impl<'a, P> TokenTrait<'a, P> for GasToken<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -62,7 +66,7 @@ impl TokenTrait for GasToken {
 }
 
 #[async_trait]
-impl SmartContractTrait for GasToken {
+impl<'a, P> SmartContractTrait<'a, P> for GasToken<'a, P> {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -70,7 +74,11 @@ impl SmartContractTrait for GasToken {
 	fn set_script_hash(&mut self, script_hash: H160) {
 		self.script_hash = script_hash;
 	}
+
+	fn provider(&self) -> Option<&Provider<P>> {
+		self.provider
+	}
 }
 
 #[async_trait]
-impl FungibleTokenTrait for GasToken {}
+impl<'a, P> FungibleTokenTrait<'a, P> for GasToken<'a, P> {}

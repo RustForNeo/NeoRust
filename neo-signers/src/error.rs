@@ -1,4 +1,5 @@
 use hex::FromHexError;
+use neo_providers::core::error::BuilderError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -8,7 +9,7 @@ pub enum SignerError {
 	#[error("Invalid address")]
 	InvalidAddress,
 	#[error(transparent)]
-	BuilderError(#[from] crate::builder::error::BuilderError),
+	BuilderError(#[from] BuilderError),
 	#[error(transparent)]
 	WalletError(#[from] crate::wallet::wallet_error::WalletError),
 	#[error(transparent)]

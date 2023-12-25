@@ -1,26 +1,30 @@
 use crate::{error::ContractError, traits::smart_contract::SmartContractTrait};
 use async_trait::async_trait;
-use neo_providers::core::transaction::transaction_builder::TransactionBuilder;
+use neo_providers::{
+	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
+	JsonRpcClient, Middleware, Provider,
+};
+use neo_signers::Account;
 use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PolicyContract {
+pub struct PolicyContract<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	script_hash: ScriptHash,
+	#[serde(skip)]
+	provider: Option<&'a Provider<P>>,
 }
 
-impl PolicyContract {
+impl<'a, P> PolicyContract<'a, P> {
 	pub const NAME: &'static str = "PolicyContract";
 	// pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 
-	pub fn new() -> Self {
-		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap() }
+	pub fn new(provider: Option<&'a Provider<P>>) -> Self {
+		Self { script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(), provider }
 	}
-
-	// Read-only methods
 
 	pub async fn get_fee_per_byte(&self) -> Result<i32, ContractError> {
 		self.call_function_returning_int("getFeePerByte", vec![]).await
@@ -40,26 +44,38 @@ impl PolicyContract {
 
 	// State modifying methods
 
-	pub async fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
+	pub async fn set_fee_per_byte(
+		&self,
+		fee: i32,
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.invoke_function("setFeePerByte", vec![fee.into()]).await
 	}
 
-	pub async fn set_exec_fee_factor(&self, fee: i32) -> Result<TransactionBuilder, ContractError> {
+	pub async fn set_exec_fee_factor(
+		&self,
+		fee: i32,
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.invoke_function("setExecFeeFactor", vec![fee.into()]).await
 	}
 
-	pub async fn set_storage_price(&self, price: i32) -> Result<TransactionBuilder, ContractError> {
+	pub async fn set_storage_price(
+		&self,
+		price: i32,
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.invoke_function("setStoragePrice", vec![price.into()]).await
 	}
 
-	pub async fn block_account(&self, account: &H160) -> Result<TransactionBuilder, ContractError> {
+	pub async fn block_account(
+		&self,
+		account: &H160,
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.invoke_function("blockAccount", vec![account.into()]).await
 	}
 
 	pub async fn block_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let account = ScriptHash::from_address(address).unwrap();
 		self.block_account(&account).await
 	}
@@ -67,26 +83,30 @@ impl PolicyContract {
 	pub async fn unblock_account(
 		&self,
 		account: &H160,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.invoke_function("unblockAccount", vec![account.into()]).await
 	}
 
 	pub async fn unblock_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let account = ScriptHash::from_address(address).unwrap();
 		self.unblock_account(&account).await
 	}
 }
 
 #[async_trait]
-impl SmartContractTrait for PolicyContract {
+impl<'a, P> SmartContractTrait<'a, P> for PolicyContract<'a, P> {
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
 
 	fn set_script_hash(&mut self, script_hash: H160) {
 		self.script_hash = script_hash;
+	}
+
+	fn provider(&self) -> Option<&Provider<P>> {
+		self.provider
 	}
 }

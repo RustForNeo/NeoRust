@@ -17,8 +17,6 @@ use crate::encode::NeoSerializable;
 /// assert_eq!(decoder.read_i32(), 0x04030201);
 /// assert_eq!(decoder.read_u64(), 0x0807060504030201);
 /// assert_eq!(decoder.read_i64(), 0x0807060504030201);
-/// assert_eq!(decoder.read_u128(), 0x100f0e0d0c0b0a090807060504030201);
-/// assert_eq!(decoder.read_i128(), 0x100f0e0d0c0b0a090807060504030201);
 /// ```
 use crate::CodecError;
 use getset::{Getters, Setters};

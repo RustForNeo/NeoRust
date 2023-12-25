@@ -40,7 +40,8 @@ impl From<GetTransactionError> for ProviderError {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) type TransactionFut<'a> = Pin<Box<dyn Future<Output = TransactionResult> + Send + 'a>>;
+pub(crate) type TransactionFut<'a> =
+	Pin<Box<dyn Future<Output = Result<TransactionResult, GetTransactionError>> + Send + 'a>>;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) type TransactionFut<'a> = Pin<Box<dyn Future<Output = TransactionResult> + 'a>>;
@@ -93,7 +94,7 @@ where
 	P: JsonRpcClient,
 	St: Stream<Item = TxHash> + Unpin + 'a,
 {
-	type Item = TransactionResult;
+	type Item = Result<TransactionResult, GetTransactionError>;
 
 	fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
 		let this = self.get_mut();

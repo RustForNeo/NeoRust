@@ -1,8 +1,15 @@
 use crate::{
-	iterator::NeoIterator, nft_contract::NftContract, traits::token::TokenTrait,
-	transaction_builder::TransactionBuilder,
+	error::ContractError, iterator::NeoIterator, nft_contract::NftContract,
+	traits::token::TokenTrait, transaction_builder::TransactionBuilder,
 };
 use async_trait::async_trait;
+use neo_providers::{
+	core::transaction::{
+		signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
+	},
+	JsonRpcClient,
+};
+use neo_signers::Account;
 use neo_types::{
 	address::Address, contract_error::ContractError, contract_parameter::ContractParameter,
 	nns_name::NNSName, script_hash::ScriptHash, signers::account_signer::AccountSigner,
@@ -12,7 +19,7 @@ use primitive_types::H160;
 use std::{collections::HashMap, sync::Arc};
 
 #[async_trait]
-pub trait NonFungibleTokenTrait: TokenTrait + Send {
+pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send {
 	const OWNER_OF: &'static str = "ownerOf";
 	const TOKENS_OF: &'static str = "tokensOf";
 	const BALANCE_OF: &'static str = "balanceOf";
@@ -24,7 +31,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 	async fn balance_of(&mut self, owner: H160) -> Result<i32, ContractError> {
 		self.call_function_returning_int(
-			<NftContract as NonFungibleTokenTrait>::BALANCE_OF,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::BALANCE_OF,
 			vec![owner.into()],
 		)
 		.await
@@ -32,12 +39,12 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 	// NFT methods
 
-	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes>, ContractError> {
+	async fn tokens_of(&mut self, owner: H160) -> Result<NeoIterator<Bytes, P>, ContractError> {
 		// |item| item.as_bytes().unwrap()
 		let mapper_fn = Arc::new(|item: StackItem| item.as_bytes().unwrap());
 		Ok(self
 			.call_function_returning_iterator(
-				<NftContract as NonFungibleTokenTrait>::TOKENS_OF,
+				<NftContract<P> as NonFungibleTokenTrait<P>>::TOKENS_OF,
 				vec![owner.into()],
 				mapper_fn,
 			)
@@ -52,7 +59,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		to: Address,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let mut builder = self.transfer_inner(to, token_id, data).await.unwrap();
 		&builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
 
@@ -64,11 +71,10 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		to: Address,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
-
 		self.invoke_function(
-			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::TRANSFER,
 			vec![to.into(), token_id.into(), data.unwrap()],
 		)
 		.await
@@ -80,7 +86,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.throw_if_sender_is_not_owner(from.get_script_hash(), &token_id)
 			.await
 			.unwrap();
@@ -99,7 +105,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.transfer_inner(
@@ -119,7 +125,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.build_invoke_function_script(
-			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::TRANSFER,
 			vec![to.into(), token_id.into(), data],
 		)
 		.await
@@ -129,7 +135,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.call_function_returning_script_hash(
-			<NftContract as NonFungibleTokenTrait>::OWNER_OF,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::OWNER_OF,
 			vec![token_id.into()],
 		)
 		.await
@@ -169,7 +175,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let mut builder = self
 			.transfer_divisible_from_hashes(from.get_script_hash(), to, amount, token_id, data)
 			.await
@@ -185,11 +191,11 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.invoke_function(
-			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::TRANSFER,
 			vec![from.into(), to.into(), amount.into(), token_id.into(), data.unwrap()],
 		)
 		.await
@@ -202,7 +208,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let mut builder = self
 			.transfer_divisible_from_hashes(
 				from.get_script_hash(),
@@ -224,7 +230,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.transfer_divisible_from_hashes(
@@ -246,18 +252,21 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
 		self.build_invoke_function_script(
-			<NftContract as NonFungibleTokenTrait>::TRANSFER,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::TRANSFER,
 			vec![from.into(), to.into(), amount.into(), token_id.into(), data.unwrap()],
 		)
 		.await
 	}
 
-	async fn owners_of(&mut self, token_id: Bytes) -> Result<NeoIterator<Address>, ContractError> {
+	async fn owners_of(
+		&mut self,
+		token_id: Bytes,
+	) -> Result<NeoIterator<Address, P>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		Ok(self
 			.call_function_returning_iterator(
-				<NftContract as NonFungibleTokenTrait>::OWNER_OF,
+				<NftContract<P> as NonFungibleTokenTrait<P>>::OWNER_OF,
 				vec![token_id.into()],
 				Arc::new(|item: StackItem| item.as_address().unwrap()),
 			)
@@ -282,7 +291,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.call_function_returning_int(
-			<NftContract as NonFungibleTokenTrait>::BALANCE_OF,
+			<NftContract<P> as NonFungibleTokenTrait<P>>::BALANCE_OF,
 			vec![owner.into(), token_id.into()],
 		)
 		.await
@@ -290,10 +299,10 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 
 	// Optional methods
 
-	async fn tokens(&mut self) -> Result<NeoIterator<Bytes>, ContractError> {
+	async fn tokens(&mut self) -> Result<NeoIterator<Bytes, P>, ContractError> {
 		Ok(self
 			.call_function_returning_iterator(
-				<NftContract as NonFungibleTokenTrait>::TOKENS,
+				<NftContract<P> as NonFungibleTokenTrait<P>>::TOKENS,
 				vec![],
 				Arc::new(|item: StackItem| item.as_bytes().unwrap()),
 			)
@@ -306,7 +315,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	) -> Result<HashMap<String, String>, ContractError> {
 		let invocation_result = self
 			.call_invoke_function(
-				<NftContract as NonFungibleTokenTrait>::PROPERTIES,
+				<NftContract<P> as NonFungibleTokenTrait<P>>::PROPERTIES,
 				vec![token_id.into()],
 				vec![],
 			)
@@ -337,7 +346,7 @@ pub trait NonFungibleTokenTrait: TokenTrait + Send {
 	) -> Result<HashMap<String, StackItem>, ContractError> {
 		let invocation_result = self
 			.call_invoke_function(
-				<NftContract as NonFungibleTokenTrait>::PROPERTIES,
+				<NftContract<P> as NonFungibleTokenTrait<P>>::PROPERTIES,
 				vec![token_id.into()],
 				vec![],
 			)
