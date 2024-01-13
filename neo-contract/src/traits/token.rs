@@ -92,7 +92,6 @@ pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P = P> {
 		Ok(fractions)
 	}
 
-	// Other helper methods
 	fn to_decimals_u64(&self, fractions: u64, decimals: u32) -> Decimal {
 		let divisor = Decimal::from(10_u32.pow(decimals));
 		let amount = Decimal::from(fractions);

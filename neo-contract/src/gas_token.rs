@@ -30,7 +30,7 @@ impl<'a, P: JsonRpcClient> GasToken<'a, P> {
 	pub const DECIMALS: u8 = 8;
 	pub const SYMBOL: &'static str = "GAS";
 
-	pub fn new(provider: Option<&Provider<P>>) -> Self {
+	pub fn new(provider: Option<&'a Provider<P>>) -> Self {
 		Self {
 			script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(),
 			total_supply: None,

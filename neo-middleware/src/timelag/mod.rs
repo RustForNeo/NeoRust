@@ -1,13 +1,20 @@
 use async_trait::async_trait;
-use std::sync::Arc;
+use primitive_types::U256;
+use std::{future::Future, pin::Pin, sync::Arc};
 use thiserror::Error;
 
-use neo_providers::{core::transaction::transaction::Transaction, Middleware, MiddlewareError};
+use neo_providers::{
+	core::{
+		responses::neo_transaction_result::TransactionResult, transaction::transaction::Transaction,
+	},
+	FilterWatcher, Middleware, MiddlewareError,
+};
 use neo_types::{
+	address::NameOrAddress,
 	block::{Block, BlockId},
 	filter::{Filter, FilterBlockOption},
 	log::Log,
-	Bytes,
+	Bytes, TxHash,
 };
 
 type TimeLagResult<T, M> = Result<T, TimeLagError<M>>;
@@ -137,7 +144,7 @@ where
 	async fn get_block<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-	) -> Result<Option<Block<TxHash>>, Self::Error> {
+	) -> Result<Option<Block<TxHash, W>>, Self::Error> {
 		let block_hash_or_number = self
 			.normalize_block_id(Some(block_hash_or_number.into()))
 			.await?
@@ -152,7 +159,7 @@ where
 	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
 		block_hash_or_number: T,
-	) -> Result<Option<Block<Transaction>>, Self::Error> {
+	) -> Result<Option<Block<Transaction, W>>, Self::Error> {
 		let block_hash_or_number = self
 			.normalize_block_id(Some(block_hash_or_number.into()))
 			.await?
@@ -363,7 +370,7 @@ where
 
 	async fn subscribe_blocks(
 		&self,
-	) -> Result<neo_providers::SubscriptionStream<'_, Self::Provider, Block<TxHash>>, Self::Error>
+	) -> Result<neo_providers::SubscriptionStream<'_, Self::Provider, Block<TxHash, W>>, Self::Error>
 	where
 		Self::Provider: neo_providers::PubsubClient,
 	{
@@ -396,5 +403,21 @@ where
 		Self::Provider: neo_providers::PubsubClient,
 	{
 		Err(TimeLagError::Unsupported)
+	}
+
+	fn watch<'a, 'life0, 'async_trait>(
+		&'a self,
+		filter: &'life0 Filter,
+	) -> Pin<
+		Box<
+			dyn Future<Output = Result<FilterWatcher<'a, Self::Provider, Log>, Self::Error>>
+				+ Send
+				+ 'async_trait,
+		>,
+	>
+	where
+		'a: 'async_trait,
+	{
+		todo!()
 	}
 }

@@ -4,12 +4,16 @@ use crate::{
 	iterator::NeoIterator,
 	traits::{nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait},
 };
+use async_trait::async_trait;
 use futures::FutureExt;
 use neo_providers::{
 	core::transaction::transaction_builder::TransactionBuilder, JsonRpcClient, Middleware, Provider,
 };
 use neo_signers::{address_to_script_hash, Account};
-use neo_types::{nns_name::NNSName, script_hash::ScriptHash, stack_item::StackItem, *};
+use neo_types::{
+	contract_parameter::ContractParameter, nns_name::NNSName, script_hash::ScriptHash,
+	stack_item::StackItem, *,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{string::ToString, sync::Arc};
@@ -237,6 +241,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 	}
 }
 
+#[async_trait]
 impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for NeoNameService<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		todo!()
@@ -263,7 +268,24 @@ impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for NeoNameService<'a, P> {
 	}
 
 	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-		todo!()
+		let req = {
+			self.provider()
+				.unwrap()
+				.invoke_function::<Account>(
+					&self.script_hash(),
+					"resolve".to_string(),
+					vec![
+						ContractParameter::from(name.name()),
+						ContractParameter::from(RecordType::Txt as u8),
+					],
+					None,
+				)
+				.await
+		};
+
+		let address = req.unwrap().stack.first().unwrap().clone();
+
+		Ok(H160::from_slice(&address.as_bytes().unwrap()))
 	}
 }
 

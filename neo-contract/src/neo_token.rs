@@ -42,7 +42,7 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 	pub const SYMBOL: &'static str = "NEO";
 	pub const TOTAL_SUPPLY: u64 = 100_000_000;
 
-	pub(crate) fn new(provider: Option<&Provider<P>>) -> Self {
+	pub(crate) fn new(provider: Option<&'a Provider<P>>) -> Self {
 		Self {
 			script_hash: Self::calc_native_contract_hash(Self::NAME).unwrap(),
 			total_supply: Some(Self::TOTAL_SUPPLY),

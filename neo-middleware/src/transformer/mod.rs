@@ -1,10 +1,7 @@
-pub mod ds_proxy;
-pub use ds_proxy::DsProxy;
-
+use std::string::ParseError;
 mod middleware;
 pub use middleware::TransformerMiddleware;
-
-use neo_contract::AbiError;
+use neo_providers::core::transaction::transaction::Transaction;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -15,9 +12,6 @@ pub enum TransformerError {
 
 	#[error(transparent)]
 	AbiParseError(#[from] ParseError),
-
-	#[error(transparent)]
-	AbiError(#[from] AbiError),
 }
 
 /// `Transformer` is a trait to be implemented by a proxy wallet, eg. [`DsProxy`], that intends to

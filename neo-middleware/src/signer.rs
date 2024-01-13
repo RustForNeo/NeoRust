@@ -3,7 +3,9 @@ use neo_signers::Signer;
 use std::convert::TryFrom;
 
 use async_trait::async_trait;
-use neo_types::{address::Address, Bytes};
+use neo_providers::core::transaction::transaction::Transaction;
+use neo_types::{address::Address, block::BlockId, Bytes};
+use primitive_types::U256;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]

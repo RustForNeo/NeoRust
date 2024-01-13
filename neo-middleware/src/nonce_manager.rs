@@ -1,5 +1,7 @@
 use async_trait::async_trait;
-use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
+use neo_providers::{
+	core::transaction::transaction::Transaction, Middleware, MiddlewareError, PendingTransaction,
+};
 use neo_types::{address::Address, block::BlockId};
 use primitive_types::U256;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

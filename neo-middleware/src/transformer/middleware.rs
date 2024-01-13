@@ -1,6 +1,11 @@
 use super::{Transformer, TransformerError};
 use async_trait::async_trait;
-use neo_providers::{Middleware, MiddlewareError, PendingTransaction};
+use neo_providers::{
+	core::transaction::transaction::Transaction, FilterWatcher, Middleware, MiddlewareError,
+	PendingTransaction, PubsubClient, SubscriptionStream,
+};
+use neo_types::{block::BlockId, filter::Filter, log::Log};
+use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
 #[derive(Debug)]
@@ -78,5 +83,38 @@ where
 			.send_transaction(tx, block)
 			.await
 			.map_err(TransformerMiddlewareError::MiddlewareError)
+	}
+
+	fn watch<'a, 'life0, 'async_trait>(
+		&'a self,
+		filter: &'life0 Filter,
+	) -> Pin<
+		Box<
+			dyn Future<Output = Result<FilterWatcher<'a, Self::Provider, Log>, Self::Error>>
+				+ Send
+				+ 'async_trait,
+		>,
+	>
+	where
+		'a: 'async_trait,
+	{
+		todo!()
+	}
+
+	fn subscribe_logs<'a, 'life0, 'async_trait>(
+		&'a self,
+		filter: &'life0 Filter,
+	) -> Pin<
+		Box<
+			dyn Future<Output = Result<SubscriptionStream<'a, Self::Provider, Log>, Self::Error>>
+				+ Send
+				+ 'async_trait,
+		>,
+	>
+	where
+		<Self as Middleware>::Provider: PubsubClient,
+		'a: 'async_trait,
+	{
+		todo!()
 	}
 }

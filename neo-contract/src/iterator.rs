@@ -27,7 +27,7 @@ impl<'a, T, P: JsonRpcClient> NeoIterator<'a, T, P> {
 		session_id: String,
 		iterator_id: String,
 		mapper: Arc<dyn Fn(StackItem) -> T + Send + Sync>,
-		provider: Option<&Provider<P>>,
+		provider: Option<&'a Provider<P>>,
 	) -> Self {
 		Self { session_id, iterator_id, mapper, provider }
 	}

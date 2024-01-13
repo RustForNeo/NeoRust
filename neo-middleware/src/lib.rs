@@ -2,11 +2,6 @@
 #![deny(unsafe_code, rustdoc::broken_intra_doc_links)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-/// The gas oracle middleware is used to get the gas price from a list of gas oracles instead of
-/// using `neo_gasPrice`. For usage examples, refer to the [`GasOracle`] trait.
-pub mod gas_oracle;
-pub use gas_oracle::GasOracle;
-
 /// The [Nonce Manager](crate::NonceManagerMiddleware) is used to locally calculate nonces instead
 /// of using neo_getTransactionCount
 pub mod nonce_manager;
