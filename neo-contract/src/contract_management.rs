@@ -5,16 +5,19 @@ use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
 	JsonRpcClient, Middleware, Provider,
 };
+use neo_signers::Account;
 use neo_types::{
 	contract_parameter::ContractParameter,
 	contract_state::{ContractIdentifiers, ContractState},
 	nef_file::NefFile,
 	script_hash::ScriptHash,
+	*,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
+use thiserror::__private::ThiserrorProvide;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractManagement<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
@@ -23,7 +26,7 @@ pub struct ContractManagement<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> ContractManagement<'a, P> {
+impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 	pub fn new(script_hash: H160, provider: Option<&'a Provider<P>>) -> Self {
 		Self { script_hash, provider }
 	}
@@ -31,7 +34,13 @@ impl<'a, P> ContractManagement<'a, P> {
 	pub async fn get_minimum_deployment_fee(&self) -> Result<u64, ContractError> {
 		Ok(self
 			.provider
-			.invoke_function(&self.script_hash, "getMinimumDeploymentFee".to_string(), (), ())
+			.unwrap()
+			.invoke_function::<Account>(
+				&self.script_hash,
+				"getMinimumDeploymentFee".to_string(),
+				vec![],
+				None,
+			)
 			.await
 			.unwrap()
 			.stack[0]
@@ -42,11 +51,12 @@ impl<'a, P> ContractManagement<'a, P> {
 	pub async fn set_minimum_deployment_fee(&self, fee: u64) -> Result<u64, ContractError> {
 		Ok(self
 			.provider
-			.invoke_function(
+			.unwrap()
+			.invoke_function::<Account>(
 				&self.script_hash,
 				"setMinimumDeploymentFee".to_string(),
 				vec![fee.into()],
-				vec![],
+				None,
 			)
 			.await
 			.unwrap()
@@ -57,6 +67,7 @@ impl<'a, P> ContractManagement<'a, P> {
 
 	pub async fn get_contract(&self, hash: H160) -> Result<ContractState, ContractError> {
 		self.provider
+			.unwrap()
 			.get_contract_state(hash)
 			.await
 			.map_err(|e| ContractError::RuntimeError(e.to_string()))
@@ -70,7 +81,13 @@ impl<'a, P> ContractManagement<'a, P> {
 	pub async fn get_contract_hash_by_id(&self, id: u32) -> Result<ScriptHash, ContractError> {
 		let result = self
 			.provider
-			.invoke_function(&self.script_hash, "getContractById".to_string(), vec![id.into()], ())
+			.unwrap()
+			.invoke_function::<Account>(
+				&self.script_hash,
+				"getContractById".to_string(),
+				vec![id.into()],
+				None,
+			)
 			.await
 			.unwrap()
 			.stack;
@@ -81,9 +98,20 @@ impl<'a, P> ContractManagement<'a, P> {
 
 	pub async fn get_contract_hashes(&self) -> Result<ContractIdentifiers, ContractError> {
 		self.provider
-			.invoke_function(&self.script_hash, "getContractHashes".to_string(), (), ())
+			.unwrap()
+			.invoke_function::<Account>(
+				&self.script_hash,
+				"getContractHashes".to_string(),
+				vec![],
+				None,
+			)
 			.await
 			.map(|item| ContractIdentifiers::try_from(item).unwrap())
+			.map_err(|e| {
+				// Convert ProviderError to ContractError here
+				// This assumes you have a way to convert from ProviderError to ContractError
+				ContractError::from(e)
+			})
 	}
 
 	pub async fn has_method(
@@ -93,23 +121,24 @@ impl<'a, P> ContractManagement<'a, P> {
 		params: usize,
 	) -> Result<bool, ContractError> {
 		self.provider
-			.invoke_function(
+			.unwrap()
+			.invoke_function::<Account>(
 				&self.script_hash,
 				"hasMethod".to_string(),
 				vec![hash.into(), method.into(), params.into()],
-				(),
+				None,
 			)
 			.await
 			.map(|item| item.stack[0].as_bool().unwrap())
 			.map_err(|e| ContractError::RuntimeError(e.to_string()))
 	}
 
-	pub async fn deploy<T: AccountTrait>(
+	pub async fn deploy(
 		&self,
 		nef: &NefFile,
 		manifest: &[u8],
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<T, P>, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let params = vec![nef.into(), manifest.into(), data.unwrap()];
 		let tx = self.invoke_function("deploy", params).await;
 		tx
@@ -118,7 +147,9 @@ impl<'a, P> ContractManagement<'a, P> {
 
 // Other types and helpers
 #[async_trait]
-impl<'a, P: JsonRpcClient> SmartContractTrait<'a, P> for ContractManagement<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for ContractManagement<'a, P> {
+	type P = P;
+
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
 	}

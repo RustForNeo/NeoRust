@@ -47,6 +47,8 @@ getset.workspace = true
 p256.workspace = true
 num-bigint = "0.4.4"
 num-traits = "0.2.16"
+rust_decimal = "1.33.1"
+rust_decimal_macros = "1.33"
 
 [dev-dependencies]
 neo-providers = { workspace = true }

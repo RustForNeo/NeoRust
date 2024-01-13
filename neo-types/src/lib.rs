@@ -1,10 +1,8 @@
 use base64::{engine::general_purpose, Engine};
 use elliptic_curve::sec1::ToEncodedPoint;
-use ethereum_types::Address;
-use p256::{ecdsa::VerifyingKey, AffinePoint};
 use primitive_types::H256;
 use serde_derive::{Deserialize, Serialize};
-use std::{hash::Hash, ptr::hash};
+use std::hash::Hash;
 mod contract;
 mod nns;
 
@@ -24,8 +22,9 @@ pub mod path_or_string;
 pub mod plugin_type;
 pub mod serde_value;
 pub mod serde_with_utils;
-use crate::script_hash::ScriptHash;
+use crate::{address::Address, script_hash::ScriptHash, string::StringExt};
 pub use serde_with_utils::*;
+
 pub mod error;
 pub mod role;
 pub mod script_hash;
@@ -98,7 +97,10 @@ pub fn raw_public_key_to_script_hash<T: AsRef<[u8]>>(pubkey: T) -> ScriptHash {
 	ScriptHash::from_slice(&digest)
 }
 
-pub fn to_checksum(addr: &Address, chain_id: Option<u8>) -> String {
+pub fn to_checksum(addr: &ScriptHash, chain_id: Option<u8>) -> String {
+	// if !addr.is_valid_address(){
+	// 	panic!("invalid address");
+	// }
 	let prefixed_addr = match chain_id {
 		Some(chain_id) => format!("{chain_id}0x{addr:x}"),
 		None => format!("{addr:x}"),

@@ -1,12 +1,11 @@
 use crate::core::{transaction::verification_script::VerificationScript, wallet::WalletTrait};
 use neo_crypto::{key_pair::KeyPair, keys::Secp256r1PublicKey};
-use neo_types::{
-	address_or_scripthash::AddressOrScriptHash,
-	script_hash::{ScriptHash, ScriptHashExtension},
-};
+use neo_types::{address_or_scripthash::AddressOrScriptHash, script_hash::ScriptHash};
 use primitive_types::H160;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{cell::RefCell, fmt::Debug, rc::Weak};
+use std::{
+	fmt::Debug,
+	sync::{Mutex, Weak},
+};
 
 pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug + Clone {
 	type Wallet: WalletTrait;
@@ -20,7 +19,7 @@ pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug + Clone {
 	fn verification_script(&self) -> &Option<VerificationScript>;
 	fn is_locked(&self) -> bool;
 	fn encrypted_private_key(&self) -> &Option<String>;
-	fn wallet(&self) -> &Option<Weak<RefCell<Self::Wallet>>>;
+	fn wallet(&self) -> &Option<Weak<Mutex<Self::Wallet>>>;
 	fn signing_threshold(&self) -> &Option<u32>;
 	fn nr_of_participants(&self) -> &Option<u32>;
 	fn set_key_pair(&mut self, key_pair: Option<KeyPair>);
@@ -29,7 +28,7 @@ pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug + Clone {
 	fn set_verification_script(&mut self, verification_script: Option<VerificationScript>);
 	fn set_locked(&mut self, is_locked: bool);
 	fn set_encrypted_private_key(&mut self, encrypted_private_key: Option<String>);
-	fn set_wallet(&mut self, wallet: Option<Weak<RefCell<Self::Wallet>>>);
+	fn set_wallet(&mut self, wallet: Option<Weak<Mutex<Self::Wallet>>>);
 	fn set_signing_threshold(&mut self, signing_threshold: Option<u32>);
 	fn set_nr_of_participants(&mut self, nr_of_participants: Option<u32>);
 
@@ -54,7 +53,7 @@ pub trait AccountTrait: Sized + PartialEq + Send + Sync + Debug + Clone {
 		verification_script: Option<VerificationScript>,
 		is_locked: bool,
 		encrypted_private_key: Option<String>,
-		wallet: Option<Weak<RefCell<Self::Wallet>>>,
+		wallet: Option<Weak<Mutex<Self::Wallet>>>,
 		signing_threshold: Option<u32>,
 		nr_of_participants: Option<u32>,
 	) -> Self;

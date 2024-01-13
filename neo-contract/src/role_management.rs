@@ -6,12 +6,14 @@ use num_enum::TryFromPrimitive;
 use neo_crypto::keys::Secp256r1PublicKey;
 use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
-	JsonRpcClient, Provider,
+	JsonRpcClient, Middleware, Provider,
 };
+use neo_signers::Account;
+use neo_types::{contract_parameter::ContractParameter, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoleManagement<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
@@ -20,7 +22,7 @@ pub struct RoleManagement<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> RoleManagement<'a, P> {
+impl<'a, P: JsonRpcClient> RoleManagement<'a, P> {
 	const NAME: &'static str = "RoleManagement";
 	// const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap(); // compute hash
 
@@ -61,7 +63,7 @@ impl<'a, P> RoleManagement<'a, P> {
 			return Err(ContractError::InvalidNeoName("Block index must be positive".to_string()))
 		}
 
-		let current_block_count = self.provider.get_block_count().await.unwrap();
+		let current_block_count = self.provider.unwrap().get_block_count().await.unwrap();
 
 		if block_index > current_block_count as i32 {
 			return Err(ContractError::InvalidNeoName(format!(
@@ -73,11 +75,11 @@ impl<'a, P> RoleManagement<'a, P> {
 		Ok(())
 	}
 
-	pub async fn designate_as_role<T: AccountTrait>(
+	pub async fn designate_as_role(
 		&self,
 		role: Role,
 		pub_keys: Vec<Secp256r1PublicKey>,
-	) -> Result<TransactionBuilder<T, P>, ContractError> {
+	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),
@@ -91,7 +93,9 @@ impl<'a, P> RoleManagement<'a, P> {
 }
 
 #[async_trait]
-impl<'a, P> SmartContractTrait<'a, P> for RoleManagement<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for RoleManagement<'a, P> {
+	type P = P;
+
 	fn script_hash(&self) -> H160 {
 		self.script_hash.clone()
 	}
@@ -126,5 +130,11 @@ impl Role {
 impl From<Role> for StackItem {
 	fn from(role: Role) -> Self {
 		StackItem::Integer { value: role.byte() as i64 }
+	}
+}
+
+impl Into<ContractParameter> for Role {
+	fn into(self) -> ContractParameter {
+		ContractParameter::integer(self.byte() as i64)
 	}
 }

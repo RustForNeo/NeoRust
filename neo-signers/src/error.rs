@@ -1,3 +1,4 @@
+use crate::WalletError;
 use hex::FromHexError;
 use neo_providers::core::error::BuilderError;
 use thiserror::Error;
@@ -11,7 +12,7 @@ pub enum SignerError {
 	#[error(transparent)]
 	BuilderError(#[from] BuilderError),
 	#[error(transparent)]
-	WalletError(#[from] crate::wallet::wallet_error::WalletError),
+	WalletError(#[from] WalletError),
 	#[error(transparent)]
 	FromHexError(#[from] FromHexError),
 	#[error(transparent)]

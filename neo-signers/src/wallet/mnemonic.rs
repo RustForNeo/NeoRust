@@ -1,17 +1,10 @@
 //! Specific helper functions for creating/loading a mnemonic private key following BIP-39
 //! specifications
-use crate::Wallet;
-
 use coins_bip32::path::DerivationPath;
 use coins_bip39::{Mnemonic, Wordlist};
 
-use crate::wallet::wallet_error::WalletError;
-use coins_bip32::ecdsa;
-use neo_crypto::keys::Secp256r1PrivateKey;
-use neo_types::{
-	address_or_scripthash::AddressOrScriptHash, path_or_string::PathOrString,
-	secret_key_to_script_hash, to_checksum,
-};
+use crate::wallet::{wallet_error::WalletError, Wallet};
+use neo_types::{path_or_string::PathOrString, to_checksum};
 use rand::Rng;
 use std::{fs::File, io::Write, marker::PhantomData, path::PathBuf, str::FromStr};
 use thiserror::Error;
@@ -171,7 +164,7 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 		// Write the mnemonic phrase to storage if a directory has been provided.
 		if let Some(dir) = &self.write_to {
 			let mut file =
-				File::create(dir.as_path().join(to_checksum(&wallet.address.script_hash(), None)))?;
+				File::create(dir.as_path().join(to_checksum(&wallet.default_account, None)))?;
 			file.write_all(mnemonic.to_phrase().as_bytes())?;
 		}
 
@@ -179,15 +172,23 @@ impl<W: Wordlist> MnemonicBuilder<W> {
 	}
 
 	fn mnemonic_to_wallet(&self, mnemonic: &Mnemonic<W>) -> Result<Wallet, WalletError> {
-		let derived_priv_key =
-			mnemonic.derive_key(&self.derivation_path, self.password.as_deref())?;
-		// let  sign_key:ecdsa::SigningKey = ;
-		let signer: Secp256r1PrivateKey =
-			Secp256r1PrivateKey::from_bytes(derived_priv_key.Key.to_bytes());
-		// let signer = Secp256r1PrivateKey::from_bytes(&key.to_raw_bytes().to_vec())?;
-		let address = secret_key_to_script_hash(&signer);
+		// let derived_priv_key =
+		// 	mnemonic.derive_key(&self.derivation_path, self.password.as_deref())?;
+		// // let  sign_key:ecdsa::SigningKey = ;
+		// let key: &SigningKey = derived_priv_key.as_ref();
+		// let signer = SigningKey::from_bytes(&key.to_bytes())?;
+		// let signer: Secp256r1PrivateKey =
+		// 	Secp256r1PrivateKey::from_bytes(derived_priv_key.Key.to_bytes()).unwrap();
+		// // let signer = Secp256r1PrivateKey::from_bytes(&key.to_raw_bytes().to_vec())?;
+		// let address = secret_key_to_script_hash(&signer);
 
-		Ok(Wallet { signer, address: AddressOrScriptHash::ScriptHash(address), network_magic: 1 })
+		Ok(Wallet {
+			name: "".to_string(),
+			version: "".to_string(),
+			scrypt_params: Default::default(),
+			accounts: Default::default(),
+			default_account: Default::default(),
+		})
 	}
 }
 
@@ -269,7 +270,7 @@ mod tests {
 		assert_eq!(paths.count(), 1);
 
 		// Use the newly created file's path to instantiate wallet.
-		let phrase_path = dir.as_ref().join(to_checksum(&wallet1.address, None));
+		let phrase_path = dir.as_ref().join(to_checksum(&wallet1.default_account, None));
 		let wallet2 = MnemonicBuilder::<English>::default()
 			.phrase(phrase_path.to_str().unwrap())
 			.derivation_path(TEST_DERIVATION_PATH)
@@ -278,7 +279,7 @@ mod tests {
 			.unwrap();
 
 		// Ensure that both wallets belong to the same address.
-		assert_eq!(wallet1.address, wallet2.address);
+		assert_eq!(wallet1.default_account, wallet2.default_account);
 
 		dir.close().unwrap();
 	}

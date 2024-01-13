@@ -60,9 +60,9 @@ impl From<u64> for ContractParameter {
 	}
 }
 
-impl From<Role> for ContractParameter {
-	fn from(value: Role) -> Self {
-		Self::integer(value as i64)
+impl From<&Role> for ContractParameter {
+	fn from(value: &Role) -> Self {
+		Self::integer(value.clone() as i64)
 	}
 }
 

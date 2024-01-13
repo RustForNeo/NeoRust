@@ -130,7 +130,7 @@ impl<'a, P: JsonRpcClient> Caller<'a, P> {
 	/// Executes an `neo_call` rpc request with the overriden parameters. Returns a future that
 	/// resolves to the result of the request.
 	fn execute(&self) -> impl Future<Output = Result<Bytes, ProviderError>> + 'a {
-		self.provider.fetch("neo_call", utils::serialize(&self.input))
+		self.provider.request("neo_call", utils::serialize(&self.input))
 	}
 }
 

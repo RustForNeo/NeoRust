@@ -11,7 +11,7 @@ pub struct NeoIterator<'a, T, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<T, P> fmt::Debug for NeoIterator<T, P> {
+impl<'a, T, P: JsonRpcClient> fmt::Debug for NeoIterator<'a, T, P> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("NeoIterator")
 			.field("session_id", &self.session_id)
@@ -22,7 +22,7 @@ impl<T, P> fmt::Debug for NeoIterator<T, P> {
 	}
 }
 
-impl<T, P> NeoIterator<T, P> {
+impl<'a, T, P: JsonRpcClient> NeoIterator<'a, T, P> {
 	pub fn new(
 		session_id: String,
 		iterator_id: String,
@@ -35,8 +35,8 @@ impl<T, P> NeoIterator<T, P> {
 	pub async fn traverse(&self, count: i32) -> Result<Vec<T>, ContractError> {
 		let result = self
 			.provider
+			.unwrap()
 			.traverse_iterator(self.session_id.clone(), self.iterator_id.clone(), count as u32)
-			.request()
 			.await?;
 		let mapped = result.iter().map(|item| (self.mapper)(item.clone())).collect();
 		Ok(mapped)
@@ -44,8 +44,8 @@ impl<T, P> NeoIterator<T, P> {
 
 	pub async fn terminate_session(&self) -> Result<(), ContractError> {
 		self.provider
+			.unwrap()
 			.terminate_session(&self.session_id)
-			.request()
 			.await
 			.expect("Could not terminate session");
 		Ok(())

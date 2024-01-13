@@ -20,8 +20,10 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_codec::encode::NeoSerializable;
 use neo_config::NeoConstants;
 use neo_types::{
-	contract_parameter::ContractParameter, public_key_to_script_hash, stack_item::StackItem, Bytes,
+	contract_parameter::ContractParameter, public_key_to_script_hash, script_hash::ScriptHash,
+	stack_item::StackItem, Bytes,
 };
+use once_cell::sync::Lazy;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
 use serde::{Deserialize, Serialize};
@@ -31,6 +33,7 @@ use std::{
 	fmt::Debug,
 	hash::{Hash, Hasher},
 	iter::Iterator,
+	str::FromStr,
 };
 
 use crate::{
@@ -132,14 +135,11 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> Hash for TransactionBuilder<
 	}
 }
 
+static GAS_TOKEN_HASH: Lazy<ScriptHash> =
+	Lazy::new(|| ScriptHash::from_str("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap());
+
 impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
-	pub const GAS_TOKEN_HASH: [u8; 20] = hex::decode("d2a4cff31913016155e38e474a2c06d08be276cf")
-		.unwrap()
-		.iter()
-		.copied()
-		.collect::<Vec<u8>>()
-		.try_into()
-		.unwrap();
+	// const GAS_TOKEN_HASH: ScriptHash = ScriptHash::from_str("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
 	pub const DUMMY_PUB_KEY: &'static str =
 		"02ec143f00b88524caf36a0121c2de09eef0519ddbe1c710a00f0e2663201ee4c0";
@@ -290,7 +290,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 				.provider
 				.unwrap()
 				.invoke_function::<T>(
-					&H160::from(Self::GAS_TOKEN_HASH),
+					&GAS_TOKEN_HASH,
 					Self::BALANCE_OF_FUNCTION.to_string(),
 					vec![ContractParameter::hash160(sender.get_signer_hash())],
 					None,

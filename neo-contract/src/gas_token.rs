@@ -1,13 +1,16 @@
-use crate::traits::{
-	fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
+use crate::{
+	error::ContractError,
+	traits::{
+		fungible_token::FungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
+	},
 };
 use async_trait::async_trait;
 use neo_providers::{JsonRpcClient, Provider};
-use neo_types::script_hash::ScriptHash;
+use neo_types::{nns_name::NNSName, script_hash::ScriptHash, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GasToken<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
@@ -22,7 +25,7 @@ pub struct GasToken<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<P: JsonRpcClient> GasToken<P> {
+impl<'a, P: JsonRpcClient> GasToken<'a, P> {
 	pub const NAME: &'static str = "GasToken";
 	pub const DECIMALS: u8 = 8;
 	pub const SYMBOL: &'static str = "GAS";
@@ -39,7 +42,7 @@ impl<P: JsonRpcClient> GasToken<P> {
 }
 
 #[async_trait]
-impl<'a, P> TokenTrait<'a, P> for GasToken<'a, P> {
+impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for GasToken<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -63,10 +66,16 @@ impl<'a, P> TokenTrait<'a, P> for GasToken<'a, P> {
 	fn set_symbol(&mut self, symbol: String) {
 		self.symbol = Option::from(symbol);
 	}
+
+	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
+		todo!()
+	}
 }
 
 #[async_trait]
-impl<'a, P> SmartContractTrait<'a, P> for GasToken<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for GasToken<'a, P> {
+	type P = P;
+
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -81,4 +90,4 @@ impl<'a, P> SmartContractTrait<'a, P> for GasToken<'a, P> {
 }
 
 #[async_trait]
-impl<'a, P> FungibleTokenTrait<'a, P> for GasToken<'a, P> {}
+impl<'a, P: JsonRpcClient> FungibleTokenTrait<'a, P> for GasToken<'a, P> {}

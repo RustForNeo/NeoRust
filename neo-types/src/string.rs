@@ -1,8 +1,10 @@
+use crate::script_hash::ScriptHash;
 use bs58;
 use sha2::{Digest, Sha256};
+
 extern crate hex;
 
-trait StringExt {
+pub trait StringExt {
 	fn bytes_from_hex(&self) -> Result<Vec<u8>, hex::FromHexError>;
 
 	fn base64_decoded(&self) -> Result<Vec<u8>, base64::DecodeError>;
@@ -21,7 +23,7 @@ trait StringExt {
 
 	fn is_valid_hex(&self) -> bool;
 
-	fn address_to_scripthash(&self) -> Result<Vec<u8>, &'static str>;
+	fn address_to_scripthash(&self) -> Result<ScriptHash, &'static str>;
 
 	fn reversed_hex(&self) -> String;
 }
@@ -78,12 +80,12 @@ impl StringExt for String {
 		self.len() % 2 == 0 && self.chars().all(|c| c.is_ascii_hexdigit())
 	}
 
-	fn address_to_scripthash(&self) -> Result<Vec<u8>, &'static str> {
+	fn address_to_scripthash(&self) -> Result<ScriptHash, &'static str> {
 		if self.is_valid_address() {
 			let data = self.base58_decoded().ok_or("Invalid address").unwrap();
 			let mut scripthash = data[1..21].to_vec();
 			scripthash.reverse();
-			Ok(scripthash)
+			Ok(ScriptHash::from_slice(&scripthash))
 		} else {
 			Err("Not a valid address")
 		}

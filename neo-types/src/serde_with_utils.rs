@@ -266,7 +266,7 @@ where
 }
 
 pub fn serialize_script_hash_option<S>(
-	item: &Option<Address>,
+	item: &Option<ScriptHash>,
 	serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -274,14 +274,16 @@ where
 {
 	match item {
 		Some(addr) => {
-			// let addr_str = encode_string_h160(&addr);
-			serializer.serialize_str(&addr)
+			let addr_str = encode_string_h160(&addr);
+			serializer.serialize_str(&addr_str)
 		},
 		None => serializer.serialize_none(),
 	}
 }
 
-pub fn deserialize_script_hash_option<'de, D>(deserializer: D) -> Result<Option<Address>, D::Error>
+pub fn deserialize_script_hash_option<'de, D>(
+	deserializer: D,
+) -> Result<Option<ScriptHash>, D::Error>
 where
 	D: Deserializer<'de>,
 {
@@ -289,7 +291,7 @@ where
 	match s {
 		Some(s) => {
 			let addr = parse_address(&s);
-			Ok(Some(addr.to_address()))
+			Ok(Some(addr))
 		},
 		None => Ok(None),
 	}

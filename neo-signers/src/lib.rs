@@ -36,7 +36,6 @@ mod error;
 #[cfg(feature = "aws")]
 pub use aws::{AwsSigner, AwsSignerError};
 
-use crate::wallet::wallet::Wallet;
 use async_trait::async_trait;
 use neo_crypto::keys::Secp256r1Signature;
 use neo_providers::core::transaction::transaction::Transaction;

@@ -12,8 +12,11 @@ use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
 	JsonRpcClient, Provider,
 };
-use neo_signers::Account;
-use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
+use neo_signers::{script_hash_to_address, Account};
+use neo_types::{
+	script_hash::{ScriptHash, ScriptHashExtension},
+	*,
+};
 use primitive_types::H160;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -22,7 +25,6 @@ use std::{
 	error::Error,
 	str::FromStr,
 };
-
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI<'a, P: JsonRpcClient> {
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -47,7 +49,7 @@ pub struct NeoURI<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> NeoURI<'a, P> {
+impl<'a, P: JsonRpcClient> NeoURI<'a, P> {
 	const NEO_SCHEME: &'static str = "neo";
 	const MIN_NEP9_URI_LENGTH: usize = 38;
 	const NEO_TOKEN_STRING: &'static str = "neo";
@@ -92,7 +94,7 @@ impl<'a, P> NeoURI<'a, P> {
 			}
 		}
 
-		Ok(neo_uri.clone())
+		Ok(neo_uri)
 	}
 
 	// Getters
@@ -107,9 +109,9 @@ impl<'a, P> NeoURI<'a, P> {
 
 	pub fn token_string(&self) -> Option<String> {
 		self.token.as_ref().map(|token| match token {
-			token if *token == NeoToken::new(None).script_hash() =>
+			token if *token == NeoToken::<P>::new(None).script_hash() =>
 				Self::NEO_TOKEN_STRING.to_owned(),
-			token if *token == GasToken::new(None).script_hash() =>
+			token if *token == GasToken::<P>::new(None).script_hash() =>
 				Self::GAS_TOKEN_STRING.to_owned(),
 			_ => ScriptHashExtension::to_string(token),
 		})
@@ -137,7 +139,7 @@ impl<'a, P> NeoURI<'a, P> {
 		let mut token = &mut FungibleTokenContract::new(&token_hash, self.provider);
 
 		// Validate amount precision
-		let amount_scale = amount.scale() as u8; //.scale();
+		let amount_scale = (amount as f64).log10().floor() as u32 + 1; //amount.scale() as u8; //.scale();
 
 		if Self::is_neo_token(&token_hash) && amount_scale > 0 {
 			return Err(ContractError::from(ContractError::InvalidArgError(
@@ -145,7 +147,8 @@ impl<'a, P> NeoURI<'a, P> {
 			)))
 		}
 
-		if Self::is_gas_token(&token_hash) && amount_scale > GasToken::new(None).decimals().unwrap()
+		if Self::is_gas_token(&token_hash)
+			&& amount_scale > GasToken::<P>::new(None).decimals().unwrap() as u32
 		{
 			return Err(ContractError::from(ContractError::InvalidArgError(
 				"Too many decimal places for GAS".to_string(),
@@ -153,7 +156,7 @@ impl<'a, P> NeoURI<'a, P> {
 		}
 
 		let decimals = token.get_decimals().await.unwrap();
-		if amount_scale > decimals {
+		if amount_scale > decimals as u32 {
 			return Err(ContractError::from(ContractError::InvalidArgError(
 				"Too many decimal places for token".to_string(),
 			)))
@@ -169,11 +172,11 @@ impl<'a, P> NeoURI<'a, P> {
 	// Helpers
 
 	fn is_neo_token(token: &H160) -> bool {
-		token == &NeoToken::new(None).script_hash()
+		token == &NeoToken::<P>::new(None).script_hash()
 	}
 
 	fn is_gas_token(token: &H160) -> bool {
-		token == &GasToken::new(None).script_hash()
+		token == &GasToken::<P>::new(None).script_hash()
 	}
 
 	// Setters

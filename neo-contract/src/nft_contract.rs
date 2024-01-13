@@ -1,8 +1,10 @@
-use crate::traits::{
-	nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait,
+use crate::{
+	error::ContractError,
+	traits::{nft::NonFungibleTokenTrait, smart_contract::SmartContractTrait, token::TokenTrait},
 };
 use async_trait::async_trait;
 use neo_providers::{JsonRpcClient, Provider};
+use neo_types::nns_name::NNSName;
 use primitive_types::H160;
 
 #[derive(Debug)]
@@ -14,7 +16,7 @@ pub struct NftContract<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> NftContract<'a, P> {
+impl<'a, P: JsonRpcClient> NftContract<'a, P> {
 	pub fn new(script_hash: &H160, provider: Option<&'a Provider<P>>) -> Self {
 		Self {
 			script_hash: script_hash.clone(),
@@ -27,7 +29,7 @@ impl<'a, P> NftContract<'a, P> {
 }
 
 #[async_trait]
-impl<'a, P> TokenTrait<'a, P> for NftContract<'a, P> {
+impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for NftContract<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		self.total_supply
 	}
@@ -51,10 +53,16 @@ impl<'a, P> TokenTrait<'a, P> for NftContract<'a, P> {
 	fn set_symbol(&mut self, symbol: String) {
 		self.symbol = Option::from(symbol);
 	}
+
+	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
+		todo!()
+	}
 }
 
 #[async_trait]
-impl<'a, P> SmartContractTrait<'a, P> for NftContract<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for NftContract<'a, P> {
+	type P = P;
+
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}
@@ -69,4 +77,4 @@ impl<'a, P> SmartContractTrait<'a, P> for NftContract<'a, P> {
 }
 
 #[async_trait]
-impl<'a, P> NonFungibleTokenTrait<'a, P> for NftContract<'a, P> {}
+impl<'a, P: JsonRpcClient> NonFungibleTokenTrait<'a, P> for NftContract<'a, P> {}

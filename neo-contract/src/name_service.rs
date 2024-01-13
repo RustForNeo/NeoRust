@@ -8,8 +8,8 @@ use futures::FutureExt;
 use neo_providers::{
 	core::transaction::transaction_builder::TransactionBuilder, JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
-use neo_types::{script_hash::ScriptHash, stack_item::StackItem};
+use neo_signers::{address_to_script_hash, Account};
+use neo_types::{nns_name::NNSName, script_hash::ScriptHash, stack_item::StackItem, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
 use std::{string::ToString, sync::Arc};
@@ -65,7 +65,7 @@ pub struct NeoNameService<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> NeoNameService<'a, P> {
+impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 	const ADD_ROOT: &'static str = "addRoot";
 	const ROOTS: &'static str = "roots";
 	const SET_PRICE: &'static str = "setPrice";
@@ -182,12 +182,12 @@ impl<'a, P> NeoNameService<'a, P> {
 		self.invoke_function(Self::RENEW, args).await
 	}
 
-	// Other methods...
 	async fn get_name_state(&self, name: &[u8]) -> Result<NameState, ContractError> {
 		let args = vec![name.into()];
 		let result = self
 			.provider
-			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, ())
+			.unwrap()
+			.invoke_function::<Account>(&self.script_hash, Self::PROPERTIES.to_string(), args, None)
 			.await
 			.unwrap()
 			.stack[0]
@@ -210,7 +210,11 @@ impl<'a, P> NeoNameService<'a, P> {
 			.as_address()
 			.unwrap();
 
-		Ok(NameState { name, expiration, admin: admin.into() })
+		Ok(NameState {
+			name,
+			expiration,
+			admin: Some(address_to_script_hash(&admin.as_str()).unwrap()),
+		})
 	}
 	async fn check_domain_name_availability(
 		&self,
@@ -233,7 +237,7 @@ impl<'a, P> NeoNameService<'a, P> {
 	}
 }
 
-impl<'a, P> TokenTrait<'a, P> for NeoNameService<'a, P> {
+impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for NeoNameService<'a, P> {
 	fn total_supply(&self) -> Option<u64> {
 		todo!()
 	}
@@ -257,9 +261,15 @@ impl<'a, P> TokenTrait<'a, P> for NeoNameService<'a, P> {
 	fn set_symbol(&mut self, symbol: String) {
 		panic!("Cannot set symbol for NNS")
 	}
+
+	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
+		todo!()
+	}
 }
 
-impl<'a, P> SmartContractTrait<'a, P> for NeoNameService<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for NeoNameService<'a, P> {
+	type P = P;
+
 	fn set_name(&mut self, name: String) {}
 
 	fn script_hash(&self) -> H160 {
@@ -275,4 +285,4 @@ impl<'a, P> SmartContractTrait<'a, P> for NeoNameService<'a, P> {
 	}
 }
 
-impl<'a, P> NonFungibleTokenTrait<'a, P> for NeoNameService<'a, P> {}
+impl<'a, P: JsonRpcClient> NonFungibleTokenTrait<'a, P> for NeoNameService<'a, P> {}

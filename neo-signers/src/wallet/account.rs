@@ -25,8 +25,8 @@ use serde::{Deserialize, Serialize};
 use std::{
 	cell::RefCell,
 	hash::{Hash, Hasher},
-	rc::Weak,
 	str::FromStr,
+	sync::{Mutex, Weak},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -42,7 +42,8 @@ pub struct Account {
 	pub verification_script: Option<VerificationScript>,
 	is_locked: bool,
 	encrypted_private_key: Option<String>,
-	wallet: Option<Weak<RefCell<Wallet>>>,
+	#[serde(skip)]
+	wallet: Option<Weak<Mutex<Wallet>>>,
 	signing_threshold: Option<u32>,
 	nr_of_participants: Option<u32>,
 }
@@ -100,7 +101,7 @@ impl AccountTrait for Account {
 		&self.encrypted_private_key
 	}
 
-	fn wallet(&self) -> &Option<Weak<RefCell<Self::Wallet>>> {
+	fn wallet(&self) -> &Option<Weak<Mutex<Self::Wallet>>> {
 		&self.wallet
 	}
 
@@ -136,7 +137,7 @@ impl AccountTrait for Account {
 		self.encrypted_private_key = encrypted_private_key;
 	}
 
-	fn set_wallet(&mut self, wallet: Option<Weak<RefCell<Self::Wallet>>>) {
+	fn set_wallet(&mut self, wallet: Option<Weak<Mutex<Self::Wallet>>>) {
 		self.wallet = wallet;
 	}
 
@@ -197,7 +198,7 @@ impl AccountTrait for Account {
 		verification_script: Option<VerificationScript>,
 		is_locked: bool,
 		encrypted_private_key: Option<String>,
-		wallet: Option<Weak<RefCell<Wallet>>>,
+		wallet: Option<Weak<Mutex<Wallet>>>,
 		signing_threshold: Option<u32>,
 		nr_of_participants: Option<u32>,
 	) -> Self {

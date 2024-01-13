@@ -2,11 +2,14 @@ use crate::{
 	error::ContractError, fungible_token_contract::FungibleTokenContract, traits::token::TokenTrait,
 };
 use async_trait::async_trait;
-use neo_providers::core::{
-	account::AccountTrait,
-	transaction::{
-		signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
+use neo_providers::{
+	core::{
+		account::AccountTrait,
+		transaction::{
+			signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
+		},
 	},
+	JsonRpcClient,
 };
 use neo_signers::{Account, Wallet};
 use neo_types::{
@@ -16,7 +19,7 @@ use neo_types::{
 use primitive_types::H160;
 
 #[async_trait]
-pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
+pub trait FungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> {
 	const BALANCE_OF: &'static str = "balanceOf";
 	const TRANSFER: &'static str = "transfer";
 
@@ -43,12 +46,12 @@ pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
 	async fn transfer_from_account(
 		&self,
 		from: &Account,
-		to: &Address,
+		to: &ScriptHash,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let mut builder = self
-			.transfer_from_hash160(&from.address_or_scripthash().address(), to, amount, data)
+			.transfer_from_hash160(&from.address_or_scripthash().script_hash(), to, amount, data)
 			.await
 			.unwrap();
 		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
@@ -58,8 +61,8 @@ pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
 
 	async fn transfer_from_hash160(
 		&self,
-		from: &Address,
-		to: &Address,
+		from: &ScriptHash,
+		to: &ScriptHash,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder<Account, P>, ContractError> {
@@ -77,8 +80,8 @@ pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
 
 	async fn build_transfer_script(
 		&self,
-		from: &Address,
-		to: &Address,
+		from: &ScriptHash,
+		to: &ScriptHash,
 		amount: i32,
 		data: Option<ContractParameter>,
 	) -> Result<Bytes, ContractError> {
@@ -99,7 +102,7 @@ pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
 		data: Option<ContractParameter>,
 	) -> Result<TransactionBuilder<Account, P>, ContractError> {
 		let mut builder = self
-			.transfer_from_hash160_to_nns(from.get_script_hash(), to, amount, data)
+			.transfer_from_hash160_to_nns(&from.get_script_hash(), to, amount, data)
 			.await
 			.unwrap();
 		builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
@@ -109,7 +112,7 @@ pub trait FungibleTokenTrait<'a, P>: TokenTrait<'a, P> {
 
 	async fn transfer_from_hash160_to_nns(
 		&self,
-		from: &Address,
+		from: &ScriptHash,
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,

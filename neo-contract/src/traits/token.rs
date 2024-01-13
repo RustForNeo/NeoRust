@@ -1,17 +1,18 @@
-use async_trait::async_trait;
-use num_traits::real::Real;
-
 use crate::{
 	error::ContractError, name_service::NeoNameService, traits::smart_contract::SmartContractTrait,
 };
+use async_trait::async_trait;
 use neo_providers::{JsonRpcClient, Middleware};
 use neo_types::{
 	contract_parameter::ContractParameter, nns_name::NNSName, record_type::RecordType,
 };
+use num_traits::{real::Real, ToPrimitive};
 use primitive_types::H160;
+use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 
 #[async_trait]
-pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P> {
+pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P = P> {
 	const TOTAL_SUPPLY: &'static str = "totalSupply";
 	const SYMBOL: &'static str = "symbol";
 	const DECIMALS: &'static str = "decimals";
@@ -66,13 +67,14 @@ pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P> {
 	}
 
 	fn to_fractions(&self, amount: u64, decimals: u32) -> Result<i32, ContractError> {
-		if amount.scale() > decimals {
+		let scale = (amount as f64).log10().floor() as u32 + 1;
+		if scale > decimals {
 			return Err(ContractError::RuntimeError(
 				"Amount has too many decimal points".to_string(),
 			))
 		}
 
-		let scaled = amount * Decimal::from(10i32.pow(decimals));
+		let scaled = Decimal::from(amount) * Decimal::from(10i32.pow(decimals));
 		Ok(scaled.trunc().to_i32().unwrap())
 	}
 
@@ -109,26 +111,26 @@ pub trait TokenTrait<'a, P: JsonRpcClient>: SmartContractTrait<'a, P> {
 		}
 	}
 
-	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError> {
-		let req = {
-			self.provider()
-				.unwrap()
-				.invoke_function(
-					&NeoNameService::new().script_hash(),
-					"resolve".to_string(),
-					vec![
-						ContractParameter::from(name.name()),
-						ContractParameter::from(RecordType::TXT.byte_repr()),
-					],
-					(),
-				)
-				.clone()
-		};
-
-		let address = req.await.unwrap().stack.first().unwrap().clone();
-		// .map(|item| ScriptHash::from_address)
-		// ;
-
-		Ok(H160::from_slice(&address.as_bytes().unwrap()))
-	}
+	async fn resolve_nns_text_record(&self, name: &NNSName) -> Result<H160, ContractError>;
+	// {
+	// 	let req = {
+	// 		self.provider()
+	// 			.unwrap()
+	// 			.invoke_function(
+	// 				&NeoNameService::new().script_hash(),
+	// 				"resolve".to_string(),
+	// 				vec![
+	// 					ContractParameter::from(name.name()),
+	// 					ContractParameter::from(RecordType::TXT.byte_repr()),
+	// 				],
+	// 				(),
+	// 			)
+	// 			.clone()
+	// 	};
+	//
+	// 	let address = req.await.unwrap().stack.first().unwrap().clone();
+	//
+	//
+	// 	Ok(H160::from_slice(&address.as_bytes().unwrap()))
+	// }
 }

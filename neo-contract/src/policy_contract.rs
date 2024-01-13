@@ -5,11 +5,13 @@ use neo_providers::{
 	JsonRpcClient, Middleware, Provider,
 };
 use neo_signers::Account;
-use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
+use neo_types::{
+	script_hash::{ScriptHash, ScriptHashExtension},
+	*,
+};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyContract<'a, P: JsonRpcClient> {
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
@@ -18,7 +20,7 @@ pub struct PolicyContract<'a, P: JsonRpcClient> {
 	provider: Option<&'a Provider<P>>,
 }
 
-impl<'a, P> PolicyContract<'a, P> {
+impl<'a, P: JsonRpcClient> PolicyContract<'a, P> {
 	pub const NAME: &'static str = "PolicyContract";
 	// pub const SCRIPT_HASH: H160 = Self::calc_native_contract_hash(Self::NAME).unwrap();
 
@@ -97,7 +99,9 @@ impl<'a, P> PolicyContract<'a, P> {
 }
 
 #[async_trait]
-impl<'a, P> SmartContractTrait<'a, P> for PolicyContract<'a, P> {
+impl<'a, P: JsonRpcClient> SmartContractTrait<'a> for PolicyContract<'a, P> {
+	type P = P;
+
 	fn script_hash(&self) -> H160 {
 		self.script_hash
 	}

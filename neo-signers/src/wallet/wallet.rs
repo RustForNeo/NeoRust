@@ -7,15 +7,15 @@ use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Wallet {
-	name: String,
-	version: String,
-	scrypt_params: ScryptParamsDef,
+	pub(crate) name: String,
+	pub(crate) version: String,
+	pub(crate) scrypt_params: ScryptParamsDef,
 	#[serde(deserialize_with = "deserialize_hash_map_h160_account")]
 	#[serde(serialize_with = "serialize_hash_map_h160_account")]
 	pub accounts: HashMap<H160, Account>,
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
-	default_account: H160,
+	pub(crate) default_account: H160,
 }
 
 impl WalletTrait for Wallet {
@@ -58,7 +58,7 @@ impl WalletTrait for Wallet {
 	}
 
 	fn add_account(&mut self, account: Self::Account) {
-		self.accounts.insert(account.script_hash().clone(), account);
+		self.accounts.insert(account.get_script_hash().clone(), account);
 	}
 
 	fn remove_account(&mut self, hash: &H160) -> Option<Self::Account> {

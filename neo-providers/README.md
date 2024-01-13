@@ -63,7 +63,7 @@ Using NNS:
 let provider = Provider::<Http>::try_from("https://eth.llamarpc.com")?;
 
 // Resolve NNS name to Address
-let name = "vitalik.neo";
+let name = "jimmy.neo";
 let address = provider.resolve_name(name).await?;
 
 // Lookup NNS name given Address

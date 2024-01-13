@@ -10,6 +10,7 @@ use neo_providers::{
 	},
 	JsonRpcClient, Middleware, Provider,
 };
+use neo_signers::Account;
 use neo_types::{
 	contract_manifest::ContractManifest,
 	contract_parameter::ContractParameter,
@@ -22,11 +23,13 @@ use neo_types::{
 use num_bigint::BigInt;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
+use serde::Serialize;
 use std::sync::Arc;
 
 #[async_trait]
-pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
+pub trait SmartContractTrait<'a>: Send + Sync {
 	const DEFAULT_ITERATOR_COUNT: usize = 100;
+	type P: JsonRpcClient;
 
 	async fn name(&self) -> String {
 		self.get_manifest().await.name.clone().unwrap()
@@ -41,13 +44,13 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 		panic!("Cannot set script hash for NNS")
 	}
 
-	fn provider(&self) -> Option<&Provider<P>>;
+	fn provider(&self) -> Option<&Provider<Self::P>>;
 
 	async fn invoke_function(
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-	) -> Result<TransactionBuilder<Self::T, Self::P>, ContractError> {
+	) -> Result<TransactionBuilder<Account, Self::P>, ContractError> {
 		let script = self.build_invoke_function_script(function, params).await.unwrap();
 		let mut builder = TransactionBuilder::new();
 		builder.set_script(script);
@@ -114,7 +117,6 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 			Some(b) => Ok(b),
 			None => Err(ContractError::UnexpectedReturnType("Bool".to_string())),
 		}
-		// .ok_or_else(|| ContractError::UnexpectedReturnType("Bool".to_string()))
 	}
 
 	// Other methods
@@ -123,7 +125,7 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<Self::T>>,
+		signers: Vec<Signer<Account>>,
 	) -> Result<InvocationResult, ContractError> {
 		if function.is_empty() {
 			return Err(ContractError::from(ContractError::InvalidNeoName(
@@ -131,20 +133,14 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 			)))
 		}
 
-		let req = {
-			let res = self
-				.provider()
-				.unwrap()
-				.invoke_function(
-					&self.script_hash().clone(),
-					function.into(),
-					params,
-					Some(signers),
-				)
-				.clone();
-			res
-		};
-		req.await
+		let res = self
+			.provider()
+			.unwrap()
+			.invoke_function(&self.script_hash().clone(), function.into(), params, Some(signers))
+			.await?
+			.clone();
+
+		Ok(res)
 	}
 
 	fn throw_if_fault_state(&self, output: &InvocationResult) -> Result<(), ContractError> {
@@ -210,7 +206,7 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 		)
 		.unwrap();
 
-		let output = { self.provider().unwrap().invoke_script(script.to_hex(), vec![]) };
+		let output = { self.provider().unwrap().invoke_script::<Account>(script.to_hex(), vec![]) };
 
 		let output = output.await.unwrap();
 
@@ -240,8 +236,9 @@ pub trait SmartContractTrait<'a, P: JsonRpcClient>: Send + Sync {
 	}
 
 	async fn get_manifest(&self) -> ContractManifest {
-		let req = { self.provider().unwrap().get_contract_state(self.script_hash()).clone() };
+		let req =
+			{ self.provider().unwrap().get_contract_state(self.script_hash()).await.unwrap() };
 
-		req.await.unwrap().manifest.clone()
+		req.manifest.clone()
 	}
 }

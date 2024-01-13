@@ -40,7 +40,7 @@ where
 	polling_interval: Duration,
 	txns: Vec<Bytes>,
 	last: Instant,
-	sent: Vec<H256>,
+	sent: Vec<RawTransaction>,
 	state: EscalatorStates<'a>,
 }
 
@@ -107,7 +107,7 @@ macro_rules! check_all_receipts {
 		let futs: futures_util::stream::FuturesUnordered<_> = $this
 			.sent
 			.iter()
-			.map(|tx_hash| $this.provider.get_transaction_receipt(*tx_hash))
+			.map(|tx_hash| $this.provider.get_transaction_receipt(tx_hash.hash))
 			.collect();
 		*$this.state = CheckingReceipts(futs);
 		$cx.waker().wake_by_ref();
@@ -133,7 +133,6 @@ macro_rules! completed {
 /// Tests Provider error for nonce too low issue through debug contents
 fn is_nonce_too_low(e: &ProviderError) -> bool {
 	let debug_str = format!("{e:?}");
-
 	debug_str.contains("nonce too low") // Geth, Arbitrum, Optimism
             || debug_str.contains("nonce is too low") // Parity
             || debug_str.contains("invalid transaction nonce") // Arbitrum
@@ -144,9 +143,9 @@ macro_rules! poll_broadcast_fut {
         match $fut.as_mut().poll($cx) {
             Poll::Ready(Ok(pending)) => {
                 *$this.last = Instant::now();
-                $this.sent.push(pending);
+                $this.sent.push(pending.clone());
                 tracing::info!(
-                    tx_hash = ?*pending,
+                    tx_hash = pending.hash.to_string(),
                     escalation = $this.sent.len(),
                     "Escalation transaction broadcast complete"
                 );
@@ -188,7 +187,7 @@ where
 
 		match this.state {
 			// In the initial state we're simply waiting on the first
-			// transaction braodcast to complete.
+			// transaction broadcast to complete.
 			Initial(fut) => {
 				poll_broadcast_fut!(cx, this, fut);
 			},

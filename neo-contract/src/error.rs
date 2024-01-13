@@ -1,6 +1,7 @@
+use neo_providers::ProviderError;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Error, Debug)]
 pub enum ContractError {
 	#[error("Invalid NNS name {0}")]
 	InvalidNeoName(String),
@@ -20,4 +21,6 @@ pub enum ContractError {
 	InvalidStateError(String),
 	#[error("Invalid argument error: {0}")]
 	InvalidArgError(String),
+	#[error(transparent)]
+	ProviderError(#[from] ProviderError),
 }
