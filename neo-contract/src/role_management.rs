@@ -8,7 +8,6 @@ use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
 	JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
 use neo_types::{contract_parameter::ContractParameter, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -79,7 +78,7 @@ impl<'a, P: JsonRpcClient> RoleManagement<'a, P> {
 		&self,
 		role: Role,
 		pub_keys: Vec<Secp256r1PublicKey>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		if pub_keys.is_empty() {
 			return Err(ContractError::InvalidNeoName(
 				"At least 1 public key is required".to_string(),

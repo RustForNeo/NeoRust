@@ -9,10 +9,12 @@ use crate::{
 };
 use getset::{Getters, Setters};
 use neo_providers::{
-	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
+	core::{
+		account::{Account, AccountTrait},
+		transaction::transaction_builder::TransactionBuilder,
+	},
 	JsonRpcClient, Provider,
 };
-use neo_signers::{script_hash_to_address, Account};
 use neo_types::{
 	script_hash::{ScriptHash, ScriptHashExtension},
 	*,
@@ -25,6 +27,7 @@ use std::{
 	error::Error,
 	str::FromStr,
 };
+
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
 pub struct NeoURI<'a, P: JsonRpcClient> {
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -122,7 +125,7 @@ impl<'a, P: JsonRpcClient> NeoURI<'a, P> {
 	pub async fn build_transfer_from(
 		&self,
 		sender: &Account,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let recipient = self
 			.recipient
 			.ok_or(ContractError::InvalidStateError("Recipient not set".to_string()))

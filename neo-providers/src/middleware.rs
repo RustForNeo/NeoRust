@@ -788,12 +788,12 @@ pub trait Middleware: Sync + Send + Debug {
 	}
 
 	// Blockchain methods
-	async fn invoke_function<T: AccountTrait + Serialize>(
+	async fn invoke_function(
 		&self,
 		contract_hash: &H160,
 		method: String,
 		params: Vec<ContractParameter>,
-		signers: Option<Vec<Signer<T>>>,
+		signers: Option<Vec<Signer>>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_function(contract_hash, method, params, signers)
@@ -801,10 +801,10 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script<T: AccountTrait + Serialize>(
+	async fn invoke_script(
 		&self,
 		hex: String,
-		signers: Vec<Signer<T>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_script(hex, signers)
@@ -1076,12 +1076,12 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_function_diagnostics<T: AccountTrait + Serialize>(
+	async fn invoke_function_diagnostics(
 		&self,
 		contract_hash: H160,
 		name: String,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<T>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_function_diagnostics(contract_hash, name, params, signers)
@@ -1089,10 +1089,10 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_script_diagnostics<T: AccountTrait + Serialize>(
+	async fn invoke_script_diagnostics(
 		&self,
 		hex: String,
-		signers: Vec<Signer<T>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_script_diagnostics(hex, signers)
@@ -1119,11 +1119,11 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	async fn invoke_contract_verify<T: AccountTrait + Serialize>(
+	async fn invoke_contract_verify(
 		&self,
 		hash: H160,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<T>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, Self::Error> {
 		self.inner()
 			.invoke_contract_verify(hash, params, signers)

@@ -20,12 +20,13 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_codec::encode::NeoSerializable;
 use neo_config::NeoConstants;
 use neo_types::{
-	contract_parameter::ContractParameter, public_key_to_script_hash, script_hash::ScriptHash, Bytes,
+	contract_parameter::ContractParameter, public_key_to_script_hash, script_hash::ScriptHash,
+	Bytes,
 };
 use once_cell::sync::Lazy;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
-use serde::{Serialize};
+use serde::Serialize;
 use std::{
 	collections::HashSet,
 	fmt::Debug,
@@ -36,30 +37,32 @@ use std::{
 
 use crate::{
 	core::{
-		account::AccountTrait,
+		account::{Account, AccountTrait},
 		builder::{
 			error::BuilderError,
 			transaction::{transaction_error::TransactionError, witness::Witness},
 		},
 		transaction::{
-			signers::signer::{Signer, SignerType},
+			signers::{
+				signer::{Signer, SignerType},
+				transaction_signer::TransactionSigner,
+			},
 			transaction::Transaction,
 			transaction_attribute::TransactionAttribute,
 		},
 	},
 	JsonRpcClient, Middleware, Provider,
 };
-use crate::core::transaction::signers::transaction_signer::TransactionSigner;
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
-pub struct TransactionBuilder<T: AccountTrait + Serialize, P: JsonRpcClient + 'static> {
+pub struct TransactionBuilder<P: JsonRpcClient + 'static> {
 	provider: Option<&'static Provider<P>>,
 	version: u8,
 	nonce: u32,
 	valid_until_block: Option<u32>,
 	// setter and getter
 	#[getset(get = "pub", set = "pub")]
-	signers: Vec<Signer<T>>,
+	signers: Vec<Signer>,
 	additional_network_fee: u64,
 	additional_system_fee: u64,
 	attributes: Vec<TransactionAttribute>,
@@ -68,7 +71,7 @@ pub struct TransactionBuilder<T: AccountTrait + Serialize, P: JsonRpcClient + 's
 	fee_error: Option<TransactionError>,
 }
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> Debug for TransactionBuilder<T, P> {
+impl<P: JsonRpcClient> Debug for TransactionBuilder<P> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TransactionBuilder")
 			.field("version", &self.version)
@@ -85,7 +88,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> Debug for TransactionBuilder
 	}
 }
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> Clone for TransactionBuilder<T, P> {
+impl<P: JsonRpcClient> Clone for TransactionBuilder<P> {
 	fn clone(&self) -> Self {
 		Self {
 			provider: self.provider,
@@ -104,9 +107,9 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> Clone for TransactionBuilder
 	}
 }
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> Eq for TransactionBuilder<T, P> {}
+impl<P: JsonRpcClient> Eq for TransactionBuilder<P> {}
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> PartialEq for TransactionBuilder<T, P> {
+impl<P: JsonRpcClient> PartialEq for TransactionBuilder<P> {
 	fn eq(&self, other: &Self) -> bool {
 		self.version == other.version
 			&& self.nonce == other.nonce
@@ -119,7 +122,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> PartialEq for TransactionBui
 	}
 }
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> Hash for TransactionBuilder<T, P> {
+impl<P: JsonRpcClient> Hash for TransactionBuilder<P> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.version.hash(state);
 		self.nonce.hash(state);
@@ -135,7 +138,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> Hash for TransactionBuilder<
 static GAS_TOKEN_HASH: Lazy<ScriptHash> =
 	Lazy::new(|| ScriptHash::from_str("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap());
 
-impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
+impl<P: JsonRpcClient> TransactionBuilder<P> {
 	// const GAS_TOKEN_HASH: ScriptHash = ScriptHash::from_str("d2a4cff31913016155e38e474a2c06d08be276cf").unwrap();
 	pub const BALANCE_OF_FUNCTION: &'static str = "balanceOf";
 	pub const DUMMY_PUB_KEY: &'static str =
@@ -225,17 +228,17 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 			return Err(TransactionError::NoScript)
 		}
 
-		let mut tx = Transaction::new(
-			self.version,
-			self.nonce,
-			self.valid_until_block.unwrap(),
-			self.clone().signers,
-			0,
-			0,
-			self.clone().attributes,
-			self.clone().script.unwrap(),
-			vec![],
-		);
+		let mut tx = Transaction::new();
+		// 	self.version,
+		// 	self.nonce,
+		// 	self.valid_until_block.unwrap(),
+		// 	self.clone().signers,
+		// 	0,
+		// 	0,
+		// 	self.clone().attributes,
+		// 	self.clone().script.unwrap(),
+		// 	vec![],
+		// );
 
 		// Get fees
 		let system_fee = 0; //self.get_system_fee().await.unwrap();
@@ -249,8 +252,8 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 			}
 		}
 
-		tx.set_network_fee(network_fee as i64);
-		tx.set_system_fee(system_fee as i64);
+		// tx.set_network_fee(network_fee as i64);
+		// tx.set_system_fee(system_fee as i64);
 		// Build transaction
 		Ok(tx)
 	}
@@ -281,7 +284,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 			let balance = self
 				.provider
 				.unwrap()
-				.invoke_function::<T>(
+				.invoke_function(
 					&GAS_TOKEN_HASH,
 					Self::BALANCE_OF_FUNCTION.to_string(),
 					vec![ContractParameter::hash160(sender.get_signer_hash())],
@@ -295,7 +298,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 		Err(TransactionError::InvalidSender)
 	}
 
-	fn is_account_signer(signer: &Signer<T>) -> bool {
+	fn is_account_signer(signer: &Signer) -> bool {
 		// let sig = <T as Signer>::SignerType;
 		if signer.get_type() == SignerType::Account {
 			return true
@@ -306,9 +309,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 	// Sign transaction
 	pub async fn sign(&mut self) -> Result<Transaction, BuilderError> {
 		let mut transaction = self.get_unsigned_tx().await.unwrap();
-		let tx_bytes = transaction
-			.get_hash_data(self.provider.unwrap().get_version().await?.protocol.unwrap().network)
-			.await?;
+		let tx_bytes = transaction.get_hash_data()?;
 
 		let mut witnesses_to_add = Vec::new();
 

@@ -41,6 +41,7 @@ auto_impl.workspace = true
 once_cell.workspace = true
 bytes.workspace = true
 instant.workspace = true
+bs58.workspace=true
 hashers = "1.0"
 
 # required for implementing stream on the filters

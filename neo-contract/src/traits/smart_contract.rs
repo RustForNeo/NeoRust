@@ -10,7 +10,6 @@ use neo_providers::{
 	},
 	JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
 use neo_types::{
 	contract_manifest::ContractManifest,
 	contract_parameter::ContractParameter,
@@ -50,7 +49,7 @@ pub trait SmartContractTrait<'a>: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, Self::P>, ContractError> {
+	) -> Result<TransactionBuilder<Self::P>, ContractError> {
 		let script = self.build_invoke_function_script(function, params).await.unwrap();
 		let mut builder = TransactionBuilder::new();
 		builder.set_script(script);
@@ -125,7 +124,7 @@ pub trait SmartContractTrait<'a>: Send + Sync {
 		&self,
 		function: &str,
 		params: Vec<ContractParameter>,
-		signers: Vec<Signer<Account>>,
+		signers: Vec<Signer>,
 	) -> Result<InvocationResult, ContractError> {
 		if function.is_empty() {
 			return Err(ContractError::from(ContractError::InvalidNeoName(
@@ -206,7 +205,7 @@ pub trait SmartContractTrait<'a>: Send + Sync {
 		)
 		.unwrap();
 
-		let output = { self.provider().unwrap().invoke_script::<Account>(script.to_hex(), vec![]) };
+		let output = { self.provider().unwrap().invoke_script(script.to_hex(), vec![]) };
 
 		let output = output.await.unwrap();
 

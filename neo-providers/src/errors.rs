@@ -1,3 +1,5 @@
+use neo_crypto::error::CryptoError;
+use neo_types::error::TypeError;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Debug};
 use thiserror::Error;
@@ -134,55 +136,47 @@ pub trait MiddlewareError: Error + Sized + Send + Sync {
 	}
 }
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error)]
 /// An error thrown when making a call to the provider
 pub enum ProviderError {
 	/// An internal error in the JSON RPC Client
 	#[error("{0}")]
-	#[serde(skip)]
 	JsonRpcClientError(Box<dyn crate::RpcError + Send + Sync>),
-
 	/// An error during NNS name resolution
 	#[error("nns name not found: {0}")]
-	EnsError(String),
-
+	NnsError(String),
 	/// Invalid reverse NNS name
 	#[error("reverse nns name not pointing to itself: {0}")]
 	NnsNotOwned(String),
-
 	/// Error in underlying lib `serde_json`
 	#[error(transparent)]
-	#[serde(skip)]
 	SerdeJson(#[from] serde_json::Error),
-
 	/// Error in underlying lib `hex`
 	#[error(transparent)]
-	#[serde(skip)]
 	HexError(#[from] hex::FromHexError),
-
 	/// Error in underlying lib `reqwest`
 	#[error(transparent)]
-	#[serde(skip)]
 	HTTPError(#[from] reqwest::Error),
-
 	/// Custom error from unknown source
 	#[error("custom error: {0}")]
 	CustomError(String),
-
 	/// RPC method is not supported by this provider
 	#[error("unsupported RPC")]
 	UnsupportedRPC,
-
 	/// Node is not supported by this provider
 	#[error("unsupported node client")]
 	UnsupportedNodeClient,
-
 	/// Signer is not available to this provider.
 	#[error("Attempted to sign a transaction with no available signer. Hint: did you mean to use a SignerMiddleware?")]
 	SignerUnavailable,
-
 	#[error("Illegal state: {0}")]
 	IllegalState(String),
+	#[error("Invalid address")]
+	InvalidAddress,
+	#[error(transparent)]
+	CryptoError(#[from] CryptoError),
+	#[error(transparent)]
+	TypeError(#[from] TypeError),
 }
 
 impl RpcError for ProviderError {

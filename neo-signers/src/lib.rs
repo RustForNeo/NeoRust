@@ -22,7 +22,7 @@ mod error;
 
 use async_trait::async_trait;
 use neo_crypto::keys::Secp256r1Signature;
-use neo_providers::core::transaction::transaction::Transaction;
+use neo_providers::core::transaction::{transaction::Transaction, witness::Witness};
 use neo_types::address::Address;
 use std::error::Error;
 
@@ -39,19 +39,16 @@ pub trait Signer: std::fmt::Debug + Send + Sync {
 		message: S,
 	) -> Result<Secp256r1Signature, Self::Error>;
 
-	/// Signs the transaction
-	async fn sign_transaction(
-		&self,
-		message: &Transaction,
-	) -> Result<Secp256r1Signature, Self::Error>;
+	/// Add witness to transaction
+	async fn get_witness(&self, message: &Transaction) -> Result<Witness, Self::Error>;
 
 	/// Returns the signer's neo Address
 	fn address(&self) -> Address;
 
 	/// Returns the signer's network magic
-	fn network_magic(&self) -> u64;
+	fn network_magic(&self) -> u32;
 
 	/// Sets the signer's network magic
 	#[must_use]
-	fn with_network_magic<T: Into<u64>>(self, network_magic: T) -> Self;
+	fn with_network_magic<T: Into<u32>>(self, network_magic: T) -> Self;
 }

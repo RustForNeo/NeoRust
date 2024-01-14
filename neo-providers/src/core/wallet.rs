@@ -10,7 +10,7 @@ pub trait WalletTrait {
 	fn version(&self) -> &String;
 	fn scrypt_params(&self) -> &ScryptParamsDef;
 	fn accounts(&self) -> &HashMap<H160, Self::Account>;
-	fn default_account(&self) -> &H160;
+	fn default_account(&self) -> &Self::Account;
 	fn set_name(&mut self, name: String);
 	fn set_version(&mut self, version: String);
 	fn set_scrypt_params(&mut self, params: ScryptParamsDef);

@@ -7,14 +7,13 @@ use crate::{
 use async_trait::async_trait;
 use neo_providers::{
 	core::{
-		account::AccountTrait,
+		account::{Account, AccountTrait},
 		transaction::{
 			signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
 		},
 	},
 	JsonRpcClient,
 };
-use neo_signers::Account;
 use neo_types::{
 	address::Address,
 	contract_parameter::ContractParameter,
@@ -66,7 +65,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		to: ScriptHash,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let mut builder = self.transfer_inner(to, token_id, data).await.unwrap();
 		&builder.set_signers(vec![AccountSigner::called_by_entry(from).unwrap().into()]);
 
@@ -78,7 +77,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		to: ScriptHash,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, Self::P>, ContractError> {
+	) -> Result<TransactionBuilder<Self::P>, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
 		self.invoke_function(
 			<NftContract<P> as NonFungibleTokenTrait<P>>::TRANSFER,
@@ -93,7 +92,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.throw_if_sender_is_not_owner(&from.get_script_hash(), &token_id)
 			.await
 			.unwrap();
@@ -112,7 +111,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		to: &str,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.throw_if_divisible_nft().await.unwrap();
 
 		self.transfer_inner(
@@ -182,7 +181,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let mut builder = self
 			.transfer_divisible_from_hashes(&from.get_script_hash(), to, amount, token_id, data)
 			.await
@@ -198,7 +197,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.invoke_function(
@@ -215,7 +214,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let mut builder = self
 			.transfer_divisible_from_hashes(
 				&from.get_script_hash(),
@@ -237,7 +236,7 @@ pub trait NonFungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> + Send 
 		amount: i32,
 		token_id: Bytes,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.throw_if_non_divisible_nft().await.unwrap();
 
 		self.transfer_divisible_from_hashes(

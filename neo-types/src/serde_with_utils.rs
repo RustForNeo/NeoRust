@@ -50,8 +50,8 @@ where
 }
 
 pub fn serialize_url<S>(item: Url, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
+where
+	S: Serializer,
 {
 	// deserialize_script_hash
 	let item_str = format!("{}", item);
@@ -59,8 +59,8 @@ pub fn serialize_url<S>(item: Url, serializer: S) -> Result<S::Ok, S::Error>
 }
 
 pub fn deserialize_pubkey<'de, D>(deserializer: D) -> Result<Secp256r1PublicKey, D::Error>
-	where
-		D: Deserializer<'de>,
+where
+	D: Deserializer<'de>,
 {
 	let s: Secp256r1PublicKey = Deserialize::deserialize(deserializer)?;
 	Ok(s)
@@ -70,7 +70,7 @@ pub fn serialize_pubkey<S>(item: Secp256r1PublicKey, serializer: S) -> Result<S:
 where
 	S: Serializer,
 {
-	let item_str =  format!("{:?}", item.to_raw_bytes());
+	let item_str = format!("{:?}", item.to_raw_bytes());
 	serializer.serialize_str(&item_str)
 }
 
@@ -278,6 +278,43 @@ where
 		seq.serialize_element(&i)?;
 	}
 	seq.end()
+}
+
+pub fn deserialize_vec_script_hash_option<'de, D>(
+	deserializer: D,
+) -> Result<Option<Vec<ScriptHash>>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let string_seq = <Option<Vec<ScriptHash>>>::deserialize(deserializer)?;
+	// let mut vec: Vec<Address> = Vec::new();
+	// for v_str in string_seq {
+	// 	let v = parse_address(&v_str);
+	// 	vec.push(v);
+	// }
+	match string_seq {
+		Some(s) => Ok(Some(s)),
+		None => Ok(None),
+	}
+}
+
+pub fn serialize_vec_script_hash_option<S>(
+	item: &Option<Vec<ScriptHash>>,
+	serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	match item {
+		Some(addr) => {
+			let mut seq = serializer.serialize_seq(Some(addr.len()))?;
+			for i in item {
+				seq.serialize_element(&i)?;
+			}
+			seq.end()
+		},
+		None => serializer.serialize_none(),
+	}
 }
 
 pub fn serialize_script_hash_option<S>(

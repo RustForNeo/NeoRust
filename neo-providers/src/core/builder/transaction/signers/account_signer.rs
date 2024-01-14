@@ -3,7 +3,7 @@ use neo_crypto::keys::{PublicKeyExtension, Secp256r1PublicKey};
 use neo_types::{script_hash::ScriptHashExtension, *};
 
 use crate::core::{
-	account::AccountTrait,
+	account::{Account, AccountTrait},
 	transaction::{
 		signers::signer::{SignerTrait, SignerType},
 		transaction_error::TransactionError,
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Getters, Setters)]
-pub struct AccountSigner<T: AccountTrait + Serialize> {
+pub struct AccountSigner {
 	#[serde(
 		serialize_with = "serialize_script_hash",
 		deserialize_with = "deserialize_script_hash"
@@ -40,11 +40,11 @@ pub struct AccountSigner<T: AccountTrait + Serialize> {
 	allowed_groups: Vec<Secp256r1PublicKey>,
 	rules: Vec<WitnessRule>,
 	#[getset(get = "pub")]
-	pub account: T,
+	pub account: Account,
 	scope: WitnessScope,
 }
 
-impl<T: AccountTrait + Serialize> NeoSerializable for AccountSigner<T> {
+impl NeoSerializable for AccountSigner {
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
@@ -99,7 +99,7 @@ impl<T: AccountTrait + Serialize> NeoSerializable for AccountSigner<T> {
 			allowed_contracts,
 			allowed_groups,
 			rules,
-			account: T::from_address(signer_hash.to_address().as_str()).unwrap(),
+			account: Account::from_address(signer_hash.to_address().as_str()).unwrap(),
 			scope: WitnessScope::None,
 		})
 	}
@@ -111,7 +111,7 @@ impl<T: AccountTrait + Serialize> NeoSerializable for AccountSigner<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> PartialEq for AccountSigner<T> {
+impl PartialEq for AccountSigner {
 	fn eq(&self, other: &Self) -> bool {
 		self.signer_hash == other.signer_hash
 			&& self.scopes == other.scopes
@@ -123,7 +123,7 @@ impl<T: AccountTrait + Serialize> PartialEq for AccountSigner<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> Hash for AccountSigner<T> {
+impl Hash for AccountSigner {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.signer_hash.hash(state);
 		self.scopes.hash(state);
@@ -138,7 +138,7 @@ impl<T: AccountTrait + Serialize> Hash for AccountSigner<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> SignerTrait for AccountSigner<T> {
+impl SignerTrait for AccountSigner {
 	fn get_type(&self) -> SignerType {
 		SignerType::Account
 	}
@@ -188,8 +188,8 @@ impl<T: AccountTrait + Serialize> SignerTrait for AccountSigner<T> {
 	}
 }
 
-impl<T: AccountTrait + Serialize> AccountSigner<T> {
-	fn new(account: &T, scope: WitnessScope) -> Self {
+impl AccountSigner {
+	fn new(account: &Account, scope: WitnessScope) -> Self {
 		Self {
 			signer_hash: account.get_script_hash().clone(),
 			scopes: vec![],
@@ -201,30 +201,30 @@ impl<T: AccountTrait + Serialize> AccountSigner<T> {
 		}
 	}
 
-	pub fn none(account: &T) -> Result<Self, TransactionError> {
+	pub fn none(account: &Account) -> Result<Self, TransactionError> {
 		Ok(Self::new(account, WitnessScope::None))
 	}
 
 	pub fn none_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-		let account = T::from_address(account_hash.to_address().as_str()).unwrap();
+		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
 		Ok(Self::new(&account, WitnessScope::None))
 	}
 
-	pub fn called_by_entry(account: &T) -> Result<Self, TransactionError> {
+	pub fn called_by_entry(account: &Account) -> Result<Self, TransactionError> {
 		Ok(Self::new(account, WitnessScope::CalledByEntry))
 	}
 
 	pub fn called_by_entry_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-		let account = T::from_address(account_hash.to_address().as_str()).unwrap();
+		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
 		Ok(Self::new(&account, WitnessScope::CalledByEntry))
 	}
 
-	pub fn global(account: T) -> Result<Self, TransactionError> {
+	pub fn global(account: Account) -> Result<Self, TransactionError> {
 		Ok(Self::new(&account, WitnessScope::Global))
 	}
 
 	pub fn global_hash160(account_hash: H160) -> Result<Self, TransactionError> {
-		let account = T::from_address(account_hash.to_address().as_str()).unwrap();
+		let account = Account::from_address(account_hash.to_address().as_str()).unwrap();
 		Ok(Self::new(&account, WitnessScope::Global))
 	}
 

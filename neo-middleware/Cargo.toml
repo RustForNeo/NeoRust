@@ -28,6 +28,7 @@ neo-providers.workspace = true
 neo-signers.workspace = true
 neo-types.workspace = true
 neo-crypto.workspace = true
+neo-codec.workspace = true
 
 async-trait.workspace = true
 auto_impl.workspace = true

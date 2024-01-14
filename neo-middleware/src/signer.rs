@@ -1,8 +1,11 @@
 use async_trait::async_trait;
+use neo::signer;
+use neo_codec::encode::NeoSerializable;
 use neo_crypto::keys::Secp256r1Signature;
 use neo_providers::{
-	core::transaction::transaction::Transaction, maybe, FilterWatcher, Middleware, MiddlewareError,
-	PendingTransaction, PubsubClient, SubscriptionStream,
+	core::transaction::{transaction::Transaction, witness::Witness},
+	maybe, FilterWatcher, Middleware, MiddlewareError, PendingTransaction, PubsubClient,
+	SubscriptionStream,
 };
 use neo_signers::Signer;
 use neo_types::{address::Address, block::BlockId, filter::Filter, log::Log, Bytes};
@@ -137,30 +140,31 @@ where
 	/// If the transaction does not have a network magic set, it sets it to the signer's network magic.
 	/// Returns an error if the transaction's existing network magic does not match the signer's chain
 	/// id.
-	async fn sign_transaction(
-		&self,
-		mut tx: Transaction,
-	) -> Result<Bytes, SignerMiddlewareError<M, S>> {
-		// compare network_magic and use signer's network_magic if the tranasaction's network_magic is None,
-		// return an error if they are not consistent
-		let network_magic = self.signer.network_magic();
-		match tx.network_magic() {
-			Some(id) if id != network_magic => return Err(SignerMiddlewareError::DifferentChainID),
-			None => {
-				tx.set_network_magic(network_magic);
-			},
-			_ => {},
-		}
-
-		let signature = self
-			.signer
-			.sign_transaction(&tx)
-			.await
-			.map_err(SignerMiddlewareError::SignerError)?;
-
-		// Return the raw encoded signed transaction
-		Ok(tx.rlp_signed(&signature))
-	}
+	// async fn sign_transaction(
+	// 	&self,
+	// 	mut tx: Transaction,
+	// ) -> Result<Bytes, SignerMiddlewareError<M, S>> {
+	// 	// compare network_magic and use signer's network_magic if the tranasaction's network_magic is None,
+	// 	// return an error if they are not consistent
+	// 	let network_magic = self.signer.network_magic();
+	// 	match tx.network_magic() {
+	// 		Some(id) if id != network_magic => return Err(SignerMiddlewareError::DifferentChainID),
+	// 		None => {
+	// 			tx.set_network_magic(network_magic);
+	// 		},
+	// 		_ => {},
+	// 	}
+	//
+	// 	let witness = self
+	// 		.signer
+	// 		.get_witness(&tx)
+	// 		.await
+	// 		.map_err(SignerMiddlewareError::SignerError)?;
+	//
+	// 	// Return the raw encoded signed transaction
+	// 	let witness = Witness::create(tx.get_hash_data());
+	// 	Ok(tx.add_witness(&signature))
+	// }
 
 	/// Returns the client's address
 	pub fn address(&self) -> Address {
@@ -254,7 +258,7 @@ where
 
 		// if we have a nonce manager set, we should try handling the result in
 		// case there was a nonce mismatch
-		let signed_tx = self.sign_transaction(tx).await?;
+		let signed_tx = tx.to_array(); // self.sign_transaction(tx).await?;
 
 		// Submit the raw transaction
 		self.inner

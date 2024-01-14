@@ -1,6 +1,7 @@
 use crate::wallet::MnemonicBuilderError;
 use coins_bip39::MnemonicError;
 use eth_keystore::KeystoreError;
+use neo_providers::core::transaction::transaction_error::TransactionError;
 use p256::ecdsa;
 use thiserror::Error;
 
@@ -35,4 +36,6 @@ pub enum WalletError {
 	MnemonicBuilderError(#[from] MnemonicBuilderError),
 	#[error(transparent)]
 	CryptoError(#[from] neo_crypto::error::CryptoError),
+	#[error(transparent)]
+	TransactionError(#[from] TransactionError),
 }

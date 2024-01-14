@@ -1,10 +1,14 @@
-use crate::core::{
-	account::AccountTrait,
-	transaction::{
-		signers::transaction_signer::TransactionSigner,
-		transaction_attribute::TransactionAttribute, transaction_error::TransactionError,
-		witness::Witness,
+use crate::{
+	core::{
+		account::AccountTrait,
+		transaction::{
+			signers::{signer::Signer, transaction_signer::TransactionSigner},
+			transaction_attribute::TransactionAttribute,
+			transaction_error::TransactionError,
+			witness::Witness,
+		},
 	},
+	JsonRpcClient,
 };
 use neo_codec::{
 	encode::{NeoSerializable, VarSizeTrait},
@@ -15,11 +19,9 @@ use neo_types::{address::NameOrAddress, vm_state::VMState, *};
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
-use crate::core::transaction::signers::signer::Signer;
-use crate::JsonRpcClient;
 
 #[derive(Default, Serialize, Deserialize, Hash, Debug, Clone)]
-pub struct Transaction<T: AccountTrait + Serialize> {
+pub struct Transaction {
 	#[serde(rename = "version")]
 	pub version: u8,
 
@@ -49,7 +51,7 @@ pub struct Transaction<T: AccountTrait + Serialize> {
 	pub net_fee: i64,
 
 	#[serde(rename = "signers")]
-	pub signers: Vec<Signer<T>>,
+	pub signers: Vec<Signer>,
 
 	#[serde(rename = "attributes")]
 	pub attributes: Vec<TransactionAttribute>,
@@ -75,10 +77,10 @@ pub struct Transaction<T: AccountTrait + Serialize> {
 	pub vm_state: Option<VMState>,
 
 	#[serde(rename = "network")]
-	pub network_magic: Option<u64>,
+	pub network_magic: Option<u32>,
 }
 
-impl<T:AccountTrait + Serialize> Transaction<T> {
+impl Transaction {
 	const HEADER_SIZE: usize = 25;
 	pub fn new() -> Self {
 		Self::default()
@@ -89,24 +91,26 @@ impl<T:AccountTrait + Serialize> Transaction<T> {
 		Transaction { ..Default::default() }
 	}
 
-	pub fn network_magic(&self) -> Option<u64> {
+	pub fn network_magic(&self) -> Option<u32> {
 		self.network_magic
 	}
 
-	pub fn set_network_magic(&mut self, network_magic: u64) {
+	pub fn set_network_magic(&mut self, network_magic: u32) {
 		self.network_magic = Some(network_magic);
 	}
 
-	// Methods
 	pub fn add_witness(&mut self, witness: Witness) {
 		self.witnesses.push(witness);
 	}
 
-	pub async fn get_hash_data(&self, network: u32) -> Result<Bytes, TransactionError> {
+	pub fn get_hash_data(&self) -> Result<Bytes, TransactionError> {
+		if self.network_magic().is_none() {
+			panic!("Transaction network magic is not set");
+		}
 		let mut encoder = Encoder::new();
 		self.serialize_without_witnesses(&mut encoder);
 		let mut data = encoder.to_bytes().hash256();
-		data.splice(0..0, network.to_be_bytes());
+		data.splice(0..0, self.network_magic.unwrap().to_be_bytes());
 
 		Ok(data)
 	}
@@ -123,15 +127,15 @@ impl<T:AccountTrait + Serialize> Transaction<T> {
 	}
 }
 
-impl<T:AccountTrait + Serialize> Eq for Transaction<T> {}
+impl Eq for Transaction {}
 
-impl<T:AccountTrait + Serialize> PartialEq for Transaction<T> {
+impl PartialEq for Transaction {
 	fn eq(&self, other: &Self) -> bool {
 		self.hash == other.hash
 	}
 }
 
-impl<T:AccountTrait + Serialize> NeoSerializable for Transaction<T> {
+impl NeoSerializable for Transaction {
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
@@ -158,8 +162,7 @@ impl<T:AccountTrait + Serialize> NeoSerializable for Transaction<T> {
 		let valid_until_block = reader.read_u32();
 
 		// Read signers
-		let signers: Vec<Signer<T>> =
-			reader.read_serializable_list::<Signer<T>>().unwrap();
+		let signers: Vec<Signer> = reader.read_serializable_list::<Signer>().unwrap();
 
 		// Read attributes
 		let attributes: Vec<TransactionAttribute> =

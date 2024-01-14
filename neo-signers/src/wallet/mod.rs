@@ -1,8 +1,6 @@
 mod mnemonic;
 pub use mnemonic::{MnemonicBuilder, MnemonicBuilderError};
 
-mod account;
-pub use account::*;
 mod nep6account;
 pub use nep6account::*;
 mod nep6contract;

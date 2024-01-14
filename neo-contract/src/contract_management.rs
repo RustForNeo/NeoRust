@@ -5,7 +5,6 @@ use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
 	JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
 use neo_types::{
 	contract_parameter::ContractParameter,
 	contract_state::{ContractIdentifiers, ContractState},
@@ -35,12 +34,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 		Ok(self
 			.provider
 			.unwrap()
-			.invoke_function::<Account>(
-				&self.script_hash,
-				"getMinimumDeploymentFee".to_string(),
-				vec![],
-				None,
-			)
+			.invoke_function(&self.script_hash, "getMinimumDeploymentFee".to_string(), vec![], None)
 			.await
 			.unwrap()
 			.stack[0]
@@ -52,7 +46,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 		Ok(self
 			.provider
 			.unwrap()
-			.invoke_function::<Account>(
+			.invoke_function(
 				&self.script_hash,
 				"setMinimumDeploymentFee".to_string(),
 				vec![fee.into()],
@@ -82,7 +76,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 		let result = self
 			.provider
 			.unwrap()
-			.invoke_function::<Account>(
+			.invoke_function(
 				&self.script_hash,
 				"getContractById".to_string(),
 				vec![id.into()],
@@ -99,12 +93,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 	pub async fn get_contract_hashes(&self) -> Result<ContractIdentifiers, ContractError> {
 		self.provider
 			.unwrap()
-			.invoke_function::<Account>(
-				&self.script_hash,
-				"getContractHashes".to_string(),
-				vec![],
-				None,
-			)
+			.invoke_function(&self.script_hash, "getContractHashes".to_string(), vec![], None)
 			.await
 			.map(|item| ContractIdentifiers::try_from(item).unwrap())
 			.map_err(|e| {
@@ -122,7 +111,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 	) -> Result<bool, ContractError> {
 		self.provider
 			.unwrap()
-			.invoke_function::<Account>(
+			.invoke_function(
 				&self.script_hash,
 				"hasMethod".to_string(),
 				vec![hash.into(), method.into(), params.into()],
@@ -138,7 +127,7 @@ impl<'a, P: JsonRpcClient> ContractManagement<'a, P> {
 		nef: &NefFile,
 		manifest: &[u8],
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let params = vec![nef.into(), manifest.into(), data.unwrap()];
 		let tx = self.invoke_function("deploy", params).await;
 		tx

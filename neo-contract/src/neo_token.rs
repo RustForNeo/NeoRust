@@ -13,10 +13,12 @@ use neo_types::{
 
 use neo_crypto::keys::Secp256r1PublicKey;
 use neo_providers::{
-	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
+	core::{
+		account::{Account, AccountTrait},
+		transaction::transaction_builder::TransactionBuilder,
+	},
 	JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
 use neo_types::{nns_name::NNSName, *};
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -81,14 +83,14 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 	async fn register_candidate(
 		&self,
 		candidate_key: &Secp256r1PublicKey,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("registerCandidate", vec![candidate_key.into()]).await
 	}
 
 	async fn unregister_candidate(
 		&self,
 		candidate_key: &Secp256r1PublicKey,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("unregisterCandidate", vec![candidate_key.into()]).await
 	}
 
@@ -135,7 +137,7 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 		&self,
 		voter: &H160,
 		candidate: Option<&Secp256r1PublicKey>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let params = match candidate {
 			Some(key) => vec![voter.into(), key.into()],
 			None => vec![voter.into(), ContractParameter::new(ContractParameterType::Any)],
@@ -144,10 +146,7 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 		self.invoke_function("vote", params).await
 	}
 
-	async fn cancel_vote(
-		&self,
-		voter: &H160,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	async fn cancel_vote(&self, voter: &H160) -> Result<TransactionBuilder<P>, ContractError> {
 		self.vote(voter, None).await
 	}
 
@@ -173,7 +172,7 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 	async fn set_gas_per_block(
 		&self,
 		gas_per_block: i32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("setGasPerBlock", vec![gas_per_block.into()]).await
 	}
 
@@ -184,7 +183,7 @@ impl<'a, P: JsonRpcClient> NeoToken<'a, P> {
 	async fn set_register_price(
 		&self,
 		register_price: i32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("setRegisterPrice", vec![register_price.into()]).await
 	}
 

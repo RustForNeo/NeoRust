@@ -2,23 +2,25 @@ use neo_types::*;
 
 use crate::core::transaction::{
 	signers::signer::{SignerTrait, SignerType},
+	transaction_error::TransactionError,
 	witness_rule::witness_rule::WitnessRule,
 	witness_scope::WitnessScope,
 };
+use neo_codec::{
+	encode::{NeoSerializable, VarSizeTrait},
+	Decoder, Encoder,
+};
+use neo_config::NeoConstants;
 use neo_crypto::keys::Secp256r1PublicKey;
 use primitive_types::H160;
+use rustc_serialize::Encodable;
 use serde::{Deserialize, Serialize};
 use std::{
 	hash::{Hash, Hasher},
 	str::FromStr,
 };
-use rustc_serialize::Encodable;
-use neo_codec::encode::{NeoSerializable, VarSizeTrait};
-use neo_codec::{Decoder, Encoder};
-use neo_config::NeoConstants;
-use crate::core::transaction::transaction_error::TransactionError;
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Default, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TransactionSigner {
 	#[serde(rename = "account")]
 	#[serde(serialize_with = "serialize_script_hash")]
@@ -29,8 +31,9 @@ pub struct TransactionSigner {
 	pub scopes: Vec<WitnessScope>,
 
 	#[serde(rename = "allowedcontracts")]
-	#[serde(serialize_with = "serialize_script_hash")]
-	#[serde(deserialize_with = "deserialize_script_hash")]
+	#[serde(serialize_with = "serialize_vec_script_hash_option")]
+	#[serde(deserialize_with = "deserialize_vec_script_hash_option")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub allowed_contracts: Option<Vec<H160>>,
 
 	#[serde(rename = "allowedgroups")]
@@ -117,19 +120,19 @@ impl NeoSerializable for TransactionSigner {
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
-		let mut size = NeoConstants::HASH160_SIZE+1;
+		let mut size = (NeoConstants::HASH160_SIZE + 1) as usize;
 		if self.scopes.contains(&WitnessScope::CustomContracts) {
-			size += self.allowed_contracts.unwrap().var_size();
+			size += &self.allowed_contracts.clone().unwrap().var_size();
 		}
 		if self.scopes.contains(&WitnessScope::CustomGroups) {
-			size += self.allowed_groups.unwrap().var_size();
+			size += &self.allowed_groups.clone().unwrap().var_size();
 		}
 
 		if self.scopes.contains(&WitnessScope::WitnessRules) {
-			size += self.rules.unwrap().var_size();
+			size += &self.rules.clone().unwrap().var_size();
 		}
 
-		size as usize
+		size
 	}
 
 	fn encode(&self, writer: &mut Encoder) {
@@ -146,19 +149,22 @@ impl NeoSerializable for TransactionSigner {
 		}
 	}
 
-	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error> where Self: Sized {
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
 		let mut signer = TransactionSigner::default();
-		signer.set_signer_hash(reader.read_serializable_fixed().unwrap());
-		let scopes = WitnessScope::split(reader.read_u8().unwrap());
+		signer.set_signer_hash(reader.read_serializable().unwrap());
+		let scopes = WitnessScope::split(reader.read_u8());
 		signer.set_scopes(scopes);
 		if signer.get_scopes().contains(&WitnessScope::CustomContracts) {
-			signer.allowed_contracts = Some(reader.read_serializable_variable_list().unwrap());
+			signer.allowed_contracts = Some(reader.read_serializable_list().unwrap());
 		}
 		if signer.get_scopes().contains(&WitnessScope::CustomGroups) {
-			signer.allowed_groups = Some(reader.read_serializable_variable_list().unwrap());
+			signer.allowed_groups = Some(reader.read_serializable_list().unwrap());
 		}
 		if signer.get_scopes().contains(&WitnessScope::WitnessRules) {
-			signer.rules = Some(reader.read_serializable_variable_list().unwrap());
+			signer.rules = Some(reader.read_serializable_list().unwrap());
 		}
 		Ok(signer)
 	}

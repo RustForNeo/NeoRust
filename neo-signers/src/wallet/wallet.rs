@@ -1,9 +1,29 @@
-use crate::wallet::{account::Account, nep6wallet::NEP6Wallet, wallet_error::WalletError};
-use neo_providers::core::{account::AccountTrait, wallet::WalletTrait};
-use neo_types::{address::AddressExtension, ScryptParamsDef, *};
+use crate::{
+	wallet::{nep6wallet::NEP6Wallet, wallet_error::WalletError},
+	NEP6Account, NEP6Contract, NEP6Parameter, Signer,
+};
+use async_trait::async_trait;
+use neo_crypto::keys::Secp256r1Signature;
+use neo_providers::{
+	core::{
+		account::{Account, AccountTrait},
+		transaction::{
+			transaction::Transaction, verification_script::VerificationScript, witness,
+			witness::Witness,
+		},
+		wallet::WalletTrait,
+	},
+	Middleware,
+};
+use neo_types::{
+	address::{Address, AddressExtension},
+	address_or_scripthash::AddressOrScriptHash,
+	contract_parameter_type::ContractParameterType,
+	ScryptParamsDef, *,
+};
 use primitive_types::H160;
 use serde_derive::{Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf, str::FromStr};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Wallet {
@@ -37,8 +57,8 @@ impl WalletTrait for Wallet {
 		&self.accounts
 	}
 
-	fn default_account(&self) -> &H160 {
-		&self.default_account
+	fn default_account(&self) -> &Account {
+		&self.accounts[&self.default_account]
 	}
 
 	fn set_name(&mut self, name: String) {
@@ -94,7 +114,8 @@ impl Wallet {
 	// Serialization methods
 
 	pub fn to_nep6(&self) -> Result<NEP6Wallet, WalletError> {
-		let accounts = self.accounts.values().filter_map(|a| a.to_nep6_account().ok()).collect();
+		let accounts =
+			self.accounts.values().filter_map(|a| Wallet::from_account(a).ok()).collect();
 
 		Ok(NEP6Wallet {
 			name: self.name.clone(),
@@ -109,7 +130,7 @@ impl Wallet {
 		let accounts = nep6
 			.accounts()
 			.into_iter()
-			.filter_map(|v| Account::from_nep6_account(v).ok())
+			.filter_map(|v| Wallet::to_account(v).ok())
 			.collect::<Vec<_>>();
 
 		let default_account = nep6
@@ -128,6 +149,99 @@ impl Wallet {
 			default_account: default_account.to_script_hash().unwrap(),
 		})
 	}
+
+	fn to_account(nep6_account: &NEP6Account) -> Result<Account, WalletError> {
+		let (verification_script, signing_threshold, nr_of_participants) =
+			match nep6_account.contract {
+				Some(ref contract) if contract.script.is_some() => {
+					let script = contract.script.clone().unwrap();
+					let verification_script = VerificationScript::from(script.as_bytes().to_vec());
+					let signing_threshold = if verification_script.is_multi_sig() {
+						Some(verification_script.get_signing_threshold().unwrap())
+					} else {
+						None
+					};
+					let nr_of_participants = if verification_script.is_multi_sig() {
+						Some(verification_script.get_nr_of_accounts().unwrap())
+					} else {
+						None
+					};
+					(Some(verification_script), signing_threshold, nr_of_participants)
+				},
+				_ => (None, None, None),
+			};
+
+		Ok(Account {
+			address_or_scripthash: AddressOrScriptHash::Address(nep6_account.address.clone()),
+			label: nep6_account.label.clone(),
+			verification_script,
+			is_locked: nep6_account.lock,
+			encrypted_private_key: nep6_account.key.clone(),
+			signing_threshold: signing_threshold.map(|x| x as u32),
+			nr_of_participants: nr_of_participants.map(|x| x as u32),
+			..Default::default()
+		})
+	}
+
+	// pub async fn get_nep17_balances(&self) -> Result<HashMap<H160, u32>, WalletError> {
+	// 	let balances = HTTP_PROVIDER
+	// 		.get_nep17_balances(self.get_script_hash().clone())
+	// 		.await
+	// 		.unwrap();
+	// 	let mut nep17_balances = HashMap::new();
+	// 	for balance in balances.balances {
+	// 		nep17_balances.insert(balance.asset_hash, u32::from_str(&balance.amount).unwrap());
+	// 	}
+	// 	Ok(nep17_balances)
+	// }
+
+	fn from_account(account: &Account) -> Result<NEP6Account, WalletError> {
+		if account.key_pair.is_some() && account.encrypted_private_key.is_none() {
+			return Err(WalletError::AccountState(
+				"Account private key is decrypted but not encrypted".to_string(),
+			))
+		}
+
+		let contract = match &account.verification_script {
+			Some(script) => {
+				let parameters = if script.is_multi_sig() {
+					let threshold = script.get_signing_threshold().unwrap();
+					let nr_accounts = script.get_nr_of_accounts().unwrap();
+					(0..nr_accounts)
+						.map(|i| NEP6Parameter {
+							param_name: format!("signature{}", i),
+							param_type: ContractParameterType::Signature,
+						})
+						.collect()
+				} else if script.is_single_sig() {
+					vec![NEP6Parameter {
+						param_name: "signature".to_string(),
+						param_type: ContractParameterType::Signature,
+					}]
+				} else {
+					vec![]
+				};
+
+				Some(NEP6Contract {
+					script: Some(script.script().to_base64()),
+					nep6_parameters: parameters,
+					is_deployed: false,
+				})
+			},
+			None => None,
+		};
+
+		Ok(NEP6Account {
+			address: account.address_or_scripthash.address(),
+			label: account.label.clone(),
+			is_default: false, // TODO
+			lock: account.is_locked,
+			key: account.encrypted_private_key.clone(),
+			contract,
+			extra: None,
+		})
+	}
+
 	pub fn save_to_file(&self, path: PathBuf) -> Result<(), WalletError> {
 		// Convert wallet to NEP6
 		let nep6 = self.to_nep6().unwrap();
@@ -154,5 +268,49 @@ impl Wallet {
 		for account in self.accounts.values_mut() {
 			account.encrypt_private_key(password);
 		}
+	}
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+impl Signer for Wallet {
+	type Error = WalletError;
+	async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
+		&self,
+		message: S,
+	) -> Result<Secp256r1Signature, Self::Error> {
+		let message = message.as_ref();
+		let binding = hash_message(message);
+		let message_hash = binding.as_bytes();
+		self.default_account()
+			.clone()
+			.key_pair()
+			.clone()
+			.unwrap()
+			.private_key()
+			.sign_tx(message_hash)
+			.map_err(|e| WalletError::NoKeyPair)
+	}
+
+	async fn get_witness(&self, tx: &Transaction) -> Result<Witness, Self::Error> {
+		let mut tx_with_chain = tx.clone();
+		if tx_with_chain.network_magic().is_none() {
+			// in the case we don't have a network_magic, let's use the signer network magic instead
+			tx_with_chain.set_network_magic(self.network_magic());
+		}
+
+		Witness::create(tx.get_hash_data()?, &self.default_account().key_pair.clone().unwrap())
+			.map_err(|e| WalletError::NoKeyPair)
+	}
+
+	fn address(&self) -> Address {
+		self.address()
+	}
+	fn network_magic(&self) -> u32 {
+		todo!()
+	}
+
+	/// Sets the wallet's network_magic, used in conjunction with EIP-155 signing
+	fn with_network_magic<T: Into<u32>>(mut self, network_magic: T) -> Self {
+		todo!()
 	}
 }

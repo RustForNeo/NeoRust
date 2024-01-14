@@ -9,10 +9,9 @@ use futures::FutureExt;
 use neo_providers::{
 	core::transaction::transaction_builder::TransactionBuilder, JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::{address_to_script_hash, Account};
 use neo_types::{
-	contract_parameter::ContractParameter, nns_name::NNSName, script_hash::ScriptHash,
-	stack_item::StackItem, *,
+	address_or_scripthash::AddressOrScriptHash, contract_parameter::ContractParameter,
+	nns_name::NNSName, script_hash::ScriptHash, stack_item::StackItem, *,
 };
 use primitive_types::H160;
 use serde::{Deserialize, Serialize};
@@ -95,7 +94,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 
 	// Implementation
 
-	async fn add_root(&self, root: &str) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	async fn add_root(&self, root: &str) -> Result<TransactionBuilder<P>, ContractError> {
 		let args = vec![root.to_string().into()];
 		self.invoke_function(Self::ADD_ROOT, args).await
 	}
@@ -127,7 +126,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		&self,
 		name: &str,
 		owner: H160,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), owner.into()];
@@ -140,7 +139,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		&self,
 		name: &str,
 		admin: H160,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), admin.into()];
@@ -154,7 +153,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		name: &str,
 		record_type: RecordType,
 		data: &str,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into(), data.into()];
 
 		self.invoke_function(Self::SET_RECORD, args).await
@@ -166,7 +165,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		&self,
 		name: &str,
 		record_type: RecordType,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let args = vec![name.into(), (record_type as u8).into()];
 		self.invoke_function(Self::DELETE_RECORD, args).await
 	}
@@ -179,7 +178,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		&self,
 		name: &str,
 		years: u32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.check_domain_name_availability(name, true).await.unwrap();
 
 		let args = vec![name.into(), years.into()];
@@ -191,7 +190,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		let result = self
 			.provider
 			.unwrap()
-			.invoke_function::<Account>(&self.script_hash, Self::PROPERTIES.to_string(), args, None)
+			.invoke_function(&self.script_hash, Self::PROPERTIES.to_string(), args, None)
 			.await
 			.unwrap()
 			.stack[0]
@@ -217,7 +216,7 @@ impl<'a, P: JsonRpcClient> NeoNameService<'a, P> {
 		Ok(NameState {
 			name,
 			expiration,
-			admin: Some(address_to_script_hash(&admin.as_str()).unwrap()),
+			admin: Some(AddressOrScriptHash::from(admin).script_hash()),
 		})
 	}
 	async fn check_domain_name_availability(
@@ -271,7 +270,7 @@ impl<'a, P: JsonRpcClient> TokenTrait<'a, P> for NeoNameService<'a, P> {
 		let req = {
 			self.provider()
 				.unwrap()
-				.invoke_function::<Account>(
+				.invoke_function(
 					&self.script_hash(),
 					"resolve".to_string(),
 					vec![

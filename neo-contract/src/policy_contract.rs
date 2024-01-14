@@ -4,7 +4,6 @@ use neo_providers::{
 	core::{account::AccountTrait, transaction::transaction_builder::TransactionBuilder},
 	JsonRpcClient, Middleware, Provider,
 };
-use neo_signers::Account;
 use neo_types::{
 	script_hash::{ScriptHash, ScriptHashExtension},
 	*,
@@ -46,38 +45,35 @@ impl<'a, P: JsonRpcClient> PolicyContract<'a, P> {
 
 	// State modifying methods
 
-	pub async fn set_fee_per_byte(
-		&self,
-		fee: i32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	pub async fn set_fee_per_byte(&self, fee: i32) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("setFeePerByte", vec![fee.into()]).await
 	}
 
 	pub async fn set_exec_fee_factor(
 		&self,
 		fee: i32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("setExecFeeFactor", vec![fee.into()]).await
 	}
 
 	pub async fn set_storage_price(
 		&self,
 		price: i32,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("setStoragePrice", vec![price.into()]).await
 	}
 
 	pub async fn block_account(
 		&self,
 		account: &H160,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("blockAccount", vec![account.into()]).await
 	}
 
 	pub async fn block_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let account = ScriptHash::from_address(address).unwrap();
 		self.block_account(&account).await
 	}
@@ -85,14 +81,14 @@ impl<'a, P: JsonRpcClient> PolicyContract<'a, P> {
 	pub async fn unblock_account(
 		&self,
 		account: &H160,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		self.invoke_function("unblockAccount", vec![account.into()]).await
 	}
 
 	pub async fn unblock_account_address(
 		&self,
 		address: &str,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let account = ScriptHash::from_address(address).unwrap();
 		self.unblock_account(&account).await
 	}

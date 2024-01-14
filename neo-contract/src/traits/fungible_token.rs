@@ -4,14 +4,14 @@ use crate::{
 use async_trait::async_trait;
 use neo_providers::{
 	core::{
-		account::AccountTrait,
+		account::{Account, AccountTrait},
 		transaction::{
 			signers::account_signer::AccountSigner, transaction_builder::TransactionBuilder,
 		},
 	},
 	JsonRpcClient,
 };
-use neo_signers::{Account, Wallet};
+use neo_signers::Wallet;
 use neo_types::{
 	address::Address, contract_parameter::ContractParameter, nns_name::NNSName,
 	script_hash::ScriptHash, Bytes,
@@ -49,7 +49,7 @@ pub trait FungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> {
 		to: &ScriptHash,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let mut builder = self
 			.transfer_from_hash160(&from.address_or_scripthash().script_hash(), to, amount, data)
 			.await
@@ -65,7 +65,7 @@ pub trait FungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> {
 		to: &ScriptHash,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		if amount < 0 {
 			return Err(ContractError::InvalidArgError(
 				"The amount must be greater than or equal to 0.".to_string(),
@@ -100,7 +100,7 @@ pub trait FungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> {
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let mut builder = self
 			.transfer_from_hash160_to_nns(&from.get_script_hash(), to, amount, data)
 			.await
@@ -116,7 +116,7 @@ pub trait FungibleTokenTrait<'a, P: JsonRpcClient>: TokenTrait<'a, P> {
 		to: &NNSName,
 		amount: i32,
 		data: Option<ContractParameter>,
-	) -> Result<TransactionBuilder<Account, P>, ContractError> {
+	) -> Result<TransactionBuilder<P>, ContractError> {
 		let script_hash = self.resolve_nns_text_record(to).await.unwrap();
 		self.transfer_from_hash160(from, &script_hash, amount, data).await
 	}
