@@ -15,9 +15,11 @@ use neo_types::{address::NameOrAddress, vm_state::VMState, *};
 use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
+use crate::core::transaction::signers::signer::Signer;
+use crate::JsonRpcClient;
 
 #[derive(Default, Serialize, Deserialize, Hash, Debug, Clone)]
-pub struct Transaction {
+pub struct Transaction<T: AccountTrait + Serialize> {
 	#[serde(rename = "version")]
 	pub version: u8,
 
@@ -47,7 +49,7 @@ pub struct Transaction {
 	pub net_fee: i64,
 
 	#[serde(rename = "signers")]
-	pub signers: Vec<TransactionSigner>,
+	pub signers: Vec<Signer<T>>,
 
 	#[serde(rename = "attributes")]
 	pub attributes: Vec<TransactionAttribute>,
@@ -76,14 +78,14 @@ pub struct Transaction {
 	pub network_magic: Option<u64>,
 }
 
-impl Transaction {
+impl<T:AccountTrait + Serialize> Transaction<T> {
 	const HEADER_SIZE: usize = 25;
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	/// Convenience function for sending a new payment transaction to the receiver.
-	pub fn pay<T: Into<NameOrAddress>, V: Into<U256>>(to: T, value: V) -> Self {
+	pub fn pay<K: Into<NameOrAddress>, V: Into<U256>>(to: K, value: V) -> Self {
 		Transaction { ..Default::default() }
 	}
 
@@ -121,15 +123,15 @@ impl Transaction {
 	}
 }
 
-impl Eq for Transaction {}
+impl<T:AccountTrait + Serialize> Eq for Transaction<T> {}
 
-impl PartialEq for Transaction {
+impl<T:AccountTrait + Serialize> PartialEq for Transaction<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.hash == other.hash
 	}
 }
 
-impl<T: AccountTrait + Serialize> NeoSerializable for Transaction {
+impl<T:AccountTrait + Serialize> NeoSerializable for Transaction<T> {
 	type Error = TransactionError;
 
 	fn size(&self) -> usize {
@@ -156,8 +158,8 @@ impl<T: AccountTrait + Serialize> NeoSerializable for Transaction {
 		let valid_until_block = reader.read_u32();
 
 		// Read signers
-		let signers: Vec<TransactionSigner> =
-			reader.read_serializable_list::<TransactionSigner>().unwrap();
+		let signers: Vec<Signer<T>> =
+			reader.read_serializable_list::<Signer<T>>().unwrap();
 
 		// Read attributes
 		let attributes: Vec<TransactionAttribute> =

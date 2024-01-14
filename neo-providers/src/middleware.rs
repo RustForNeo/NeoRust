@@ -53,7 +53,7 @@ use std::{collections::HashMap, fmt::Debug, vec};
 use url::Url;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[async_trait]
 #[auto_impl(&, Box, Arc)]
 pub trait Middleware: Sync + Send + Debug {
 	/// Error type returned by most operations

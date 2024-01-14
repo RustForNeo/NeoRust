@@ -20,16 +20,14 @@ use getset::{CopyGetters, Getters, MutGetters, Setters};
 use neo_codec::encode::NeoSerializable;
 use neo_config::NeoConstants;
 use neo_types::{
-	contract_parameter::ContractParameter, public_key_to_script_hash, script_hash::ScriptHash,
-	stack_item::StackItem, Bytes,
+	contract_parameter::ContractParameter, public_key_to_script_hash, script_hash::ScriptHash, Bytes,
 };
 use once_cell::sync::Lazy;
 use primitive_types::H160;
 use rustc_serialize::hex::ToHex;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use std::{
 	collections::HashSet,
-	convert::{Into, TryInto},
 	fmt::Debug,
 	hash::{Hash, Hasher},
 	iter::Iterator,
@@ -51,6 +49,7 @@ use crate::{
 	},
 	JsonRpcClient, Middleware, Provider,
 };
+use crate::core::transaction::signers::transaction_signer::TransactionSigner;
 
 #[derive(Getters, Setters, MutGetters, CopyGetters, Default)]
 pub struct TransactionBuilder<T: AccountTrait + Serialize, P: JsonRpcClient + 'static> {

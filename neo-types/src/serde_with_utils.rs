@@ -50,11 +50,27 @@ where
 }
 
 pub fn serialize_url<S>(item: Url, serializer: S) -> Result<S::Ok, S::Error>
-where
-	S: Serializer,
+	where
+		S: Serializer,
 {
 	// deserialize_script_hash
 	let item_str = format!("{}", item);
+	serializer.serialize_str(&item_str)
+}
+
+pub fn deserialize_pubkey<'de, D>(deserializer: D) -> Result<Secp256r1PublicKey, D::Error>
+	where
+		D: Deserializer<'de>,
+{
+	let s: Secp256r1PublicKey = Deserialize::deserialize(deserializer)?;
+	Ok(s)
+}
+
+pub fn serialize_pubkey<S>(item: Secp256r1PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+where
+	S: Serializer,
+{
+	let item_str =  format!("{:?}", item.to_raw_bytes());
 	serializer.serialize_str(&item_str)
 }
 
@@ -113,7 +129,6 @@ where
 	if s == "*" {
 		Ok(vec!["*".to_string()])
 	} else {
-		// TODO: check if it is a valid url
 		Ok(vec![s])
 	}
 }
