@@ -1,6 +1,6 @@
 use eyre::Result;
 use neo::{
-	core::{types::TransactionRequest, utils::Anvil},
+	core::{types::Transaction, utils::Anvil},
 	middleware::{
 		policy::{PolicyMiddlewareError, RejectEverything},
 		MiddlewareBuilder, PolicyMiddleware,
@@ -22,12 +22,12 @@ async fn main() -> Result<()> {
 	let accounts = provider.get_accounts().await?;
 	let account = accounts[0];
 	let to = accounts[1];
-	let tx = TransactionRequest::new().from(account).to(to).value(1000);
+	let tx = Transaction::new().from(account).to(to).value(1000);
 
 	let policy = RejectEverything;
 	let policy_middleware = provider.wrap_into(|p| PolicyMiddleware::new(p, policy));
 
-	match policy_middleware.send_transaction(tx, None).await {
+	match policy_middleware.send_transaction(tx).await {
 		Err(e) => {
 			// Given the RejectEverything policy, we expect to execute this branch
 			assert!(matches!(e, PolicyMiddlewareError::PolicyError(())))

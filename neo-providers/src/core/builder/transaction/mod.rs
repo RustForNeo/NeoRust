@@ -2,7 +2,6 @@ pub mod call_flags;
 pub mod contract_parameters_context;
 pub mod invocation_script;
 pub mod oracle_response_code;
-pub mod serializable_transaction;
 pub mod signers;
 pub mod transaction;
 pub mod transaction_attribute;

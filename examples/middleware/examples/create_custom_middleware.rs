@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use neo::{
 	core::{
-		types::{ BlockId, TransactionRequest, U256},
+		types::{ BlockId, Transaction, U256},
 		utils::{parse_units, Anvil},
 	},
 	middleware::MiddlewareBuilder,
@@ -99,7 +99,7 @@ where
 
 		// Dispatch the call to the inner layer
 		self.inner()
-			.send_transaction(tx, block)
+			.send_transaction(tx)
 			.await
 			.map_err(MiddlewareError::from_err)
 	}
@@ -154,9 +154,9 @@ async fn main() -> eyre::Result<()> {
 		.wrap_into(|s| GasMiddleware::new(s, gas_raise_perc).unwrap());
 
 	let gas = 15000;
-	let tx = TransactionRequest::new().to(wallet2.address()).value(10000).gas(gas);
+	let tx = Transaction::new().to(wallet2.address()).value(10000).gas(gas);
 
-	let pending_tx = provider.send_transaction(tx, None).await?;
+	let pending_tx = provider.send_transaction(tx).await?;
 
 	let receipt = pending_tx.await?.ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;
 	let tx = provider.get_transaction(receipt.transaction_hash).await?;

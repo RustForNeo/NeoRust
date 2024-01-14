@@ -41,13 +41,11 @@ use crate::{
 		account::AccountTrait,
 		builder::{
 			error::BuilderError,
-			transaction::{
-				serializable_transaction::SerializableTransaction,
-				transaction_error::TransactionError, witness::Witness,
-			},
+			transaction::{transaction_error::TransactionError, witness::Witness},
 		},
 		transaction::{
 			signers::signer::{Signer, SignerType},
+			transaction::Transaction,
 			transaction_attribute::TransactionAttribute,
 		},
 	},
@@ -197,9 +195,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 	}
 
 	// Get unsigned transaction
-	pub async fn get_unsigned_tx(
-		&mut self,
-	) -> Result<SerializableTransaction<T>, TransactionError> {
+	pub async fn get_unsigned_tx(&mut self) -> Result<Transaction, TransactionError> {
 		// Validate configuration
 		if self.signers.is_empty() {
 			return Err(TransactionError::NoSigners)
@@ -230,7 +226,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 			return Err(TransactionError::NoScript)
 		}
 
-		let mut tx = SerializableTransaction::new(
+		let mut tx = Transaction::new(
 			self.version,
 			self.nonce,
 			self.valid_until_block.unwrap(),
@@ -273,10 +269,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 	// 	Ok(u64::from_str(response.gas_consumed.as_str()).unwrap()) // example
 	// }
 
-	async fn get_network_fee(
-		&mut self,
-		tx: &SerializableTransaction<T>,
-	) -> Result<u64, TransactionError> {
+	async fn get_network_fee(&mut self, tx: &Transaction) -> Result<u64, TransactionError> {
 		let fee = self.provider.unwrap().calculate_network_fee(tx.to_array().to_hex()).await?;
 		Ok(fee)
 	}
@@ -312,7 +305,7 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 	}
 
 	// Sign transaction
-	pub async fn sign(&mut self) -> Result<SerializableTransaction<T>, BuilderError> {
+	pub async fn sign(&mut self) -> Result<Transaction, BuilderError> {
 		let mut transaction = self.get_unsigned_tx().await.unwrap();
 		let tx_bytes = transaction
 			.get_hash_data(self.provider.unwrap().get_version().await?.protocol.unwrap().network)
@@ -351,87 +344,6 @@ impl<T: AccountTrait + Serialize, P: JsonRpcClient> TransactionBuilder<T, P> {
 
 		Ok(transaction)
 	}
-
-	// pub async fn get_unsigned_transaction(
-	// 	&mut self,
-	// ) -> Result<SerializableTransaction, TransactionError> {
-	// 	if self.script.is_none() {
-	// 		return Err(TransactionError::TransactionConfiguration(
-	// 			"Cannot build a transaction without a script.".to_string(),
-	// 		))
-	// 	}
-	//
-	// 	if self.valid_until_block.is_none() {
-	// 		let current_block_count =
-	// 			NEO_INSTANCE.read().unwrap().get_block_count().request().await.unwrap();
-	// 		self.valid_until_block = Some(
-	// 			(current_block_count
-	// 				+ NEO_INSTANCE.read().unwrap().max_valid_until_block_increment()
-	// 				- 1) as u32,
-	// 		);
-	// 	}
-	//
-	// 	if self.signers.is_empty() {
-	// 		return Err(TransactionError::IllegalState(
-	// 			"Cannot create a transaction without signers.".to_string(),
-	// 		)
-	// 		.into())
-	// 	}
-	//
-	// 	if self.is_high_priority() {
-	// 		let is_allowed = self.is_allowed_for_high_priority().await.unwrap();
-	// 		if !is_allowed {
-	// 			return Err(TransactionError::InvalidTransaction)
-	// 		}
-	// 	}
-	// 	let mut transaction = SerializableTransaction::new(
-	// 		self.version,
-	// 		self.nonce,
-	// 		self.valid_until_block.unwrap(),
-	// 		self.signers.clone(),
-	// 		0,
-	// 		0,
-	// 		self.attributes.clone(),
-	// 		self.script.as_ref().unwrap().clone(),
-	// 		vec![],
-	// 	);
-	//
-	// 	let system_fee = self.get_system_fee().await.unwrap();
-	// 	let network_fee = self.get_network_fee(&transaction).await.unwrap();
-	// 	let fees = system_fee + network_fee;
-	//
-	// 	if let Some(fee_error) = &self.fee_error {
-	// 		if !self.can_send_cover_fees(fees).await.unwrap() {
-	// 			return Err(fee_error.clone())
-	// 		}
-	// 	} else if let Some(consumer) = &mut self.clone().fee_consumer {
-	// 		let gas_balance = self.get_sender_gas_balance().await.unwrap();
-	// 		consumer(fees, gas_balance);
-	// 	}
-	// 	transaction.set_network_fee(network_fee as i64);
-	// 	transaction.set_system_fee(system_fee as i64);
-	// 	Ok(transaction)
-	// }
-
-	// async fn is_allowed_for_high_priority(&self) -> Result<bool, BuilderError> {
-	// 	let committee = NEO_INSTANCE
-	// 		.read()
-	// 		.unwrap()
-	// 		.get_committee()
-	// 		.request()
-	// 		.await?
-	// 		.into_iter()
-	// 		.map(|key| Secp256r1PublicKey::from_hex(&key))
-	// 		.map(|key| key.unwrap().to_script_hash())
-	// 		.collect::<HashSet<_>>();
-	//
-	// 	Ok(self
-	// 		.signers
-	// 		.iter()
-	// 		.map(|s| s.get_signer_hash())
-	// 		.any(|hash| committee.contains(&hash))
-	// 		|| self.signers_contain_multi_sig_with_committee_member(&committee))
-	// }
 
 	fn signers_contain_multi_sig_with_committee_member(&self, committee: &HashSet<H160>) -> bool {
 		for signer in &self.signers {

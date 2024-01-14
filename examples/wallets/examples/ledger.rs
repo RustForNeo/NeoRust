@@ -13,8 +13,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Create and broadcast a transaction (NNS enabled!)
 	// (this will require confirming the tx on the device)
-	let tx = TransactionRequest::new().to("vitalik.eth").value(parse_ether(10)?);
-	let pending_tx = client.send_transaction(tx, None).await?;
+	let tx = Transaction::new().to("vitalik.eth").value(parse_ether(10)?);
+	let pending_tx = client.send_transaction(tx).await?;
 
 	// Get the receipt
 	let _receipt = pending_tx.confirmations(3).await?;

@@ -1,7 +1,9 @@
 mod neo_tests {
 	use crate::spawn_anvil;
-	use neo_providers::{Middleware, StreamExt, GOERLI};
-	use neo_types::{block::BlockId, Address, BlockId, BlockNumber, TransactionRequest, H256};
+	use neo_providers::{
+		core::transaction::transaction::Transaction, Middleware, StreamExt, GOERLI,
+	};
+	use neo_types::{block::BlockId, Address, BlockId, BlockNumber, Transaction, H256};
 
 	#[tokio::test]
 	async fn non_existing_data_works() {
@@ -119,8 +121,8 @@ mod neo_tests {
 	}
 
 	async fn generic_send_tx_test<M: Middleware>(provider: M, who: Address) {
-		let tx = TransactionRequest::new().to(who).from(who);
-		let pending_tx = provider.send_transaction(tx, None).await.unwrap();
+		let tx = Transaction::new().to(who).from(who);
+		let pending_tx = provider.send_transaction(tx).await.unwrap();
 		let tx_hash = *pending_tx;
 		let receipt = pending_tx.confirmations(3).await.unwrap().unwrap();
 		assert_eq!(receipt.transaction_hash, tx_hash);

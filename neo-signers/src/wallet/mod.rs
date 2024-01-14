@@ -1,8 +1,6 @@
 mod mnemonic;
 pub use mnemonic::{MnemonicBuilder, MnemonicBuilderError};
 
-mod private_key;
-pub use private_key::*;
 mod account;
 pub use account::*;
 mod nep6account;

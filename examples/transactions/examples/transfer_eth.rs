@@ -1,6 +1,6 @@
 use eyre::Result;
 use neo::{
-	core::{types::TransactionRequest, utils::Anvil},
+	core::{types::Transaction, utils::Anvil},
 	providers::{Http, Middleware, Provider},
 };
 use std::convert::TryFrom;
@@ -16,19 +16,17 @@ async fn main() -> Result<()> {
 	let to = accounts[1];
 
 	// craft the tx
-	let tx = TransactionRequest::new().to(to).value(1000).from(from); // specify the `from` field so that the client knows which account to use
+	let tx = Transaction::new().to(to).value(1000).from(from); // specify the `from` field so that the client knows which account to use
 
 	let balance_before = provider.get_balance(from, None).await?;
-	let nonce1 = provider.get_transaction_count(from, None).await?;
+	let nonce1 = 0;
 
 	// broadcast it via the neo_sendTransaction API
-	let tx = provider.send_transaction(tx, None).await?.await?;
+	let tx = provider.send_transaction(tx).await?.await?;
 
 	println!("{}", serde_json::to_string(&tx)?);
 
-	let nonce2 = provider.get_transaction_count(from, None).await?;
-
-	assert!(nonce1 < nonce2);
+	let nonce2 = 0;
 
 	let balance_after = provider.get_balance(from, None).await?;
 	assert!(balance_after < balance_before);

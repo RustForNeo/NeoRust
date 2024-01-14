@@ -263,10 +263,9 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
-		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, P>, ProviderError> {
 		let mut tx = tx.into();
-		self.fill_transaction(&mut tx, block).await?;
+		self.fill_transaction(&mut tx).await?;
 		let tx_hash = self.request("neo_sendTransaction", [tx]).await?;
 
 		Ok(PendingTransaction::new(tx_hash, self))
@@ -285,37 +284,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 		block_hash_or_number: T,
 	) -> Result<Option<Block<TransactionResult, Witness>>, ProviderError> {
 		self.get_block_gen(block_hash_or_number.into(), true).await
-	}
-
-	async fn get_transaction_count<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		block: Option<BlockId>,
-	) -> Result<U256, ProviderError> {
-		let from = match from.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		let from = utils::serialize(&from);
-		let block = utils::serialize(&block.unwrap());
-		self.request("neo_getTransactionCount", [from, block]).await?
-	}
-
-	async fn estimate_gas(
-		&self,
-		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<U256, ProviderError> {
-		let tx = utils::serialize(tx);
-		// Some nodes (e.g. old Optimism clients) don't support a block ID being passed as a param,
-		// so refrain from defaulting to BlockNumber::Latest.
-		let params = if let Some(block_id) = block {
-			vec![tx, utils::serialize(&block_id)]
-		} else {
-			vec![tx]
-		};
-		self.request("neo_estimateGas", params).await?
 	}
 
 	async fn syncing(&self) -> Result<SyncingStatus, Self::Error> {

@@ -50,7 +50,7 @@
 //! using smart contracts, which can be thought of as programs with persistent storage.
 //!
 //! Interacting with a smart contract requires broadcasting carefully crafted
-//! [transactions](core::types::TransactionRequest) where the `data` field contains
+//! [transactions](core::types::Transaction) where the `data` field contains
 //! the [function's
 //! selector](https://neo.stackexchange.com/questions/72363/what-is-a-function-selector)
 //! along with the arguments of the called function. This module provides the

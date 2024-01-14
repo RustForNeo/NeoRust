@@ -28,9 +28,9 @@ use std::{
 /// # Example
 ///
 /// ```ignore
-/// use neo_types::TransactionRequest;
+/// use neo_types::Transaction;
 ///
-/// let tx = TransactionRequest::new().to(to).value(1000).from(from);
+/// let tx = Transaction::new().to(to).value(1000).from(from);
 /// let receipt = client
 ///     .send_transaction(tx, None)
 ///     .await?                           // PendingTransaction<_>

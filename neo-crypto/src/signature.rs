@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 // use p256::{
 // 	ecdsa::{
 // 		signature::Verifier, Error as P256SignatureError, Signature as P256Signature, VerifyingKey,
@@ -12,7 +14,7 @@
 // type Address = H160;
 // // type U32 = u32;
 //
-// /// An error involving a signature.
+// An error involving a signature.
 // #[derive(Debug, Error)]
 // pub enum SignatureError {
 // 	/// Invalid length, secp256k1 signatures are 65 bytes

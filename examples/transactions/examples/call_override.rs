@@ -2,7 +2,7 @@ use eyre::Result;
 use neo::{
 	contract::abigen,
 	core::{
-		types::{spoof, Address, TransactionRequest, H256},
+		types::{spoof, Address, Transaction, H256},
 		utils::{parse_ether, Geth},
 	},
 	providers::{call_raw::RawCall, Http, Provider},
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
 
 	// Override the sender's balance for the call
 	let pay_amt = parse_ether(1u64)?;
-	let tx = TransactionRequest::pay(target, pay_amt).from(from);
+	let tx = Transaction::pay(target, pay_amt).from(from);
 	let state = spoof::balance(from, pay_amt * 2);
 
 	// The call succeeds as if the sender had sufficient balance

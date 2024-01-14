@@ -1,8 +1,6 @@
 use neo::{
 	core::types::BlockNumber,
 	middleware::{
-		gas_escalator::{Frequency, GasEscalatorMiddleware, GeometricGasPrice},
-		gas_oracle::{GasNow, GasOracleMiddleware},
 		MiddlewareBuilder, NonceManagerMiddleware, SignerMiddleware,
 	},
 	providers::{Http, Middleware, Provider},
@@ -34,8 +32,7 @@ async fn builder_example() {
 		.unwrap()
 		.wrap_into(|p| GasEscalatorMiddleware::new(p, escalator, Frequency::PerBlock))
 		.gas_oracle(gas_oracle)
-		.with_signer(signer)
-		.nonce_manager(address); // Outermost layer
+		.with_signer(signer); // Outermost layer
 
 	match provider.get_block(BlockNumber::Latest).await {
 		Ok(Some(block)) => println!("{:?}", block.number),

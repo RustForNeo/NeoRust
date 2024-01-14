@@ -1,6 +1,6 @@
 use eyre::Result;
 use neo::{
-	core::{types::TransactionRequest, utils::Anvil},
+	core::{types::Transaction, utils::Anvil},
 	middleware::SignerMiddleware,
 	providers::{Http, Middleware, Provider},
 	signers::{LocalWallet, Signer},
@@ -21,10 +21,10 @@ async fn main() -> Result<()> {
 	let client = SignerMiddleware::new(provider, wallet.with_network_magic(anvil.network_magic()));
 
 	// craft the transaction
-	let tx = TransactionRequest::new().to(wallet2.address()).value(10000);
+	let tx = Transaction::new().to(wallet2.address()).value(10000);
 
 	// send it!
-	let pending_tx = client.send_transaction(tx, None).await?;
+	let pending_tx = client.send_transaction(tx).await?;
 
 	// get the mined tx
 	let receipt = pending_tx.await?.ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;

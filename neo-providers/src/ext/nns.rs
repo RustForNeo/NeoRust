@@ -30,10 +30,10 @@
 // pub const INTERFACE_SELECTOR: Selector = [1, 255, 201, 167];
 //
 // /// Returns a transaction request for calling the `resolver` method on the NNS server
-// pub fn get_resolver<T: Into<NameOrAddress>>(ens_address: T, name: &str) -> TransactionRequest {
+// pub fn get_resolver<T: Into<NameOrAddress>>(ens_address: T, name: &str) -> Transaction {
 // 	// keccak256('resolver(bytes32)')
 // 	let data = [&RESOLVER[..], &namehash(name).0].concat();
-// 	TransactionRequest {
+// 	Transaction {
 // 		data: Some(data.into()),
 // 		to: Some(ens_address.into()),
 // 		..Default::default()
@@ -44,9 +44,9 @@
 // pub fn supports_interface<T: Into<NameOrAddress>>(
 // 	resolver_address: T,
 // 	selector: Selector,
-// ) -> TransactionRequest {
+// ) -> Transaction {
 // 	let data = [&INTERFACE_SELECTOR[..], &selector[..], &[0; 28]].concat();
-// 	TransactionRequest {
+// 	Transaction {
 // 		data: Some(data.into()),
 // 		to: Some(resolver_address.into()),
 // 		..Default::default()
@@ -59,9 +59,9 @@
 // 	selector: Selector,
 // 	name: &str,
 // 	parameters: Option<&[u8]>,
-// ) -> TransactionRequest {
+// ) -> Transaction {
 // 	let data = [&selector[..], &namehash(name).0, parameters.unwrap_or_default()].concat();
-// 	TransactionRequest {
+// 	Transaction {
 // 		data: Some(data.into()),
 // 		to: Some(resolver_address.into()),
 // 		..Default::default()

@@ -1,6 +1,6 @@
 use eyre::Result;
 use neo::{
-	core::{types::TransactionRequest, utils::Anvil},
+	core::{types::Transaction, utils::Anvil},
 	providers::{Http, Middleware, Provider},
 };
 
@@ -13,11 +13,11 @@ async fn main() -> Result<()> {
 	let provider = Provider::<Http>::try_from(anvil.endpoint()).unwrap().with_sender(from);
 
 	// craft the transaction
-	let tx = TransactionRequest::new().to("vitalik.eth").value(100_000);
+	let tx = Transaction::new().to("vitalik.eth").value(100_000);
 
 	// send it!
 	let receipt = provider
-		.send_transaction(tx, None)
+		.send_transaction(tx)
 		.await?
 		.await?
 		.ok_or_else(|| eyre::format_err!("tx dropped from mempool"))?;

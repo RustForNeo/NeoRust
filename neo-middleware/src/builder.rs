@@ -1,7 +1,6 @@
-use crate::{NonceManagerMiddleware, SignerMiddleware};
+use crate::SignerMiddleware;
 use neo_providers::Middleware;
 use neo_signers::Signer;
-use neo_types::address::Address;
 
 /// A builder trait to compose different [`Middleware`] layers and then build a composed
 /// [`Provider`](neo_providers::Provider) architecture.
@@ -13,7 +12,7 @@ use neo_types::address::Address;
 /// use neo_providers::{Middleware, Provider, Http};
 /// use std::sync::Arc;
 /// use std::convert::TryFrom;
-/// use neo_middleware::{MiddlewareBuilder, NonceManagerMiddleware, SignerMiddleware};
+/// use neo_middleware::{MiddlewareBuilder, SignerMiddleware};
 /// use neo_signers::{LocalWallet, Signer};
 ///
 /// fn builder_example() {
@@ -34,8 +33,7 @@ use neo_types::address::Address;
 ///
 ///     let provider = Provider::<Http>::try_from("http://localhost:8545")
 ///         .unwrap()
-///         .wrap_into(|p| SignerMiddleware::new(p, signer))
-///         .wrap_into(|p| NonceManagerMiddleware::new(p, address)); // Outermost layer
+///         .wrap_into(|p| SignerMiddleware::new(p, signer)); // Outermost layer
 /// }
 /// ```
 pub trait MiddlewareBuilder: Middleware + Sized + 'static {
@@ -56,11 +54,6 @@ pub trait MiddlewareBuilder: Middleware + Sized + 'static {
 		S: Signer,
 	{
 		SignerMiddleware::new(self, s)
-	}
-
-	/// Wraps `self` inside a [`NonceManagerMiddleware`].
-	fn nonce_manager(self, address: Address) -> NonceManagerMiddleware<Self> {
-		NonceManagerMiddleware::new(self, address)
 	}
 }
 

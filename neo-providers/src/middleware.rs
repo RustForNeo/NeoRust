@@ -93,15 +93,8 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().client_version().await.map_err(MiddlewareError::from_err)
 	}
 
-	async fn fill_transaction(
-		&self,
-		tx: &mut Transaction,
-		block: Option<BlockId>,
-	) -> Result<(), Self::Error> {
-		self.inner()
-			.fill_transaction(tx, block)
-			.await
-			.map_err(MiddlewareError::from_err)
+	async fn fill_transaction(&self, tx: &mut Transaction) -> Result<(), Self::Error> {
+		self.inner().fill_transaction(tx).await.map_err(MiddlewareError::from_err)
 	}
 
 	/// Get the block number
@@ -116,12 +109,8 @@ pub trait Middleware: Sync + Send + Debug {
 	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
-		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, Self::Provider>, Self::Error> {
-		self.inner()
-			.send_transaction(tx, block)
-			.await
-			.map_err(MiddlewareError::from_err)
+		self.inner().send_transaction(tx).await.map_err(MiddlewareError::from_err)
 	}
 
 	////// Neo Naming Service
@@ -185,53 +174,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.get_block_with_txs(block_hash_or_number)
 			.await
 			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the block uncle count at `block_hash_or_number`
-	async fn get_uncle_count<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-	) -> Result<U256, Self::Error> {
-		self.inner()
-			.get_uncle_count(block_hash_or_number)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the block uncle at `block_hash_or_number` and `idx`
-	async fn get_uncle<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-		idx: u64,
-	) -> Result<Option<Block<H256, Witness>>, Self::Error> {
-		self.inner()
-			.get_uncle(block_hash_or_number, idx)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns the nonce of the address
-	async fn get_transaction_count<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		block: Option<BlockId>,
-	) -> Result<U256, Self::Error> {
-		self.inner()
-			.get_transaction_count(from, block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Sends a transaction to a single Neo node and return the estimated amount of gas
-	/// required (as a U256) to send it This is free, but only an estimate. Providing too little
-	/// gas will result in a transaction being rejected (while still consuming all provided
-	/// gas).
-	async fn estimate_gas(
-		&self,
-		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<U256, Self::Error> {
-		self.inner().estimate_gas(tx, block).await.map_err(MiddlewareError::from_err)
 	}
 
 	/// Sends the read-only (constant) transaction to a single Neo node and return the result
@@ -840,14 +782,12 @@ pub trait Middleware: Sync + Send + Debug {
 	async fn send_raw_transaction(&self, hex: String) -> Result<RawTransaction, Self::Error> {
 		self.inner().send_raw_transaction(hex).await.map_err(MiddlewareError::from_err)
 	}
-	// More node methods
 
 	async fn submit_block(&self, hex: String) -> Result<bool, Self::Error> {
 		self.inner().submit_block(hex).await.map_err(MiddlewareError::from_err)
 	}
 
-	// More blockchain methods
-
+	// Blockchain methods
 	async fn invoke_function<T: AccountTrait + Serialize>(
 		&self,
 		contract_hash: &H160,
@@ -882,13 +822,13 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().list_plugins().await.map_err(MiddlewareError::from_err)
 	}
 
-	// More utility methods
+	// Utility methods
 
 	async fn validate_address(&self, address: &str) -> Result<ValidateAddress, Self::Error> {
 		self.inner().validate_address(address).await.map_err(MiddlewareError::from_err)
 	}
 
-	// More wallet methods
+	// Wallet methods
 
 	async fn close_wallet(&self) -> Result<bool, Self::Error> {
 		self.inner().close_wallet().await.map_err(MiddlewareError::from_err)

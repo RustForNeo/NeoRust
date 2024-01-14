@@ -70,51 +70,17 @@ where
 	async fn send_transaction<Tx: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: Tx,
-		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, Self::Provider>, Self::Error> {
 		let mut tx = tx.into();
 
 		// construct the appropriate proxy tx.
 		self.transformer.transform(&mut tx)?;
 
-		self.fill_transaction(&mut tx, block).await?;
+		self.fill_transaction(&mut tx).await?;
 		// send the proxy tx.
 		self.inner
-			.send_transaction(tx, block)
+			.send_transaction(tx)
 			.await
 			.map_err(TransformerMiddlewareError::MiddlewareError)
-	}
-
-	fn watch<'a, 'life0, 'async_trait>(
-		&'a self,
-		filter: &'life0 Filter,
-	) -> Pin<
-		Box<
-			dyn Future<Output = Result<FilterWatcher<'a, Self::Provider, Log>, Self::Error>>
-				+ Send
-				+ 'async_trait,
-		>,
-	>
-	where
-		'a: 'async_trait,
-	{
-		todo!()
-	}
-
-	fn subscribe_logs<'a, 'life0, 'async_trait>(
-		&'a self,
-		filter: &'life0 Filter,
-	) -> Pin<
-		Box<
-			dyn Future<Output = Result<SubscriptionStream<'a, Self::Provider, Log>, Self::Error>>
-				+ Send
-				+ 'async_trait,
-		>,
-	>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-		'a: 'async_trait,
-	{
-		todo!()
 	}
 }

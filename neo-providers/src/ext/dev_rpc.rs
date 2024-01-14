@@ -4,6 +4,7 @@
 //!
 //! ```no_run
 //! use neo_providers::{Provider, Http, Middleware, DevRpcMiddleware};
+//! use neo_providers::core::transaction::transaction::Transaction;
 //!
 //! # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 //! let anvil = Anvil::new().spawn();
@@ -19,8 +20,8 @@
 //! let from = accounts[0];
 //! let to = accounts[1];
 //! let balance_before = client.get_balance(to, None).await?;
-//! let tx = TransactionRequest::new().to(to).value(1000).from(from);
-//! client.send_transaction(tx, None).await?.await?;
+//! let tx = Transaction::new().to(to).value(1000).from(from);
+//! client.send_transaction(tx).await?.await?;
 //! let balance_after = client.get_balance(to, None).await?;
 //! assert_eq!(balance_after, balance_before + 1000);
 //!

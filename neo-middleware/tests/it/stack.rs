@@ -1,10 +1,5 @@
-use neo_middleware::{
-	gas_escalator::{Frequency, GasEscalatorMiddleware, GeometricGasPrice},
-	gas_oracle::{GasCategory, GasNow, GasOracleMiddleware},
-	nonce_manager::NonceManagerMiddleware,
-	signer::SignerMiddleware,
-};
-use neo_providers::{Http, Middleware, Provider};
+use neo_middleware::signer::SignerMiddleware;
+use neo_providers::{core::transaction::transaction::Transaction, Http, Middleware, Provider};
 use neo_signers::{LocalWallet, Signer};
 use std::convert::TryFrom;
 
@@ -75,10 +70,10 @@ async fn can_stack_middlewares() {
 	// the nonce and the signer does not make any neo_getTransaction count calls
 	let provider = NonceManagerMiddleware::new(provider, address);
 
-	let tx = TransactionRequest::new();
+	let tx = Transaction::new();
 	let mut pending_txs = Vec::new();
 	for _ in 0..10 {
-		let pending = provider.send_transaction(tx.clone(), None).await.unwrap();
+		let pending = provider.send_transaction(tx.clone()).await.unwrap();
 		let hash = *pending;
 		let _ = provider.get_transaction(hash).await.unwrap().unwrap();
 		pending_txs.push(pending);

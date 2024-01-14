@@ -1,11 +1,14 @@
-use neo_providers::{maybe, Middleware, MiddlewareError, PendingTransaction};
-use neo_signers::Signer;
-use std::convert::TryFrom;
-
 use async_trait::async_trait;
-use neo_providers::core::transaction::transaction::Transaction;
-use neo_types::{address::Address, block::BlockId, Bytes};
+use neo_crypto::keys::Secp256r1Signature;
+use neo_providers::{
+	core::transaction::transaction::Transaction, maybe, FilterWatcher, Middleware, MiddlewareError,
+	PendingTransaction, PubsubClient, SubscriptionStream,
+};
+use neo_signers::Signer;
+use neo_types::{address::Address, block::BlockId, filter::Filter, log::Log, Bytes};
 use primitive_types::U256;
+use rustc_serialize::hex::ToHex;
+use std::{convert::TryFrom, future::Future, pin::Pin};
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -18,8 +21,9 @@ use thiserror::Error;
 /// use neo_providers::{Middleware, Provider, Http};
 /// use neo_signers::LocalWallet;
 /// use neo_middleware::SignerMiddleware;
-/// use neo_types::{Address, TransactionRequest};
+/// use neo_types::{Address};
 /// use std::convert::TryFrom;
+/// use neo_providers::core::transaction::transaction::Transaction;
 ///
 /// # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 /// let provider = Provider::<Http>::try_from("http://localhost:8545")
@@ -36,8 +40,8 @@ use thiserror::Error;
 /// let signed_msg = client.sign(b"hello".to_vec(), &client.address()).await?;
 ///
 /// // ...and sign transactions
-/// let tx = TransactionRequest::pay("vitalik.eth", 100);
-/// let pending_tx = client.send_transaction(tx, None).await?;
+/// let tx = Transaction::pay("vitalik.eth", 100);
+/// let pending_tx = client.send_transaction(tx).await?;
 ///
 /// // You can `await` on the pending transaction to get the receipt with a pre-specified
 /// // number of confirmations
@@ -50,10 +54,10 @@ use thiserror::Error;
 /// let signed_msg2 = client.with_signer(wallet2).sign(b"hello".to_vec(), &client.address()).await?;
 ///
 /// // This call will be made with `wallet2` since `with_signer` takes a mutable reference.
-/// let tx2 = TransactionRequest::new()
+/// let tx2 = Transaction::new()
 ///     .to("0xd8da6bf26964af9d7eed9e03e53415d37aa96045".parse::<Address>()?)
 ///     .value(200);
-/// let tx_hash2 = client.send_transaction(tx2, None).await?;
+/// let tx_hash2 = client.send_transaction(tx2).await?;
 ///
 /// # Ok(())
 /// # }
@@ -141,8 +145,7 @@ where
 		// return an error if they are not consistent
 		let network_magic = self.signer.network_magic();
 		match tx.network_magic() {
-			Some(id) if id.as_u64() != network_magic =>
-				return Err(SignerMiddlewareError::DifferentChainID),
+			Some(id) if id != network_magic => return Err(SignerMiddlewareError::DifferentChainID),
 			None => {
 				tx.set_network_magic(network_magic);
 			},
@@ -155,13 +158,13 @@ where
 			.await
 			.map_err(SignerMiddlewareError::SignerError)?;
 
-		// Return the raw rlp-encoded signed transaction
+		// Return the raw encoded signed transaction
 		Ok(tx.rlp_signed(&signature))
 	}
 
 	/// Returns the client's address
 	pub fn address(&self) -> Address {
-		self.address
+		self.address.clone()
 	}
 
 	/// Returns a reference to the client's signer
@@ -198,16 +201,8 @@ where
 			.get_network_magic()
 			.await
 			.map_err(|e| SignerMiddlewareError::MiddlewareError(e))?;
-		let signer = signer.with_network_magic(network_magic.as_u64());
+		let signer = signer.with_network_magic(network_magic);
 		Ok(SignerMiddleware { inner, signer, address })
-	}
-
-	fn set_tx_from_if_none(&self, tx: &Transaction) -> Transaction {
-		let mut tx = tx.clone();
-		if tx.from().is_none() {
-			tx.set_from(self.address);
-		}
-		tx
 	}
 }
 
@@ -228,88 +223,34 @@ where
 
 	/// Returns the client's address
 	fn default_sender(&self) -> Option<Address> {
-		Some(self.address)
-	}
-
-	/// `SignerMiddleware` is instantiated with a signer.
-	async fn is_signer(&self) -> bool {
-		true
-	}
-
-	async fn sign_transaction(
-		&self,
-		tx: &Transaction,
-		_: Address,
-	) -> Result<Signature, Self::Error> {
-		Ok(self
-			.signer
-			.sign_transaction(tx)
-			.await
-			.map_err(SignerMiddlewareError::SignerError)?)
+		Some(self.address.clone())
 	}
 
 	/// Helper for filling a transaction's nonce using the wallet
-	async fn fill_transaction(
-		&self,
-		tx: &mut Transaction,
-		block: Option<BlockId>,
-	) -> Result<(), Self::Error> {
-		// get the `from` field's nonce if it's set, else get the signer's nonce
-		let from = if tx.from().is_some() && tx.from() != Some(&self.address()) {
-			*tx.from().unwrap()
-		} else {
-			self.address
-		};
-		tx.set_from(from);
-
+	async fn fill_transaction(&self, tx: &mut Transaction) -> Result<(), Self::Error> {
 		// get the signer's network_magic if the transaction does not set it
 		let network_magic = self.signer.network_magic();
 		if tx.network_magic().is_none() {
 			tx.set_network_magic(network_magic);
 		}
 
-		// If a network_magic is matched to a known chain that doesn't support EIP-1559, automatically
-		// change transaction to be Legacy type.
-		if let Some(network_magic) = tx.network_magic() {
-			let chain = Chain::try_from(network_magic.as_u64());
-			if chain.unwrap_or_default().is_legacy() {
-				if let Transaction::Eip1559(inner) = tx {
-					let tx_req: TransactionRequest = inner.clone().into();
-					*tx = Transaction::Legacy(tx_req);
-				}
-			}
-		}
-
-		let nonce = maybe(tx.nonce().cloned(), self.get_transaction_count(from, block)).await?;
-		tx.set_nonce(nonce);
+		tx.nonce = 0;
 		self.inner()
-			.fill_transaction(tx, block)
+			.fill_transaction(tx)
 			.await
 			.map_err(SignerMiddlewareError::MiddlewareError)?;
 		Ok(())
 	}
 
-	/// Signs and broadcasts the transaction. The optional parameter `block` can be passed so that
-	/// gas cost and nonce calculations take it into account. For simple transactions this can be
-	/// left to `None`.
+	/// Signs and broadcasts the transaction.
 	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
-		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, Self::Provider>, Self::Error> {
 		let mut tx = tx.into();
 
 		// fill any missing fields
-		self.fill_transaction(&mut tx, block).await?;
-
-		// If the from address is set and is not our signer, delegate to inner
-		if tx.from().is_some() && tx.from() != Some(&self.address()) {
-			return self
-				.inner
-				.send_transaction(tx, block)
-				.await
-				.map_err(SignerMiddlewareError::MiddlewareError)
-		}
+		self.fill_transaction(&mut tx).await?;
 
 		// if we have a nonce manager set, we should try handling the result in
 		// case there was a nonce mismatch
@@ -317,9 +258,22 @@ where
 
 		// Submit the raw transaction
 		self.inner
-			.send_raw_transaction(signed_tx)
+			.send_raw_transaction(signed_tx.to_hex())
+			.await
+			.map(|tx| PendingTransaction::new(tx.hash, self.provider()))
+			.map_err(SignerMiddlewareError::MiddlewareError)
+	}
+
+	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, Self::Error> {
+		self.inner()
+			.call(&tx, block)
 			.await
 			.map_err(SignerMiddlewareError::MiddlewareError)
+	}
+
+	/// `SignerMiddleware` is instantiated with a signer.
+	async fn is_signer(&self) -> bool {
+		true
 	}
 
 	/// Signs a message with the internal signer, or if none is present it will make a call to
@@ -328,288 +282,22 @@ where
 		&self,
 		data: T,
 		_: &Address,
-	) -> Result<Signature, Self::Error> {
+	) -> Result<Secp256r1Signature, Self::Error> {
 		self.signer
 			.sign_message(data.into())
 			.await
 			.map_err(SignerMiddlewareError::SignerError)
 	}
 
-	async fn estimate_gas(
+	async fn sign_transaction(
 		&self,
 		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<U256, Self::Error> {
-		let tx = self.set_tx_from_if_none(tx);
-		self.inner
-			.estimate_gas(&tx, block)
+		_: Address,
+	) -> Result<Secp256r1Signature, Self::Error> {
+		Ok(self
+			.signer
+			.sign_transaction(tx)
 			.await
-			.map_err(SignerMiddlewareError::MiddlewareError)
-	}
-
-	async fn create_access_list(
-		&self,
-		tx: &Transaction,
-		block: Option<BlockId>,
-	) -> Result<AccessListWithGasUsed, Self::Error> {
-		let tx = self.set_tx_from_if_none(tx);
-		self.inner
-			.create_access_list(&tx, block)
-			.await
-			.map_err(SignerMiddlewareError::MiddlewareError)
-	}
-
-	async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, Self::Error> {
-		let tx = self.set_tx_from_if_none(tx);
-		self.inner()
-			.call(&tx, block)
-			.await
-			.map_err(SignerMiddlewareError::MiddlewareError)
-	}
-}
-
-#[cfg(all(test, not(feature = "celo")))]
-mod tests {
-	use super::*;
-	use neo_providers::Provider;
-	use neo_signers::LocalWallet;
-	use std::convert::TryFrom;
-
-	#[tokio::test]
-	async fn signs_tx() {
-		// retrieved test vector from:
-		// https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
-		let tx = TransactionRequest {
-			from: None,
-			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
-			value: Some(1_000_000_000.into()),
-			gas: Some(2_000_000.into()),
-			nonce: Some(0.into()),
-			gas_price: Some(21_000_000_000u128.into()),
-			data: None,
-			network_magic: None,
-		}
-		.into();
-		let network_magic = 1u64;
-
-		// Signer middlewares now rely on a working provider which it can query the network magic from,
-		// so we make sure Anvil is started with the network magic that the expected tx was signed
-		// with
-		let anvil = Anvil::new()
-			.args(vec!["--chain-id".to_string(), network_magic.to_string()])
-			.spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
-			.parse::<LocalWallet>()
-			.unwrap()
-			.with_network_magic(network_magic);
-		let client = SignerMiddleware::new(provider, key);
-
-		let tx = client.sign_transaction(tx).await.unwrap();
-
-		assert_eq!(
-			keccak256(&tx)[..],
-			hex::decode("de8db924885b0803d2edc335f745b2b8750c8848744905684c20b987443a9593")
-				.unwrap()
-		);
-
-		let expected_rlp = Bytes::from(hex::decode("f869808504e3b29200831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca008025a0c9cf86333bcb065d140032ecaab5d9281bde80f21b9687b3e94161de42d51895a0727a108a0b8d101465414033c3f705a9c7b826e596766046ee1183dbc8aeaa68").unwrap());
-		assert_eq!(tx, expected_rlp);
-	}
-
-	#[tokio::test]
-	async fn signs_tx_none_chainid() {
-		// retrieved test vector from:
-		// https://web3js.readthedocs.io/en/v1.2.0/web3-eth-accounts.html#eth-accounts-signtransaction
-		// the signature is different because we're testing signer middleware handling the None
-		// case for a non-mainnet network magic
-		let tx = TransactionRequest {
-			from: None,
-			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
-			value: Some(1_000_000_000.into()),
-			gas: Some(2_000_000.into()),
-			nonce: Some(U256::zero()),
-			gas_price: Some(21_000_000_000u128.into()),
-			data: None,
-			network_magic: None,
-		}
-		.into();
-		let network_magic = 1337u64;
-
-		// Signer middlewares now rely on a working provider which it can query the network magic from,
-		// so we make sure Anvil is started with the network magic that the expected tx was signed
-		// with
-		let anvil = Anvil::new()
-			.args(vec!["--chain-id".to_string(), network_magic.to_string()])
-			.spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
-			.parse::<LocalWallet>()
-			.unwrap()
-			.with_network_magic(network_magic);
-		let client = SignerMiddleware::new(provider, key);
-
-		let tx = client.sign_transaction(tx).await.unwrap();
-
-		let expected_rlp = Bytes::from(hex::decode("f86b808504e3b29200831e848094f0109fc8df283027b6285cc889f5aa624eac1f55843b9aca0080820a95a08290324bae25ca0490077e0d1f4098730333088f6a500793fa420243f35c6b23a06aca42876cd28fdf614a4641e64222fee586391bb3f4061ed5dfefac006be850").unwrap());
-		assert_eq!(tx, expected_rlp);
-	}
-
-	#[tokio::test]
-	async fn anvil_consistent_chainid() {
-		let anvil = Anvil::new().spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let network_magic = provider.get_network_magic().await.unwrap();
-		assert_eq!(network_magic, U256::from(31337));
-
-		// Intentionally do not set the network magic here so we ensure that the signer pulls the
-		// provider's network magic.
-		let key = LocalWallet::new(&mut rand::thread_rng());
-
-		// combine the provider and wallet and test that the network magic is the same for both the
-		// signer returned by the middleware and through the middleware itself.
-		let client = SignerMiddleware::new_with_provider_chain(provider, key).await.unwrap();
-		let middleware_chainid = client.get_network_magic().await.unwrap();
-		assert_eq!(network_magic, middleware_chainid);
-
-		let signer = client.signer();
-		let signer_chainid = signer.network_magic();
-		assert_eq!(network_magic.as_u64(), signer_chainid);
-	}
-
-	#[tokio::test]
-	async fn anvil_consistent_chainid_not_default() {
-		let anvil = Anvil::new().args(vec!["--chain-id", "13371337"]).spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let network_magic = provider.get_network_magic().await.unwrap();
-		assert_eq!(network_magic, U256::from(13371337));
-
-		// Intentionally do not set the network magic here so we ensure that the signer pulls the
-		// provider's network magic.
-		let key = LocalWallet::new(&mut rand::thread_rng());
-
-		// combine the provider and wallet and test that the network magic is the same for both the
-		// signer returned by the middleware and through the middleware itself.
-		let client = SignerMiddleware::new_with_provider_chain(provider, key).await.unwrap();
-		let middleware_chainid = client.get_network_magic().await.unwrap();
-		assert_eq!(network_magic, middleware_chainid);
-
-		let signer = client.signer();
-		let signer_chainid = signer.network_magic();
-		assert_eq!(network_magic.as_u64(), signer_chainid);
-	}
-
-	#[tokio::test]
-	async fn handles_tx_from_field() {
-		let anvil = Anvil::new().spawn();
-		let acc = anvil.addresses()[0];
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let key = LocalWallet::new(&mut rand::thread_rng()).with_network_magic(1u32);
-		provider
-			.send_transaction(
-				TransactionRequest::pay(key.address(), utils::parse_ether(1u64).unwrap()).from(acc),
-				None,
-			)
-			.await
-			.unwrap()
-			.await
-			.unwrap()
-			.unwrap();
-		let client = SignerMiddleware::new_with_provider_chain(provider, key).await.unwrap();
-
-		let request = TransactionRequest::new();
-
-		// signing a TransactionRequest with a from field of None should yield
-		// a signed transaction from the signer address
-		let request_from_none = request.clone();
-		let hash = *client.send_transaction(request_from_none, None).await.unwrap();
-		let tx = client.get_transaction(hash).await.unwrap().unwrap();
-		assert_eq!(tx.from, client.address());
-
-		// signing a TransactionRequest with the signer as the from address
-		// should yield a signed transaction from the signer
-		let request_from_signer = request.clone().from(client.address());
-		let hash = *client.send_transaction(request_from_signer, None).await.unwrap();
-		let tx = client.get_transaction(hash).await.unwrap().unwrap();
-		assert_eq!(tx.from, client.address());
-
-		// signing a TransactionRequest with a from address that is not the
-		// signer should result in the default anvil account being used
-		let request_from_other = request.from(acc);
-		let hash = *client.send_transaction(request_from_other, None).await.unwrap();
-		let tx = client.get_transaction(hash).await.unwrap().unwrap();
-		assert_eq!(tx.from, acc);
-	}
-
-	#[tokio::test]
-	async fn converts_tx_to_legacy_to_match_chain() {
-		let eip1559 = Eip1559TransactionRequest {
-			from: None,
-			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
-			value: Some(1_000_000_000.into()),
-			gas: Some(2_000_000.into()),
-			nonce: Some(U256::zero()),
-			access_list: Default::default(),
-			max_priority_fee_per_gas: None,
-			data: None,
-			network_magic: None,
-			max_fee_per_gas: None,
-		};
-		let mut tx = Transaction::Eip1559(eip1559);
-
-		let network_magic = 324u64; // zksync does not support EIP-1559
-
-		// Signer middlewares now rely on a working provider which it can query the network magic from,
-		// so we make sure Anvil is started with the network magic that the expected tx was signed
-		// with
-		let anvil = Anvil::new()
-			.args(vec!["--chain-id".to_string(), network_magic.to_string()])
-			.spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
-			.parse::<LocalWallet>()
-			.unwrap()
-			.with_network_magic(network_magic);
-		let client = SignerMiddleware::new(provider, key);
-		client.fill_transaction(&mut tx, None).await.unwrap();
-
-		assert!(tx.as_eip1559_ref().is_none());
-		assert_eq!(tx, Transaction::Legacy(tx.as_legacy_ref().unwrap().clone()));
-	}
-
-	#[tokio::test]
-	async fn does_not_convert_to_legacy_for_eip1559_chain() {
-		let eip1559 = Eip1559TransactionRequest {
-			from: None,
-			to: Some("F0109fC8DF283027b6285cc889F5aA624EaC1F55".parse::<Address>().unwrap().into()),
-			value: Some(1_000_000_000.into()),
-			gas: Some(2_000_000.into()),
-			nonce: Some(U256::zero()),
-			access_list: Default::default(),
-			max_priority_fee_per_gas: None,
-			data: None,
-			network_magic: None,
-			max_fee_per_gas: None,
-		};
-		let mut tx = Transaction::Eip1559(eip1559);
-
-		let network_magic = 1u64; // eth main supports EIP-1559
-
-		// Signer middlewares now rely on a working provider which it can query the network magic from,
-		// so we make sure Anvil is started with the network magic that the expected tx was signed
-		// with
-		let anvil = Anvil::new()
-			.args(vec!["--chain-id".to_string(), network_magic.to_string()])
-			.spawn();
-		let provider = Provider::try_from(anvil.endpoint()).unwrap();
-		let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
-			.parse::<LocalWallet>()
-			.unwrap()
-			.with_network_magic(network_magic);
-		let client = SignerMiddleware::new(provider, key);
-		client.fill_transaction(&mut tx, None).await.unwrap();
-
-		assert!(tx.as_legacy_ref().is_none());
-		assert_eq!(tx, Transaction::Eip1559(tx.as_eip1559_ref().unwrap().clone()));
+			.map_err(SignerMiddlewareError::SignerError)?)
 	}
 }

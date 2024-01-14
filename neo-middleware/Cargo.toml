@@ -27,6 +27,7 @@ neo-contract = { workspace = true, features = ["abigen", "providers"] }
 neo-providers.workspace = true
 neo-signers.workspace = true
 neo-types.workspace = true
+neo-crypto.workspace = true
 
 async-trait.workspace = true
 auto_impl.workspace = true
@@ -45,6 +46,7 @@ reqwest.workspace = true
 url.workspace = true
 
 serde_json.workspace = true
+rustc-serialize = "0.3.24"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio.workspace = true

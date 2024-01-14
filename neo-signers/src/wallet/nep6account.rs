@@ -6,8 +6,6 @@ use std::collections::HashMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Getters, Setters)]
 pub struct NEP6Account {
-	// #[serde(deserialize_with = "deserialize_script_hash")]
-	// #[serde(serialize_with = "serialize_script_hash")]
 	#[getset(get = "pub", set = "pub")]
 	pub address: Address,
 	#[serde(skip_serializing_if = "Option::is_none")]

@@ -1,14 +1,32 @@
-use crate::core::transaction::{
-	signers::transaction_signer::TransactionSigner, transaction_attribute::TransactionAttribute,
-	witness::Witness,
+use crate::core::{
+	account::AccountTrait,
+	transaction::{
+		signers::transaction_signer::TransactionSigner,
+		transaction_attribute::TransactionAttribute, transaction_error::TransactionError,
+		witness::Witness,
+	},
 };
-use neo_types::{vm_state::VMState, *};
-use primitive_types::{H160, H256};
+use neo_codec::{
+	encode::{NeoSerializable, VarSizeTrait},
+	Decoder, Encoder,
+};
+use neo_crypto::hash::HashableForVec;
+use neo_types::{address::NameOrAddress, vm_state::VMState, *};
+use primitive_types::{H160, H256, U256};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
-#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Hash, Debug, Clone)]
 pub struct Transaction {
+	#[serde(rename = "version")]
+	pub version: u8,
+
+	#[serde(rename = "nonce")]
+	pub nonce: i32,
+
+	#[serde(rename = "validuntilblock")]
+	pub valid_until_block: i32,
+
 	#[serde(rename = "hash")]
 	#[serde(serialize_with = "serialize_h256")]
 	#[serde(deserialize_with = "deserialize_h256")]
@@ -17,25 +35,16 @@ pub struct Transaction {
 	#[serde(rename = "size")]
 	pub size: i32,
 
-	#[serde(rename = "version")]
-	pub version: i32,
-
-	#[serde(rename = "nonce")]
-	pub nonce: i32,
-
 	#[serde(rename = "sender")]
 	#[serde(deserialize_with = "deserialize_script_hash")]
 	#[serde(serialize_with = "serialize_script_hash")]
 	pub sender: H160,
 
 	#[serde(rename = "sysfee")]
-	pub sys_fee: String,
+	pub sys_fee: i64,
 
 	#[serde(rename = "netfee")]
-	pub net_fee: String,
-
-	#[serde(rename = "validuntilblock")]
-	pub valid_until_block: i32,
+	pub net_fee: i64,
 
 	#[serde(rename = "signers")]
 	pub signers: Vec<TransactionSigner>,
@@ -44,7 +53,7 @@ pub struct Transaction {
 	pub attributes: Vec<TransactionAttribute>,
 
 	#[serde(rename = "script")]
-	pub script: String,
+	pub script: Bytes,
 
 	#[serde(rename = "witnesses")]
 	pub witnesses: Vec<Witness>,
@@ -68,12 +77,47 @@ pub struct Transaction {
 }
 
 impl Transaction {
+	const HEADER_SIZE: usize = 25;
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// Convenience function for sending a new payment transaction to the receiver.
+	pub fn pay<T: Into<NameOrAddress>, V: Into<U256>>(to: T, value: V) -> Self {
+		Transaction { ..Default::default() }
+	}
+
 	pub fn network_magic(&self) -> Option<u64> {
 		self.network_magic
 	}
 
 	pub fn set_network_magic(&mut self, network_magic: u64) {
 		self.network_magic = Some(network_magic);
+	}
+
+	// Methods
+	pub fn add_witness(&mut self, witness: Witness) {
+		self.witnesses.push(witness);
+	}
+
+	pub async fn get_hash_data(&self, network: u32) -> Result<Bytes, TransactionError> {
+		let mut encoder = Encoder::new();
+		self.serialize_without_witnesses(&mut encoder);
+		let mut data = encoder.to_bytes().hash256();
+		data.splice(0..0, network.to_be_bytes());
+
+		Ok(data)
+	}
+
+	fn serialize_without_witnesses(&self, writer: &mut Encoder) {
+		writer.write_u8(self.version);
+		writer.write_u32(self.nonce as u32);
+		writer.write_i64(self.sys_fee);
+		writer.write_i64(self.net_fee);
+		writer.write_u32(self.valid_until_block as u32);
+		writer.write_serializable_variable_list(&self.signers);
+		writer.write_serializable_variable_list(&self.attributes);
+		writer.write_var_bytes(&self.script);
 	}
 }
 
@@ -82,5 +126,74 @@ impl Eq for Transaction {}
 impl PartialEq for Transaction {
 	fn eq(&self, other: &Self) -> bool {
 		self.hash == other.hash
+	}
+}
+
+impl<T: AccountTrait + Serialize> NeoSerializable for Transaction {
+	type Error = TransactionError;
+
+	fn size(&self) -> usize {
+		Transaction::HEADER_SIZE
+			+ self.signers.var_size()
+			+ self.attributes.var_size()
+			+ self.script.var_size()
+			+ self.witnesses.var_size()
+	}
+
+	fn encode(&self, writer: &mut Encoder) {
+		self.serialize_without_witnesses(writer);
+		writer.write_serializable_variable_list(&self.witnesses);
+	}
+
+	fn decode(reader: &mut Decoder) -> Result<Self, Self::Error>
+	where
+		Self: Sized,
+	{
+		let version = reader.read_u8();
+		let nonce = reader.read_u32();
+		let system_fee = reader.read_i64();
+		let network_fee = reader.read_i64();
+		let valid_until_block = reader.read_u32();
+
+		// Read signers
+		let signers: Vec<TransactionSigner> =
+			reader.read_serializable_list::<TransactionSigner>().unwrap();
+
+		// Read attributes
+		let attributes: Vec<TransactionAttribute> =
+			reader.read_serializable_list::<TransactionAttribute>().unwrap();
+
+		let script = reader.read_var_bytes().unwrap().to_vec();
+
+		let mut witnesses = vec![];
+		if (reader.available() > 0) {
+			witnesses.append(&mut reader.read_serializable_list::<Witness>().unwrap());
+		}
+
+		Ok(Self {
+			version,
+			nonce: nonce as i32,
+			valid_until_block: valid_until_block as i32,
+			hash: Default::default(),
+			size: 0,
+			sender: Default::default(),
+			sys_fee: system_fee,
+			net_fee: network_fee,
+			signers,
+			attributes,
+			script,
+			witnesses,
+			block_hash: None,
+			confirmations: None,
+			block_time: None,
+			vm_state: None,
+			network_magic: None,
+		})
+	}
+
+	fn to_array(&self) -> Vec<u8> {
+		let mut writer = Encoder::new();
+		self.encode(&mut writer);
+		writer.to_bytes()
 	}
 }

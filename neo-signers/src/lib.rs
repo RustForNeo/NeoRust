@@ -18,23 +18,7 @@ pub type LocalWallet = Wallet;
 /// A wallet instantiated with a YubiHSM
 pub type YubiWallet = Wallet;
 
-#[cfg(all(feature = "ledger", not(target_arch = "wasm32")))]
-mod ledger;
-#[cfg(all(feature = "ledger", not(target_arch = "wasm32")))]
-pub use ledger::{
-	app::Ledgerneo as Ledger,
-	types::{DerivationType as HDPath, LedgerError},
-};
-
-#[cfg(all(feature = "yubihsm", not(target_arch = "wasm32")))]
-pub use yubihsm;
-
-#[cfg(feature = "aws")]
-mod aws;
 mod error;
-
-#[cfg(feature = "aws")]
-pub use aws::{AwsSigner, AwsSignerError};
 
 use async_trait::async_trait;
 use neo_crypto::keys::Secp256r1Signature;

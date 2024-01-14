@@ -2,11 +2,6 @@
 #![deny(unsafe_code, rustdoc::broken_intra_doc_links)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-/// The [Nonce Manager](crate::NonceManagerMiddleware) is used to locally calculate nonces instead
-/// of using neo_getTransactionCount
-pub mod nonce_manager;
-pub use nonce_manager::NonceManagerMiddleware;
-
 /// The [TransformerMiddleware] is used to intercept transactions
 /// and transform them to be sent via various supported transformers, e.g.,
 /// [DSProxy](crate::transformer::DsProxy).
@@ -24,11 +19,6 @@ pub mod policy;
 pub use policy::{
 	AllowEverything, Policy, PolicyMiddleware, PolicyMiddlewareError, RejectEverything,
 };
-
-/// The [TimeLag] middleware provides safety against reorgs by querying state N blocks before the
-/// chain tip.
-pub mod timelag;
-pub use timelag::TimeLag;
 
 /// [MiddlewareBuilder] provides a way to compose many [`Middleware`]s in a concise way.
 pub mod builder;

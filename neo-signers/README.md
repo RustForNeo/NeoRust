@@ -6,7 +6,7 @@ You can implement the `Signer` trait to extend functionality to other signers
 such as Hardware Security Modules, KMS etc.
 
 The exposed interfaces return a recoverable signature. In order to convert the
-signature and the [`TransactionRequest`] to a [`Transaction`], look at the
+signature and the [`Transaction`] to a [`Transaction`], look at the
 signing middleware.
 
 Supported signers:
@@ -20,20 +20,20 @@ Supported signers:
 For more information, please refer to the [book](https://gakonst.com/neo-rs).
 
 [`transaction`]: neo_types::Transaction
-[`transactionrequest`]: neo_types::TransactionRequest
+[`Transaction`]: neo_types::Transaction
 
 ## Examples
 
 ```rust,no_run
 # use neo_signers::{LocalWallet, Signer};
-# use neo_core::{p256::ecdsa::SigningKey, types::TransactionRequest};
+# use neo_core::{p256::ecdsa::SigningKey, types::Transaction};
 # async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 // instantiate the wallet
 let wallet = "dcf2cbdd171a21c480aa7f53d77f31bb102282b3ff099c78e3118b37348c72f7"
     .parse::<LocalWallet>()?;
 
 // create a transaction
-let tx = TransactionRequest::new()
+let tx = Transaction::new()
     .to("vitalik.eth") // this will use NNS
     .value(10000).into();
 

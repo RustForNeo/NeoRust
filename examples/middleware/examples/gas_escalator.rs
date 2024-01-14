@@ -1,7 +1,6 @@
 use eyre::Result;
 use neo::{
-	core::{types::TransactionRequest, utils::Anvil},
-	middleware::gas_escalator::*,
+	core::{types::Transaction, utils::Anvil},
 	providers::{Http, Middleware, Provider},
 };
 
@@ -47,10 +46,10 @@ where
 	let accounts = provider.get_accounts().await?;
 	let from = accounts[0];
 	let to = accounts[1];
-	let tx = TransactionRequest::new().from(from).to(to).value(1000);
+	let tx = Transaction::new().from(from).to(to).value(1000);
 
 	// Bumps the gas price until transaction gets mined
-	let pending_tx = provider.send_transaction(tx, None).await?;
+	let pending_tx = provider.send_transaction(tx).await?;
 	let receipt = pending_tx.await?;
 
 	println!("{receipt:?}");

@@ -32,8 +32,7 @@ let gas_oracle = GasNow::new();
 
 let provider = Provider::<Http>::try_from("http://localhost:8545")?
     .gas_oracle(gas_oracle)
-    .with_signer(signer)
-    .nonce_manager(address); // Outermost layer
+    .with_signer(signer); // Outermost layer
 # Ok::<_, Box<dyn std::error::Error>>(())
 ```
 
@@ -43,7 +42,6 @@ The [wrap_into](crate::MiddlewareBuilder::wrap_into) function can be used to wra
 # use neo_providers::{Middleware, Provider, Http};
 # use std::convert::TryFrom;
 # use neo_signers::{LocalWallet, Signer};
-# use neo_middleware::{*,gas_escalator::*,gas_oracle::*};
 let key = "fdb33e2105f08abe41a8ee3b758726a31abdd57b7a443f470f23efce853af169";
 let signer = key.parse::<LocalWallet>()?;
 let address = signer.address();
@@ -63,10 +61,7 @@ A [`Middleware`](neo_providers::Middleware) stack can be also constructed manual
 # use neo_providers::{Provider, Http};
 # use neo_signers::{LocalWallet, Signer};
 # use neo_middleware::{
-#     gas_escalator::{GasEscalatorMiddleware, GeometricGasPrice, Frequency},
-#     gas_oracle::{GasOracleMiddleware, GasCategory, GasNow},
 #     signer::SignerMiddleware,
-#     nonce_manager::NonceManagerMiddleware,
 # };
 // Start the stack
 let provider = Provider::<Http>::try_from("http://localhost:8545")?;

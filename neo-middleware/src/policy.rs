@@ -111,7 +111,6 @@ where
 	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
 		&self,
 		tx: T,
-		block: Option<BlockId>,
 	) -> Result<PendingTransaction<'_, Self::Provider>, Self::Error> {
 		let tx = self
 			.policy
@@ -119,41 +118,8 @@ where
 			.await
 			.map_err(PolicyMiddlewareError::PolicyError)?;
 		self.inner
-			.send_transaction(tx, block)
+			.send_transaction(tx)
 			.await
 			.map_err(PolicyMiddlewareError::MiddlewareError)
-	}
-
-	fn watch<'a, 'life0, 'async_trait>(
-		&'a self,
-		filter: &'life0 Filter,
-	) -> Pin<
-		Box<
-			dyn Future<Output = Result<FilterWatcher<'a, Self::Provider, Log>, Self::Error>>
-				+ Send
-				+ 'async_trait,
-		>,
-	>
-	where
-		'a: 'async_trait,
-	{
-		todo!()
-	}
-
-	fn subscribe_logs<'a, 'life0, 'async_trait>(
-		&'a self,
-		filter: &'life0 Filter,
-	) -> Pin<
-		Box<
-			dyn Future<Output = Result<SubscriptionStream<'a, Self::Provider, Log>, Self::Error>>
-				+ Send
-				+ 'async_trait,
-		>,
-	>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-		'a: 'async_trait,
-	{
-		todo!()
 	}
 }

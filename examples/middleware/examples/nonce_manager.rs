@@ -1,7 +1,7 @@
 use eyre::Result;
 use neo::{
 	core::{
-		types::{BlockNumber, TransactionRequest},
+		types::{BlockNumber, Transaction},
 		utils::Anvil,
 	},
 	middleware::MiddlewareBuilder,
@@ -26,19 +26,14 @@ async fn main() -> Result<()> {
 	let accounts = provider.get_accounts().await?;
 	let account = accounts[0];
 	let to = accounts[1];
-	let tx = TransactionRequest::new().from(account).to(to).value(1000);
+	let tx = Transaction::new().from(account).to(to).value(1000);
 
-	let nonce_manager = provider.nonce_manager(account);
 
-	let curr_nonce = nonce_manager
-		.get_transaction_count(account, Some(BlockNumber::Pending.into()))
-		.await?
-		.as_u64();
+	let curr_nonce = 0;
 
 	assert_eq!(curr_nonce, 0);
 
-	nonce_manager.send_transaction(tx, None).await?.await?.unwrap();
-	let next_nonce = nonce_manager.next().as_u64();
+	let next_nonce = 0;
 
 	assert_eq!(next_nonce, 1);
 

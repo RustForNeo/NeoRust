@@ -1,10 +1,4 @@
-use neo_middleware::{
-	builder::MiddlewareBuilder,
-	gas_escalator::{Frequency, GasEscalatorMiddleware, GeometricGasPrice},
-	gas_oracle::{GasNow, GasOracleMiddleware},
-	nonce_manager::NonceManagerMiddleware,
-	signer::SignerMiddleware,
-};
+use neo_middleware::{builder::MiddlewareBuilder, signer::SignerMiddleware};
 use neo_providers::{Middleware, Provider};
 use neo_signers::{LocalWallet, Signer};
 
@@ -47,8 +41,7 @@ async fn build_declarative_middleware_stack() {
 	let provider = provider
 		.wrap_into(|p| GasEscalatorMiddleware::new(p, escalator, Frequency::PerBlock))
 		.gas_oracle(gas_oracle)
-		.with_signer(signer)
-		.nonce_manager(address);
+		.with_signer(signer);
 
 	// push a response
 	mock.push(U64::from(12u64)).unwrap();
