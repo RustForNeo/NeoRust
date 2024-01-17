@@ -10,7 +10,7 @@ mod neo_tests {
 		let provider = GOERLI.provider();
 
 		assert!(provider.get_transaction(H256::zero()).await.unwrap().is_none());
-		assert!(provider.get_transaction_receipt(H256::zero()).await.unwrap().is_none());
+		assert!(provider.get_transaction(H256::zero()).await.unwrap().is_none());
 		assert!(provider.get_block(BlockId::Hash(H256::zero())).await.unwrap().is_none());
 		assert!(provider
 			.get_block_with_txs(BlockId::Hash(H256::zero()))

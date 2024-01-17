@@ -2,7 +2,7 @@
 name = "examples-queries"
 version = "0.0.0"
 publish = false
-authors = ["Andrea Simeoni <andreasimeoni84@gmail.com>"]
+authors = ["R3E Network <contact@r3e.network>"]
 
 license.workspace = true
 rust-version.workspace = true

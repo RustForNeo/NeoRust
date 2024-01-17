@@ -60,11 +60,6 @@ where
 		Ok(Self { id, provider, rx, ret: PhantomData, loaded_elements: VecDeque::new() })
 	}
 
-	/// Unsubscribes from the subscription.
-	pub async fn unsubscribe(&self) -> Result<bool, crate::ProviderError> {
-		self.provider.unsubscribe(self.id).await
-	}
-
 	/// Set the loaded elements buffer. This buffer contains logs waiting for
 	/// the consumer to read. Setting the buffer can be used to add logs
 	/// without receiving them from the RPC node

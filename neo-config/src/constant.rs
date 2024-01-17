@@ -20,6 +20,12 @@ impl NeoConstants {
 	pub const MAX_SIGNER_SUBITEMS: u32 = 16;
 	pub const MAX_MANIFEST_SIZE: u32 = 0xFFFF;
 
+	pub const SEED_1: &'static str = "seed1.neo.org:10333";
+	pub const SEED_2: &'static str = "seed2.neo.org:10333";
+	pub const SEED_3: &'static str = "seed3.neo.org:10333";
+	pub const SEED_4: &'static str = "seed4.neo.org:10333";
+	pub const SEED_5: &'static str = "seed5.neo.org:10333";
+
 	pub fn new() -> Self {
 		Self {}
 	}

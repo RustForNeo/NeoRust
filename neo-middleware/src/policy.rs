@@ -1,10 +1,8 @@
 use async_trait::async_trait;
 use neo_providers::{
-	core::transaction::transaction::Transaction, FilterWatcher, Middleware, MiddlewareError,
-	PendingTransaction, PubsubClient, SubscriptionStream,
+	core::transaction::transaction::Transaction, Middleware, MiddlewareError, PendingTransaction,
 };
-use neo_types::{block::BlockId, filter::Filter, log::Log};
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::fmt::Debug;
 use thiserror::Error;
 
 /// Basic trait to ensure that transactions about to be sent follow certain rules.

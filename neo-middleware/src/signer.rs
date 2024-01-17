@@ -1,17 +1,13 @@
 use async_trait::async_trait;
-use neo::signer;
 use neo_codec::encode::NeoSerializable;
 use neo_crypto::keys::Secp256r1Signature;
 use neo_providers::{
-	core::transaction::{transaction::Transaction, witness::Witness},
-	maybe, FilterWatcher, Middleware, MiddlewareError, PendingTransaction, PubsubClient,
-	SubscriptionStream,
+	core::transaction::transaction::Transaction, Middleware, MiddlewareError, PendingTransaction,
 };
 use neo_signers::Signer;
-use neo_types::{address::Address, block::BlockId, filter::Filter, log::Log, Bytes};
-use primitive_types::U256;
+use neo_types::{address::Address, block::BlockId, Bytes};
 use rustc_serialize::hex::ToHex;
-use std::{convert::TryFrom, future::Future, pin::Pin};
+use std::convert::TryFrom;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -39,11 +35,8 @@ use thiserror::Error;
 ///
 /// let mut client = SignerMiddleware::new(provider, wallet);
 ///
-/// // You can sign messages with the key
-/// let signed_msg = client.sign(b"hello".to_vec(), &client.address()).await?;
-///
 /// // ...and sign transactions
-/// let tx = Transaction::pay("vitalik.eth", 100);
+/// let tx = Transaction::pay("r3e.neo", 100);
 /// let pending_tx = client.send_transaction(tx).await?;
 ///
 /// // You can `await` on the pending transaction to get the receipt with a pre-specified
@@ -53,8 +46,6 @@ use thiserror::Error;
 /// // You can connect with other wallets at runtime via the `with_signer` function
 /// let wallet2: LocalWallet = "cd8c407233c0560f6de24bb2dc60a8b02335c959a1a17f749ce6c1ccf63d74a7"
 ///     .parse()?;
-///
-/// let signed_msg2 = client.with_signer(wallet2).sign(b"hello".to_vec(), &client.address()).await?;
 ///
 /// // This call will be made with `wallet2` since `with_signer` takes a mutable reference.
 /// let tx2 = Transaction::new()
@@ -210,7 +201,6 @@ where
 	}
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[async_trait]
 impl<M, S> Middleware for SignerMiddleware<M, S>
 where
@@ -273,35 +263,5 @@ where
 			.call(&tx, block)
 			.await
 			.map_err(SignerMiddlewareError::MiddlewareError)
-	}
-
-	/// `SignerMiddleware` is instantiated with a signer.
-	async fn is_signer(&self) -> bool {
-		true
-	}
-
-	/// Signs a message with the internal signer, or if none is present it will make a call to
-	/// the connected node's `neo_call` API.
-	async fn sign<T: Into<Bytes> + Send + Sync>(
-		&self,
-		data: T,
-		_: &Address,
-	) -> Result<Secp256r1Signature, Self::Error> {
-		self.signer
-			.sign_message(data.into())
-			.await
-			.map_err(SignerMiddlewareError::SignerError)
-	}
-
-	async fn sign_transaction(
-		&self,
-		tx: &Transaction,
-		_: Address,
-	) -> Result<Secp256r1Signature, Self::Error> {
-		Ok(self
-			.signer
-			.sign_transaction(tx)
-			.await
-			.map_err(SignerMiddlewareError::SignerError)?)
 	}
 }

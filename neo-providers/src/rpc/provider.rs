@@ -1,10 +1,6 @@
 use crate::{
-	call_raw::CallBuilder,
-	errors::ProviderError,
-	rpc::pubsub::{PubsubClient, SubscriptionStream},
-	stream::{FilterWatcher, DEFAULT_LOCAL_POLL_INTERVAL, DEFAULT_POLL_INTERVAL},
-	utils, Http as HttpProvider, JsonRpcClient, LogQuery, MiddlewareError, MockProvider, NodeInfo,
-	PeerInfo, PendingTransaction, RwClient,
+	call_raw::CallBuilder, errors::ProviderError, rpc::pubsub::PubsubClient, utils,
+	Http as HttpProvider, JsonRpcClient, MiddlewareError, MockProvider, RwClient,
 };
 
 pub use crate::Middleware;
@@ -118,16 +114,17 @@ pub enum FilterKind<'a> {
 /// # Example
 ///
 /// ```no_run
-/// # use neo_providers::Middleware;
+/// # use neo_config::NeoConstants;
+/// use neo_providers::Middleware;
 ///  async fn foo() -> Result<(), Box<dyn std::error::Error>> {
 /// use neo_providers::{ Provider, Http};
 /// use std::convert::TryFrom;
 ///
 /// let provider = Provider::<Http>::try_from(
-///     "https://eth.llamarpc.com"
+///     NeoConstants::SEED_1
 /// ).expect("could not instantiate HTTP Provider");
 ///
-/// let block = provider.get_block(100u64).await?;
+/// let block = provider.get_block_by_index(100u32, false).await?;
 /// println!("Got block: {}", serde_json::to_string(&block)?);
 /// # Ok(())
 /// # }
@@ -205,25 +202,6 @@ impl<P: JsonRpcClient> Provider<P> {
 		Ok(res)
 	}
 
-	async fn get_block_gen(
-		&self,
-		id: BlockId,
-		include_txs: bool,
-	) -> Result<Option<Block<TransactionResult, Witness>>, ProviderError> {
-		let include_txs = utils::serialize(&include_txs);
-
-		Ok(match id {
-			BlockId::Hash(hash) => {
-				let hash = utils::serialize(&hash);
-				self.request("neo_getBlockByHash", [hash, include_txs]).await?
-			},
-			BlockId::Number(num) => {
-				let num = utils::serialize(&num);
-				self.request("neo_getBlockByNumber", [num, include_txs]).await?
-			},
-		})
-	}
-
 	pub fn call_raw<'a>(&'a self, tx: &'a Transaction) -> CallBuilder<'a, P> {
 		CallBuilder::new(self, tx)
 	}
@@ -241,7 +219,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	}
 
 	fn convert_err(p: ProviderError) -> Self::Error {
-		// no conversion necessary
 		p
 	}
 
@@ -251,394 +228,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 
 	fn default_sender(&self) -> Option<Address> {
 		self.from.clone()
-	}
-
-	async fn client_version(&self) -> Result<String, Self::Error> {
-		self.request("web3_clientVersion", ()).await
-	}
-
-	async fn get_block_number(&self) -> Result<u64, ProviderError> {
-		self.request("neo_blockNumber", ()).await
-	}
-
-	async fn send_transaction<T: Into<Transaction> + Send + Sync>(
-		&self,
-		tx: T,
-	) -> Result<PendingTransaction<'_, P>, ProviderError> {
-		let mut tx = tx.into();
-		self.fill_transaction(&mut tx).await?;
-		let tx_hash = self.request("neo_sendTransaction", [tx]).await?;
-
-		Ok(PendingTransaction::new(tx_hash, self))
-	}
-
-	// async fn get_transaction<T: Send + Sync + Into<TxHash>>(
-	// 	&self,
-	// 	transaction_hash: T,
-	// ) -> Result<Option<Transaction>, ProviderError> {
-	// 	let hash = transaction_hash.into();
-	// 	self.request("neo_getTransactionByHash", [hash]).await?
-	// }
-
-	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-	) -> Result<Option<Block<TransactionResult, Witness>>, ProviderError> {
-		self.get_block_gen(block_hash_or_number.into(), true).await
-	}
-
-	async fn syncing(&self) -> Result<SyncingStatus, Self::Error> {
-		self.request("neo_syncing", ()).await
-	}
-
-	async fn get_net_version(&self) -> Result<String, ProviderError> {
-		self.request("net_version", ()).await
-	}
-
-	async fn get_balance<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		block: Option<BlockId>,
-	) -> Result<U256, ProviderError> {
-		let from = match from.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		let from = utils::serialize(&from);
-		let block = utils::serialize(&block.unwrap());
-		self.request("neo_getBalance", [from, block]).await
-	}
-
-	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-		idx: u64,
-	) -> Result<Option<TransactionResult>, ProviderError> {
-		let blk_id = block_hash_or_number.into();
-		let idx = utils::serialize(&idx);
-		Ok(match blk_id {
-			BlockId::Hash(hash) => {
-				let hash = utils::serialize(&hash);
-				self.request("neo_getTransactionByBlockHashAndIndex", [hash, idx]).await?
-			},
-			BlockId::Number(num) => {
-				let num = utils::serialize(&num);
-				self.request("neo_getTransactionByBlockNumberAndIndex", [num, idx]).await?
-			},
-		})
-	}
-
-	// async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
-	// 	&self,
-	// 	block_hash_or_number: T,
-	// 	idx: U64,
-	// ) -> Result<Option<Transaction>, ProviderError> {
-	// 	let blk_id = block_hash_or_number.into();
-	// 	let idx = ethers_core::utils::serialize(&idx);
-	// 	Ok(match blk_id {
-	// 		BlockId::Hash(hash) => {
-	// 			let hash = ethers_core::utils::serialize(&hash);
-	// 			self.request("eth_getTransactionByBlockHashAndIndex", [hash, idx]).await?
-	// 		}
-	// 		BlockId::Number(num) => {
-	// 			let num = ethers_core::utils::serialize(&num);
-	// 			self.request("eth_getTransactionByBlockNumberAndIndex", [num, idx]).await?
-	// 		}
-	// 	})
-	// }
-
-	// async fn call(&self, tx: &Transaction, block: Option<BlockId>) -> Result<Bytes, ProviderError> {
-	// 	let tx = utils::serialize(tx);
-	// 	let block = utils::serialize(&block.unwrap_or_else(|| BlockNumber::Latest.into()));
-	// 	self.request("neo_call", [tx, block]).await?
-	// }
-
-	async fn get_gas_price(&self) -> Result<U256, ProviderError> {
-		self.request("neo_gasPrice", ()).await
-	}
-
-	async fn get_accounts(&self) -> Result<Vec<Address>, ProviderError> {
-		self.request("neo_accounts", ()).await
-	}
-
-	// async fn send_raw_transaction<'a>(
-	// 	&'a self,
-	// 	tx: Bytes,
-	// ) -> Result<PendingTransaction<'a, P>, ProviderError> {
-	// 	let rlp = utils::serialize(&tx);
-	// 	let tx_hash = self.request("neo_sendRawTransaction", [rlp]).await?;
-	// 	Ok(PendingTransaction::new(tx_hash, self))
-	// }
-
-	async fn is_signer(&self) -> bool {
-		match self.from.clone() {
-			Some(sender) => self.sign(vec![], &sender).await.is_ok(),
-			None => false,
-		}
-	}
-
-	async fn sign<T: Into<Bytes> + Send + Sync>(
-		&self,
-		data: T,
-		from: &Address,
-	) -> Result<Secp256r1Signature, ProviderError> {
-		let data = utils::serialize(&data.into());
-		let from = utils::serialize(from);
-
-		// get the response from `neo_sign` call
-		let sig: String = self.request("neo_sign", [from, data]).await?;
-
-		// decode the signature
-		let sig = hex::decode(sig)?;
-		Ok(Secp256r1Signature::from_bytes(sig.as_slice())
-			.map_err(|e| ProviderError::CustomError(e.to_string()))?)
-	}
-
-	/// Sign a transaction via RPC call
-	async fn sign_transaction(
-		&self,
-		_tx: &Transaction,
-		_from: Address,
-	) -> Result<Secp256r1Signature, Self::Error> {
-		Err(MiddlewareError::from_err(ProviderError::SignerUnavailable))
-	}
-
-	////// Contract state
-
-	async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>, ProviderError> {
-		self.request("neo_getLogs", [filter]).await
-	}
-
-	fn get_logs_paginated<'a>(&'a self, filter: &Filter, page_size: u64) -> LogQuery<'a, P> {
-		LogQuery::new(self, filter).with_page_size(page_size)
-	}
-
-	async fn new_filter(&self, filter: FilterKind<'_>) -> Result<U256, ProviderError> {
-		let (method, args) = match filter {
-			FilterKind::NewBlocks => ("neo_newBlockFilter", vec![]),
-			FilterKind::PendingTransactions => ("neo_newPendingTransactionFilter", vec![]),
-			FilterKind::Logs(filter) => ("neo_newFilter", vec![utils::serialize(&filter)]),
-		};
-
-		self.request(method, args).await
-	}
-
-	async fn uninstall_filter<T: Into<U256> + Send + Sync>(
-		&self,
-		id: T,
-	) -> Result<bool, ProviderError> {
-		let id = utils::serialize(&id.into());
-		self.request("neo_uninstallFilter", [id]).await
-	}
-
-	async fn watch<'a>(
-		&'a self,
-		filter: &Filter,
-	) -> Result<FilterWatcher<'a, P, Log>, ProviderError> {
-		let id = self.new_filter(FilterKind::Logs(filter)).await?;
-		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
-		Ok(filter)
-	}
-
-	/// Streams pending transactions
-	async fn watch_pending_transactions(
-		&self,
-	) -> Result<FilterWatcher<'_, P, H256>, ProviderError> {
-		let id = self.new_filter(FilterKind::PendingTransactions).await?;
-		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
-		Ok(filter)
-	}
-
-	async fn get_filter_changes<T, R>(&self, id: T) -> Result<Vec<R>, ProviderError>
-	where
-		T: Into<U256> + Send + Sync,
-		R: Serialize + DeserializeOwned + Send + Sync + Debug,
-	{
-		let id = utils::serialize(&id.into());
-		self.request("neo_getFilterChanges", [id]).await
-	}
-
-	async fn watch_blocks(&self) -> Result<FilterWatcher<'_, P, H256>, ProviderError> {
-		let id = self.new_filter(FilterKind::NewBlocks).await?;
-		let filter = FilterWatcher::new(id, self).interval(self.get_interval());
-		Ok(filter)
-	}
-
-	async fn get_code<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		at: T,
-		block: Option<BlockId>,
-	) -> Result<Bytes, ProviderError> {
-		let at = match at.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		let at = utils::serialize(&at);
-		let block = utils::serialize(&block.unwrap());
-		self.request("neo_getCode", [at, block]).await
-	}
-
-	async fn get_storage_at<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		location: H256,
-		block: Option<BlockId>,
-	) -> Result<H256, ProviderError> {
-		let from = match from.into() {
-			NameOrAddress::Name(nns_name) => self.resolve_name(&nns_name).await?,
-			NameOrAddress::Address(addr) => addr,
-		};
-
-		// position is a QUANTITY according to the [spec](https://eth.wiki/json-rpc/API#neo_getstorageat): integer of the position in the storage, converting this to a U256
-		// will make sure the number is formatted correctly as [quantity](https://eips.neo.org/EIPS/eip-1474#quantity)
-		let position = U256::from_big_endian(location.as_bytes());
-		let position = utils::serialize(&position);
-		let from = utils::serialize(&from);
-		let block = utils::serialize(&block.unwrap());
-
-		// get the hex encoded value
-		let value: String = self.request("neo_getStorageAt", [from, position, block]).await?;
-		// decode and left-pad to 32 bytes
-		let bytes = hex::decode(value)?;
-		if bytes.len() > 32 {
-			Err(hex::FromHexError::InvalidStringLength.into())
-		} else {
-			let mut buf = [0; 32];
-			buf[32 - bytes.len()..].copy_from_slice(&bytes);
-			Ok(H256(buf))
-		}
-	}
-
-	async fn import_raw_key(
-		&self,
-		private_key: Bytes,
-		passphrase: String,
-	) -> Result<Address, ProviderError> {
-		// private key should not be prefixed with 0x - it is also up to the user to pass in a key
-		// of the correct length
-
-		// the private key argument is supposed to be a string
-		let private_key_hex = hex::encode(private_key);
-		let private_key = utils::serialize(&private_key_hex);
-		let passphrase = utils::serialize(&passphrase);
-		self.request("personal_importRawKey", [private_key, passphrase]).await
-	}
-
-	async fn unlock_account<T: Into<Address> + Send + Sync>(
-		&self,
-		account: T,
-		passphrase: String,
-		duration: Option<u64>,
-	) -> Result<bool, ProviderError> {
-		let account = utils::serialize(&account.into());
-		let duration = utils::serialize(&duration.unwrap_or(0));
-		let passphrase = utils::serialize(&passphrase);
-		self.request("personal_unlockAccount", [account, passphrase, duration]).await
-	}
-
-	async fn add_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		let enode_url = utils::serialize(&enode_url);
-		self.request("admin_addPeer", [enode_url]).await
-	}
-
-	async fn add_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		let enode_url = utils::serialize(&enode_url);
-		self.request("admin_addTrustedPeer", [enode_url]).await
-	}
-
-	async fn node_info(&self) -> Result<NodeInfo, Self::Error> {
-		self.request("admin_nodeInfo", ()).await
-	}
-
-	async fn peers(&self) -> Result<Vec<PeerInfo>, Self::Error> {
-		self.request("admin_peers", ()).await
-	}
-
-	async fn remove_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		let enode_url = utils::serialize(&enode_url);
-		self.request("admin_removePeer", [enode_url]).await
-	}
-
-	async fn remove_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		let enode_url = utils::serialize(&enode_url);
-		self.request("admin_removeTrustedPeer", [enode_url]).await
-	}
-
-	async fn subscribe<T, R>(
-		&self,
-		params: T,
-	) -> Result<SubscriptionStream<'_, P, R>, ProviderError>
-	where
-		T: Debug + Serialize + Send + Sync,
-		R: DeserializeOwned + Send + Sync,
-		P: PubsubClient,
-	{
-		let id: U256 = self.request("neo_subscribe", params).await?;
-		SubscriptionStream::new(id, self).map_err(Into::into)
-	}
-
-	async fn unsubscribe<T>(&self, id: T) -> Result<bool, ProviderError>
-	where
-		T: Into<U256> + Send + Sync,
-		P: PubsubClient,
-	{
-		self.request("neo_unsubscribe", [id.into()]).await
-	}
-
-	async fn subscribe_blocks(
-		&self,
-	) -> Result<SubscriptionStream<'_, P, Block<TxHash, Witness>>, ProviderError>
-	where
-		P: PubsubClient,
-	{
-		self.subscribe(["newHeads"]).await
-	}
-
-	async fn subscribe_pending_txs(
-		&self,
-	) -> Result<SubscriptionStream<'_, P, TxHash>, ProviderError>
-	where
-		P: PubsubClient,
-	{
-		self.subscribe(["newPendingTransactions"]).await
-	}
-
-	async fn subscribe_full_pending_txs(
-		&self,
-	) -> Result<SubscriptionStream<'_, P, Transaction>, ProviderError>
-	where
-		P: PubsubClient,
-	{
-		self.subscribe([utils::serialize(&"newPendingTransactions"), utils::serialize(&true)])
-			.await
-	}
-
-	async fn subscribe_logs<'a>(
-		&'a self,
-		filter: &Filter,
-	) -> Result<SubscriptionStream<'a, P, Log>, ProviderError>
-	where
-		P: PubsubClient,
-	{
-		let loaded_logs = match filter.block_option {
-			FilterBlockOption::Range { from_block, to_block: _ } =>
-				if from_block.is_none() {
-					vec![]
-				} else {
-					self.get_logs(filter).await?
-				},
-			FilterBlockOption::AtBlockHash(_block_hash) => self.get_logs(filter).await?,
-		};
-		let loaded_logs = VecDeque::from(loaded_logs);
-
-		let logs = utils::serialize(&"logs"); // TODO: Make this a static
-		let filter = utils::serialize(filter);
-		self.subscribe([logs, filter]).await.map(|mut stream| {
-			stream.set_loaded_elements(loaded_logs);
-			stream
-		})
 	}
 
 	//////////////////////// Neo methods////////////////////////////
@@ -658,32 +247,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	fn max_valid_until_block_increment(&self) -> u32 {
 		self.config().max_valid_until_block_increment
 	}
-
-	async fn dump_private_key(&self, script_hash: H160) -> Result<String, ProviderError> {
-		self.request("dumpprivkey", [script_hash.to_address()]).await
-	}
-
-	// async fn get_network_magic_number(&mut self) -> Result<u32, ProviderError> {
-	// 	if self.config().network_magic.is_none() {
-	// 		let magic = self
-	// 			.get_version()
-	// 			.await
-	// 			.unwrap()
-	// 			.protocol
-	// 			.ok_or(ProviderError::IllegalState(
-	// 				"Unable to read Network Magic Number from Version".to_string(),
-	// 			))
-	// 			.unwrap()
-	// 			.network;
-	// 		self.config().network_magic = Some(magic);
-	// 	}
-	// 	Ok(self.config().network_magic.unwrap())
-	// }
-
-	// async fn get_network_magic_number_bytes(&self) -> Result<Bytes, ProviderError> {
-	// 	let magic_int = self.get_network_magic_number().await.unwrap() & 0xFFFF_FFFF;
-	// 	Ok(magic_int.to_be_bytes().to_vec())
-	// }
 
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> Result<H256, ProviderError> {
@@ -814,8 +377,6 @@ impl<P: JsonRpcClient> Middleware for Provider<P> {
 	async fn submit_block(&self, hex: String) -> Result<bool, ProviderError> {
 		self.request("submitblock", vec![hex.to_value()]).await
 	}
-
-	// More blockchain methods
 
 	async fn invoke_function(
 		&self,
@@ -1199,12 +760,6 @@ impl<P: JsonRpcClient> Provider<P> {
 		self.set_interval(interval);
 		self
 	}
-
-	/// Gets the polling interval which the provider currently uses for event filters
-	/// and pending transactions (default: 7 seconds)
-	pub fn get_interval(&self) -> Duration {
-		self.interval.unwrap_or(DEFAULT_POLL_INTERVAL)
-	}
 }
 
 #[cfg(all(feature = "ipc", any(unix, windows)))]
@@ -1351,8 +906,9 @@ mod sealed {
 ///
 /// ```no_run
 /// use std::convert::TryFrom;
+/// use neo_config::NeoNetwork;
 /// use neo_providers::{Http, Provider, ProviderExt};
-/// let http_provider = Provider::<Http>::try_from("https://eth.llamarpc.com").unwrap().set_network(Chain::Mainnet);
+/// let http_provider = Provider::<Http>::try_from("https://eth.llamarpc.com").unwrap().set_network(NeoNetwork::MainNet.to_magic());
 /// ```
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -1401,11 +957,8 @@ impl ProviderExt for Provider<HttpProvider> {
 		Self: Sized,
 	{
 		let mut provider = Provider::try_from(url)?;
-		if is_local_endpoint(url) {
-			provider.set_interval(DEFAULT_LOCAL_POLL_INTERVAL);
-		} else if let Some(chain) = provider.get_net_version().await.ok() {
-			provider.set_network(u32::from_str(&chain).unwrap());
-		}
+		let Some(chain) = provider.get_net_version().await.ok() else { panic!("") };
+		provider.set_network(u32::from_str(&chain).unwrap());
 
 		Ok(provider)
 	}

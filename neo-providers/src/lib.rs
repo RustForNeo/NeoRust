@@ -8,7 +8,9 @@ pub mod core;
 pub mod protocol_error;
 
 mod ext;
+
 pub use ext::*;
+use lazy_static::lazy_static;
 
 mod rpc;
 pub use rpc::*;
@@ -23,13 +25,6 @@ pub use utils::{interval, maybe, EscalationPolicy};
 /// Errors
 mod errors;
 pub use errors::{MiddlewareError, ProviderError, RpcError};
-
-mod stream;
-pub use futures_util::StreamExt;
-use lazy_static::lazy_static;
-pub use stream::{
-	tx_stream::TransactionStream, FilterWatcher, DEFAULT_LOCAL_POLL_INTERVAL, DEFAULT_POLL_INTERVAL,
-};
 
 mod middleware;
 

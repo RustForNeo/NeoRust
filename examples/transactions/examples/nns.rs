@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
 	let provider = Provider::<Http>::try_from(anvil.endpoint()).unwrap().with_sender(from);
 
 	// craft the transaction
-	let tx = Transaction::new().to("vitalik.eth").value(100_000);
+	let tx = Transaction::new().to("r3e.neo").value(100_000);
 
 	// send it!
 	let receipt = provider

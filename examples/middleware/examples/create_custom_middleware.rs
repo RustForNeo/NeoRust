@@ -121,8 +121,6 @@ pub enum GasMiddlewareError<M: Middleware> {
 	TooHighContingency(u32),
 	#[error("{0}")]
 	TooLowContingency(u32),
-	#[error("Cannot raise gas! Gas value not provided for this transaction.")]
-	NoGasSetForTransaction,
 }
 
 impl<M: Middleware> MiddlewareError for GasMiddlewareError<M> {

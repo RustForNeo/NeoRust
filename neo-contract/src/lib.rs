@@ -1,7 +1,7 @@
 #![feature(const_trait_impl)]
 
 pub mod contract_management;
-mod error;
+pub mod error;
 pub mod fungible_token_contract;
 pub mod gas_token;
 pub mod iterator;

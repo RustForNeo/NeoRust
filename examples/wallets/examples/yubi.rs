@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let client = SignerMiddleware::new(provider, wallet);
 
 	// Create and broadcast a transaction (NNS enabled!)
-	let tx = Transaction::new().to("vitalik.eth").value(parse_ether(10)?);
+	let tx = Transaction::new().to("r3e.neo").value(parse_ether(10)?);
 	let pending_tx = client.send_transaction(tx).await?;
 
 	// Get the receipt

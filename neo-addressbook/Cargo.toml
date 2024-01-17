@@ -1,6 +1,6 @@
 [package]
 name = "neo-addressbook"
-authors = ["Rohit Narurkar <rohit.narurkar@protonmail.com>"]
+authors = ["R3E Network <contact@r3e.network>"]
 readme = "README.md"
 description = "Common neo name to address mappings"
 

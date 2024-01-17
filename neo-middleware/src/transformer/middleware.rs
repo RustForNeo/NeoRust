@@ -1,11 +1,8 @@
 use super::{Transformer, TransformerError};
 use async_trait::async_trait;
 use neo_providers::{
-	core::transaction::transaction::Transaction, FilterWatcher, Middleware, MiddlewareError,
-	PendingTransaction, PubsubClient, SubscriptionStream,
+	core::transaction::transaction::Transaction, Middleware, MiddlewareError, PendingTransaction,
 };
-use neo_types::{block::BlockId, filter::Filter, log::Log};
-use std::{future::Future, pin::Pin};
 use thiserror::Error;
 
 #[derive(Debug)]

@@ -34,7 +34,7 @@ let wallet = "dcf2cbdd171a21c480aa7f53d77f31bb102282b3ff099c78e3118b37348c72f7"
 
 // create a transaction
 let tx = Transaction::new()
-    .to("vitalik.eth") // this will use NNS
+    .to("r3e.neo") // this will use NNS
     .value(10000).into();
 
 // sign it

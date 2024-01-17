@@ -52,14 +52,14 @@ const DEFAULT_RETRIES: usize = 3;
 impl<'a, P: JsonRpcClient> PendingTransaction<'a, P> {
 	/// Creates a new pending transaction poller from a hash and a provider
 	pub fn new(tx_hash: TxHash, provider: &'a Provider<P>) -> Self {
-		let delay = Box::pin(Delay::new(provider.get_interval()));
+		let delay = Box::pin(Delay::new(Duration::new(15, 0)));
 
 		Self {
 			tx_hash,
 			confirmations: 1,
 			provider,
 			state: PendingTxState::InitialDelay(delay),
-			interval: Box::new(interval(provider.get_interval())),
+			interval: Box::new(interval(Duration::new(15, 0))),
 			retries_remaining: DEFAULT_RETRIES,
 		}
 	}
@@ -204,14 +204,14 @@ impl<'a, P: JsonRpcClient> Future for PendingTransaction<'a, P> {
 
 				// Start polling for the receipt now
 				tracing::debug!("Getting receipt for pending tx {:?}", *this.tx_hash);
-				let fut = Box::pin(this.provider.get_transaction_receipt(*this.tx_hash));
+				let fut = Box::pin(this.provider.get_transaction(*this.tx_hash));
 				rewake_with_new_state!(ctx, this, PendingTxState::GettingReceipt(fut));
 			},
 			PendingTxState::PausedGettingReceipt => {
 				// Wait the polling period so that we do not spam the chain when no
 				// new block has been mined
 				let _ready = futures_util::ready!(this.interval.poll_next_unpin(ctx));
-				let fut = Box::pin(this.provider.get_transaction_receipt(*this.tx_hash));
+				let fut = Box::pin(this.provider.get_transaction(*this.tx_hash));
 				*this.state = PendingTxState::GettingReceipt(fut);
 				ctx.waker().wake_by_ref();
 			},

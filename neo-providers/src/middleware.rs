@@ -26,33 +26,25 @@ use crate::{
 			transaction_send_token::TransactionSendToken, witness::Witness,
 		},
 	},
-	EscalatingPending, EscalationPolicy, FilterKind, FilterWatcher, JsonRpcClient, LogQuery,
-	MiddlewareError, NodeInfo, PeerInfo, PendingTransaction, Provider, ProviderError, PubsubClient,
-	SubscriptionStream,
+	JsonRpcClient, MiddlewareError, PendingTransaction, Provider, ProviderError,
 };
 use async_trait::async_trait;
 use auto_impl::auto_impl;
 use neo_config::NeoConfig;
-use neo_crypto::keys::Secp256r1Signature;
 use neo_types::{
-	address::{Address, NameOrAddress},
+	address::Address,
 	block::{Block, BlockId},
 	contract_parameter::ContractParameter,
 	contract_state::ContractState,
-	filter::Filter,
 	invocation_result::InvocationResult,
-	log::Log,
 	native_contract_state::NativeContractState,
 	stack_item::StackItem,
 	syncing::SyncingStatus,
-	Bytes, TxHash,
+	Bytes,
 };
-use primitive_types::{H160, H256, U256};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::HashMap, fmt::Debug, vec};
-use url::Url;
+use primitive_types::{H160, H256};
+use std::{collections::HashMap, fmt::Debug};
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[async_trait]
 #[auto_impl(&, Box, Arc)]
 pub trait Middleware: Sync + Send + Debug {
@@ -154,17 +146,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.map_err(MiddlewareError::from_err)
 	}
 
-	// /// Gets the block at `block_hash_or_number` (transaction hashes only)
-	// async fn get_block<T: Into<BlockId> + Send + Sync>(
-	// 	&self,
-	// 	block_hash_or_number: T,
-	// ) -> Result<Option<Block<TxHash>>, Self::Error> {
-	// 	self.inner()
-	// 		.get_block(block_hash_or_number)
-	// 		.await
-	// 		.map_err(MiddlewareError::from_err)
-	// }
-
 	/// Gets the block at `block_hash_or_number` (full transactions included)
 	async fn get_block_with_txs<T: Into<BlockId> + Send + Sync>(
 		&self,
@@ -199,408 +180,6 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().get_net_version().await.map_err(MiddlewareError::from_err)
 	}
 
-	/// Returns the account's balance
-	async fn get_balance<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		block: Option<BlockId>,
-	) -> Result<U256, Self::Error> {
-		self.inner().get_balance(from, block).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the transaction with `transaction_hash`
-	// async fn get_transaction<T: Send + Sync + Into<TxHash>>(
-	// 	&self,
-	// 	transaction_hash: T,
-	// ) -> Result<Option<Transaction>, Self::Error> {
-	// 	self.inner()
-	// 		.get_transaction(transaction_hash)
-	// 		.await
-	// 		.map_err(MiddlewareError::from_err)
-	// }
-
-	/// Gets the transaction with block and index
-	async fn get_transaction_by_block_and_index<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block_hash_or_number: T,
-		idx: u64,
-	) -> Result<Option<TransactionResult>, Self::Error> {
-		self.inner()
-			.get_transaction_by_block_and_index(block_hash_or_number, idx)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the transaction receipt with `transaction_hash`
-	async fn get_transaction_receipt<T: Send + Sync + Into<TxHash>>(
-		&self,
-		transaction_hash: T,
-	) -> Result<Option<TransactionResult>, Self::Error> {
-		self.inner()
-			.get_transaction_receipt(transaction_hash)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns all receipts for a block.
-	///
-	/// Note that this uses the `neo_getBlockReceipts` RPC, which is
-	/// non-standard and currently supported by Erigon.
-	async fn get_block_receipts<T: Into<BlockId> + Send + Sync>(
-		&self,
-		block: T,
-	) -> Result<Vec<TransactionResult>, Self::Error> {
-		self.inner().get_block_receipts(block).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the current gas price as estimated by the node
-	async fn get_gas_price(&self) -> Result<U256, Self::Error> {
-		self.inner().get_gas_price().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets a heuristic recommendation of max fee per gas and max priority fee per gas for
-	/// EIP-1559 compatible transactions.
-	async fn estimate_eip1559_fees(
-		&self,
-		estimator: Option<fn(U256, Vec<Vec<U256>>) -> (U256, U256)>,
-	) -> Result<(U256, U256), Self::Error> {
-		self.inner()
-			.estimate_eip1559_fees(estimator)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Gets the accounts on the node
-	async fn get_accounts(&self) -> Result<Vec<Address>, Self::Error> {
-		self.inner().get_accounts().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Send the raw RLP encoded transaction to the entire Neo network and returns the
-	/// transaction's hash This will consume gas from the account that signed the transaction.
-	// async fn send_raw_transaction<'a>(
-	// 	&'a self,
-	// 	tx: Bytes,
-	// ) -> Result<PendingTransaction<'a, Self::Provider>, Self::Error> {
-	// 	self.inner().send_raw_transaction(tx).await.map_err(MiddlewareError::from_err)
-	// }
-
-	/// This returns true if either the middleware stack contains a `SignerMiddleware`, or the
-	/// JSON-RPC provider has an unlocked key that can sign using the `neo_sign` call. If none of
-	/// the above conditions are met, then the middleware stack is not capable of signing data.
-	async fn is_signer(&self) -> bool {
-		self.inner().is_signer().await
-	}
-
-	/// Signs data using a specific account. This account needs to be unlocked,
-	/// or the middleware stack must contain a `SignerMiddleware`
-	async fn sign<T: Into<Bytes> + Send + Sync>(
-		&self,
-		data: T,
-		from: &Address,
-	) -> Result<Secp256r1Signature, Self::Error> {
-		self.inner().sign(data, from).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Sign a transaction via RPC call
-	async fn sign_transaction(
-		&self,
-		tx: &Transaction,
-		from: Address,
-	) -> Result<Secp256r1Signature, Self::Error> {
-		self.inner().sign_transaction(tx, from).await.map_err(MiddlewareError::from_err)
-	}
-
-	////// Contract state
-
-	/// Returns an array (possibly empty) of logs that match the filter
-	async fn get_logs(&self, filter: &Filter) -> Result<Vec<Log>, Self::Error> {
-		self.inner().get_logs(filter).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns a stream of logs are loaded in pages of given page size
-	fn get_logs_paginated<'a>(
-		&'a self,
-		filter: &Filter,
-		page_size: u64,
-	) -> LogQuery<'a, Self::Provider> {
-		self.inner().get_logs_paginated(filter, page_size)
-	}
-
-	/// Install a new filter on the node.
-	///
-	/// This method is hidden because filter lifecycle  should be managed by
-	/// the [`FilterWatcher`]
-	#[doc(hidden)]
-	async fn new_filter(&self, filter: FilterKind<'_>) -> Result<U256, Self::Error> {
-		self.inner().new_filter(filter).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Uninstalls a filter.
-	///
-	/// This method is hidden because filter lifecycle  should be managed by
-	/// the [`FilterWatcher`]
-	#[doc(hidden)]
-	async fn uninstall_filter<T: Into<U256> + Send + Sync>(
-		&self,
-		id: T,
-	) -> Result<bool, Self::Error> {
-		self.inner().uninstall_filter(id).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Streams event logs matching the filter.
-	///
-	/// This function streams via a polling system, by repeatedly dispatching
-	/// RPC requests. If possible, prefer using a WS or IPC connection and the
-	/// `stream` interface
-	async fn watch<'a>(
-		&'a self,
-		filter: &Filter,
-	) -> Result<FilterWatcher<'a, Self::Provider, Log>, Self::Error> {
-		self.inner().watch(filter).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Streams pending transactions.
-	///
-	/// This function streams via a polling system, by repeatedly dispatching
-	/// RPC requests. If possible, prefer using a WS or IPC connection and the
-	/// `stream` interface
-	async fn watch_pending_transactions(
-		&self,
-	) -> Result<FilterWatcher<'_, Self::Provider, H256>, Self::Error> {
-		self.inner()
-			.watch_pending_transactions()
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Polling method for a filter, which returns an array of logs which occurred since last poll.
-	///
-	/// This method must be called with one of the following return types, depending on the filter
-	/// type:
-	/// - `neo_newBlockFilter`: [`H256`], returns block hashes
-	/// - `neo_newPendingTransactionFilter`: [`H256`], returns transaction hashes
-	/// - `neo_newFilter`: [`Log`], returns raw logs
-	///
-	/// If one of these types is not used, decoding will fail and the method will
-	/// return an error.
-	///
-	/// [`H256`]: neo_types::H256
-	/// [`Log`]: neo_types::Log
-	///
-	/// This method is hidden because filter lifecycle  should be managed by
-	/// the [`FilterWatcher`]
-	#[doc(hidden)]
-	async fn get_filter_changes<T, R>(&self, id: T) -> Result<Vec<R>, Self::Error>
-	where
-		T: Into<U256> + Send + Sync,
-		R: Serialize + DeserializeOwned + Send + Sync + Debug,
-	{
-		self.inner().get_filter_changes(id).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Streams new block hashes
-	///
-	/// This function streams via a polling system, by repeatedly dispatching
-	/// RPC requests. If possible, prefer using a WS or IPC connection and the
-	/// `stream` interface
-	async fn watch_blocks(&self) -> Result<FilterWatcher<'_, Self::Provider, H256>, Self::Error> {
-		self.inner().watch_blocks().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns the deployed code at a given address
-	async fn get_code<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		at: T,
-		block: Option<BlockId>,
-	) -> Result<Bytes, Self::Error> {
-		self.inner().get_code(at, block).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Get the storage of an address for a particular slot location
-	async fn get_storage_at<T: Into<NameOrAddress> + Send + Sync>(
-		&self,
-		from: T,
-		location: H256,
-		block: Option<BlockId>,
-	) -> Result<H256, Self::Error> {
-		self.inner()
-			.get_storage_at(from, location, block)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Sends the given key to the node to be encrypted with the provided
-	/// passphrase and stored.
-	///
-	/// The key represents a secp256k1 private key and should be 32 bytes.
-	async fn import_raw_key(
-		&self,
-		private_key: Bytes,
-		passphrase: String,
-	) -> Result<Address, Self::Error> {
-		self.inner()
-			.import_raw_key(private_key, passphrase)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Prompts the node to decrypt the given account from its keystore.
-	///
-	/// If the duration provided is `None`, then the account will be unlocked
-	/// indefinitely. Otherwise, the account will be unlocked for the provided
-	/// number of seconds.
-	async fn unlock_account<T: Into<Address> + Send + Sync>(
-		&self,
-		account: T,
-		passphrase: String,
-		duration: Option<u64>,
-	) -> Result<bool, Self::Error> {
-		self.inner()
-			.unlock_account(account, passphrase, duration)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	// Admin namespace
-
-	/// Requests adding the given peer, returning a boolean representing
-	/// whether or not the peer was accepted for tracking.
-	async fn add_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		self.inner().add_peer(enode_url).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Requests adding the given peer as a trusted peer, which the node will
-	/// always connect to even when its peer slots are full.
-	async fn add_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		self.inner()
-			.add_trusted_peer(enode_url)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns general information about the node as well as information about the running p2p
-	/// protocols (e.g. `eth`, `snap`).
-	async fn node_info(&self) -> Result<NodeInfo, Self::Error> {
-		self.inner().node_info().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Returns the list of peers currently connected to the node.
-	async fn peers(&self) -> Result<Vec<PeerInfo>, Self::Error> {
-		self.inner().peers().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Requests to remove the given peer, returning true if the enode was successfully parsed and
-	/// the peer was removed.
-	async fn remove_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		self.inner().remove_peer(enode_url).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Requests to remove the given peer, returning a boolean representing whether or not the
-	/// enode url passed was validated. A return value of `true` does not necessarily mean that the
-	/// peer was disconnected.
-	async fn remove_trusted_peer(&self, enode_url: String) -> Result<bool, Self::Error> {
-		self.inner()
-			.remove_trusted_peer(enode_url)
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Create a new subscription
-	///
-	/// This method is hidden as subscription lifecycles are intended to be
-	/// handled by a [`SubscriptionStream`] object.
-	#[doc(hidden)]
-	async fn subscribe<T, R>(
-		&self,
-		params: T,
-	) -> Result<SubscriptionStream<'_, Self::Provider, R>, Self::Error>
-	where
-		T: Debug + Serialize + Send + Sync,
-		R: DeserializeOwned + Send + Sync,
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner().subscribe(params).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Instruct the RPC to cancel a subscription by its ID
-	///
-	/// This method is hidden as subscription lifecycles are intended to be
-	/// handled by a [`SubscriptionStream`] object
-	#[doc(hidden)]
-	async fn unsubscribe<T>(&self, id: T) -> Result<bool, Self::Error>
-	where
-		T: Into<U256> + Send + Sync,
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner().unsubscribe(id).await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Subscribe to a stream of incoming blocks.
-	///
-	/// This function is only available on pubsub clients, such as Websockets
-	/// or IPC. For a polling alternative available over HTTP, use
-	/// [`Middleware::watch_blocks`]. However, be aware that polling increases
-	/// RPC usage drastically.
-	async fn subscribe_blocks(
-		&self,
-	) -> Result<SubscriptionStream<'_, Self::Provider, Block<TxHash, Witness>>, Self::Error>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner().subscribe_blocks().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Subscribe to a stream of pending transaction hashes.
-	///
-	/// This function is only available on pubsub clients, such as Websockets
-	/// or IPC. For a polling alternative available over HTTP, use
-	/// [`Middleware::watch_pending_transactions`]. However, be aware that
-	/// polling increases RPC usage drastically.
-	async fn subscribe_pending_txs(
-		&self,
-	) -> Result<SubscriptionStream<'_, Self::Provider, TxHash>, Self::Error>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner().subscribe_pending_txs().await.map_err(MiddlewareError::from_err)
-	}
-
-	/// Subscribe to a stream of pending transaction bodies.
-	///
-	/// This function is only available on pubsub clients, such as Websockets
-	/// or IPC. For a polling alternative available over HTTP, use
-	/// [`Middleware::watch_pending_transactions`]. However, be aware that
-	/// polling increases RPC usage drastically.
-	///
-	/// Note: This endpoint is compatible only with Geth client version 1.11.0 or later.
-	async fn subscribe_full_pending_txs(
-		&self,
-	) -> Result<SubscriptionStream<'_, Self::Provider, Transaction>, Self::Error>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner()
-			.subscribe_full_pending_txs()
-			.await
-			.map_err(MiddlewareError::from_err)
-	}
-
-	/// Subscribe to a stream of event logs matchin the provided [`Filter`].
-	///
-	/// This function is only available on pubsub clients, such as Websockets
-	/// or IPC. For a polling alternative available over HTTP, use
-	/// [`Middleware::watch`]. However, be aware that polling increases
-	/// RPC usage drastically.
-	async fn subscribe_logs<'a>(
-		&'a self,
-		filter: &Filter,
-	) -> Result<SubscriptionStream<'a, Self::Provider, Log>, Self::Error>
-	where
-		<Self as Middleware>::Provider: PubsubClient,
-	{
-		self.inner().subscribe_logs(filter).await.map_err(MiddlewareError::from_err)
-	}
-
 	fn nns_resolver(&self) -> H160 {
 		H160::from(self.config().nns_resolver.clone())
 	}
@@ -623,17 +202,6 @@ pub trait Middleware: Sync + Send + Debug {
 			.await
 			.map_err(MiddlewareError::from_err)
 	}
-
-	// async fn get_network_magic_number(&self) -> Result<u32, Self::Error> {
-	// 	self.inner().get_network_magic_number().await.map_err(MiddlewareError::from_err)
-	// }
-
-	// async fn get_network_magic_number_bytes(&self) -> Result<Bytes, Self::Error> {
-	// 	self.inner()
-	// 		.get_network_magic_number_bytes()
-	// 		.await
-	// 		.map_err(MiddlewareError::from_err)
-	// }
 
 	// Blockchain methods
 	async fn get_best_block_hash(&self) -> Result<H256, Self::Error> {
@@ -659,7 +227,6 @@ pub trait Middleware: Sync + Send + Debug {
 	}
 
 	// Node methods
-
 	async fn get_block_header_count(&self) -> Result<u32, Self::Error> {
 		self.inner().get_block_count().await.map_err(MiddlewareError::from_err)
 	}
@@ -822,14 +389,11 @@ pub trait Middleware: Sync + Send + Debug {
 		self.inner().list_plugins().await.map_err(MiddlewareError::from_err)
 	}
 
-	// Utility methods
-
 	async fn validate_address(&self, address: &str) -> Result<ValidateAddress, Self::Error> {
 		self.inner().validate_address(address).await.map_err(MiddlewareError::from_err)
 	}
 
 	// Wallet methods
-
 	async fn close_wallet(&self) -> Result<bool, Self::Error> {
 		self.inner().close_wallet().await.map_err(MiddlewareError::from_err)
 	}

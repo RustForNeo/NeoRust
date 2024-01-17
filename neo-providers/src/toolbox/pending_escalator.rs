@@ -107,7 +107,7 @@ macro_rules! check_all_receipts {
 		let futs: futures_util::stream::FuturesUnordered<_> = $this
 			.sent
 			.iter()
-			.map(|tx_hash| $this.provider.get_transaction_receipt(tx_hash.hash))
+			.map(|tx_hash| $this.provider.get_transaction(tx_hash.hash))
 			.collect();
 		*$this.state = CheckingReceipts(futs);
 		$cx.waker().wake_by_ref();
@@ -212,7 +212,7 @@ where
 				poll_broadcast_fut!(cx, this, fut);
 			},
 			CheckingReceipts(futs) => {
-				// Poll the set of `get_transaction_receipt` futures to check
+				// Poll the set of `get_transaction` futures to check
 				// if any previously-broadcast transaction was confirmed.
 				// Continue doing this until all are resolved
 				match futs.poll_next_unpin(cx) {
@@ -222,7 +222,7 @@ where
 					Poll::Ready(Some(Ok(Some(receipt)))) => {
 						completed!(this, Ok(receipt));
 					},
-					// A `get_transaction_receipt` request resolved, but but we
+					// A `get_transaction` request resolved, but but we
 					// found no receipt, rewake and check if any other requests
 					// are resolved
 					Poll::Ready(Some(Ok(None))) => cx.waker().wake_by_ref(),
@@ -230,7 +230,7 @@ where
 					Poll::Ready(Some(Err(e))) => {
 						completed!(this, Err(e));
 					},
-					// We have run out of `get_transaction_receipt` requests.
+					// We have run out of `get_transaction` requests.
 					// Sleep and then check if we should broadcast again (or
 					// check receipts again)
 					Poll::Ready(None) => {

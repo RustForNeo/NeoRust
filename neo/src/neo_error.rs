@@ -1,8 +1,10 @@
+use neo_contract::error::ContractError;
 use neo_crypto::error::SignError;
 use neo_providers::core::transaction::transaction_error::TransactionError;
+use neo_signers::WalletError;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Error, Debug)]
 pub enum NeoError {
 	#[error("Illegal argument: {0}")]
 	IllegalArgument(String),
