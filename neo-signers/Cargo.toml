@@ -48,7 +48,7 @@ serde_json.workspace=true
 # futures
 futures-util = { workspace = true, optional = true }
 futures-executor = { workspace = true, optional = true }
-
+scrypt = "0.11.0"
 p256 = {workspace = true}
 
 # aws
@@ -72,7 +72,6 @@ rustc-serialize = "0.3.24"
 derive_more = "0.99"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-eth-keystore = "0.5.0"
 home = { workspace = true, optional = true }
 
 # ledger

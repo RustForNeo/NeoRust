@@ -20,7 +20,7 @@ pub use toolbox::*;
 
 /// Crate utilities and type aliases
 mod utils;
-pub use utils::{interval, maybe, EscalationPolicy};
+pub use utils::*;
 
 /// Errors
 mod errors;

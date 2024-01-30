@@ -1,8 +1,10 @@
 mod config;
 mod constant;
+mod test_properties;
 
 pub use config::*;
 pub use constant::*;
+pub use test_properties::*;
 
 pub fn add(left: usize, right: usize) -> usize {
 	left + right

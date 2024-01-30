@@ -1,7 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
-        "./neo-builder/Cargo.toml",
-        "./neo-builder/Cargo.toml",
         "./neo-signers/Cargo.toml"
     ]
 }

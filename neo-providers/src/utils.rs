@@ -5,8 +5,10 @@ use futures_util::{stream, FutureExt, StreamExt};
 use crate::core::script::script_builder::ScriptBuilder;
 use neo_config::DEFAULT_ADDRESS_VERSION;
 use neo_crypto::{
+	error::CryptoError,
 	hash::HashableForVec,
 	keys::{PrivateKeyExtension, PublicKeyExtension, Secp256r1PrivateKey, Secp256r1PublicKey},
+	utils::private_key_to_public_key,
 };
 use neo_types::script_hash::{ScriptHash, ScriptHashExtension};
 use primitive_types::{H160, U256};
@@ -57,21 +59,16 @@ pub fn script_hash_from_script(script: &[u8]) -> ScriptHash {
 	H160::from(arr)
 }
 
-/// Convert a public key to a script hash.
-pub fn public_key_to_script_hash(public_key: &Secp256r1PublicKey) -> ScriptHash {
-	let mut script = ScriptBuilder::build_verification_script(public_key);
-	script_hash_from_script(&script)
-}
-
 /// Convert a public key to an address.
 pub fn public_key_to_address(public_key: &Secp256r1PublicKey) -> String {
 	let script_hash = public_key_to_script_hash(public_key);
 	script_hash_to_address(&script_hash)
 }
 
-/// Convert a private key to a public key.
-pub fn private_key_to_public_key(private_key: &Secp256r1PrivateKey) -> Secp256r1PublicKey {
-	private_key.to_public_key().unwrap()
+/// Convert a public key to a script hash.
+pub fn public_key_to_script_hash(public_key: &Secp256r1PublicKey) -> ScriptHash {
+	let mut script = ScriptBuilder::build_verification_script(public_key);
+	script_hash_from_script(&script)
 }
 
 /// Convert a private key to a script hash.
@@ -108,7 +105,6 @@ pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, ProviderError
 	let check = &sha[..4];
 	if checksum != check {
 		return Err(ProviderError::InvalidAddress)
-		// panic!("Invalid address checksum");
 	}
 
 	let mut rev = [0u8; 20];
@@ -117,44 +113,10 @@ pub fn address_to_script_hash(address: &str) -> Result<ScriptHash, ProviderError
 	Ok(H160::from(&rev))
 }
 
-/// Convert a private key in WIF format to a Secp256r1PrivateKey.
-pub fn private_key_from_wif(wif: &str) -> Result<Secp256r1PrivateKey, ProviderError> {
-	private_key_from_wif(wif)
-}
-
-/// Convert a private key to WIF format.
-pub fn private_key_to_wif(private_key: &Secp256r1PrivateKey) -> String {
-	private_key_to_wif(private_key)
-}
-
-/// Convert a private key to hex format.
-pub fn private_key_to_hex(private_key: &Secp256r1PrivateKey) -> String {
-	private_key.to_raw_bytes().to_vec().to_hex()
-}
-
-/// Convert a private key in hex format to a Secp256r1PrivateKey.
-pub fn private_key_from_hex(hex: &str) -> Result<Secp256r1PrivateKey, ProviderError> {
-	let bytes = hex::hex::decode(hex)?;
-	let secret_key = Secp256r1PrivateKey::from_slice(&bytes)?;
-	Ok(secret_key)
-}
-
-/// Convert a public key to hex format.
-pub fn public_key_to_hex(public_key: &Secp256r1PublicKey) -> String {
-	public_key.to_vec().to_hex()
-}
-
-/// Convert a public key in hex format to a Secp256r1PublicKey.
-pub fn public_key_from_hex(hex: &str) -> Result<Secp256r1PublicKey, ProviderError> {
-	let bytes = hex::hex::decode(hex)?;
-	let public_key = Secp256r1PublicKey::from_slice(&bytes)?;
-	Ok(public_key)
-}
-
 /// Convert a script hash to hex format.
 pub fn script_hash_to_hex(script_hash: &ScriptHash) -> String {
 	let bytes: [u8; 20] = script_hash.to_fixed_bytes();
-	hex::encode(bytes)
+	hex::hex::encode(bytes)
 }
 
 /// Convert a script hash in hex format to a ScriptHash.
@@ -165,7 +127,7 @@ pub fn script_hash_from_hex(hex: &str) -> Result<ScriptHash, ProviderError> {
 /// Convert an address to hex format.
 pub fn address_to_hex(address: &str) -> Result<String, ProviderError> {
 	let script_hash = H160::from_address(address)?;
-	Ok(hex::encode(script_hash.to_fixed_bytes()))
+	Ok(hex::hex::encode(script_hash.to_fixed_bytes()))
 }
 
 /// Convert a hex format script hash to an address.

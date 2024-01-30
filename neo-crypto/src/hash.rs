@@ -131,7 +131,7 @@ mod tests {
 	#[test]
 	fn test_hash256_for_bytes() {
 		let data = b"hello world";
-		let expected = "7509e5bda0c762d2bac7f90d758b5b2263fa01ccbc542ab5e3df163be08e6ca9";
+		let expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 		let result = data.hash256();
 		assert_eq!(hex_encode(&result), expected);
 	}
@@ -197,7 +197,44 @@ mod tests {
 	fn test_hash160_for_string() {
 		let data = String::from("hello world");
 		// Use the expected hash value for "hello world" using SHA256 followed by RIPEMD160 and then base58 encoded
-		let expected = "..."; // fill this in
+		let expected = "41QPk1SP3NZmiQxd5jY6HWh1tRcD";
 		assert_eq!(data.hash160(), expected);
+	}
+
+	#[test]
+	fn test_ripemd160_test_vectors() {
+		let test_vectors: &[(&str, &str)] = &[
+			("", "9c1185a5c5e9fc54612808977ee8f548b2258d31"),
+			("a", "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"),
+			("abc", "8eb208f7e05d987a9b044a8e98c6b087f15a0bfc"),
+			("message digest", "5d0689ef49d2fae572b881b123a85ffa21595f36"),
+			("abcdefghijklmnopqrstuvwxyz", "f71c27109c692c1b56bbdceb5b9d2865b3708dbc"),
+			(
+				"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+				"12a053384a9c0c88e405a06c27dcf49ada62eb2b",
+			),
+			(
+				"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+				"b0e20b6e3116640286ed3a87a5713079b21f5189",
+			),
+			// For the large repeating strings, directly include them in the test
+			(
+				"12345678901234567890123456789012345678901234567890123456789012345678901234567890",
+				"9b752e45573d4b39f4dbd3323cab82bf63326bfb",
+			),
+			(&"a".repeat(1_000_000), "52783243c1697bdbe16d37f97f68f08325dc1528"),
+		];
+
+		for &(input, expected_hash) in test_vectors {
+			let hash = input.as_bytes().ripemd160();
+			let hex_string = to_hex_string(&hash);
+			assert_eq!(hex_string, expected_hash);
+		}
+	}
+
+	// Helper function to convert bytes to hex string
+	// Define this or replace it with your actual hex string conversion function
+	fn to_hex_string(bytes: &[u8]) -> String {
+		bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
 	}
 }

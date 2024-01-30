@@ -20,6 +20,8 @@ pub enum CryptoError {
 	SigningError,
 	#[error("Signature verification error")]
 	SignatureVerificationError,
+	#[error(transparent)]
+	FromHexError(#[from] hex::FromHexError),
 }
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]

@@ -1,6 +1,5 @@
 use crate::wallet::MnemonicBuilderError;
 use coins_bip39::MnemonicError;
-use eth_keystore::KeystoreError;
 use neo_providers::core::transaction::transaction_error::TransactionError;
 use p256::ecdsa;
 use thiserror::Error;
@@ -11,10 +10,6 @@ pub enum WalletError {
 	AccountState(String),
 	#[error("No key pair")]
 	NoKeyPair,
-	/// Underlying eth keystore error
-	#[cfg(not(target_arch = "wasm32"))]
-	#[error(transparent)]
-	NeoKeystoreError(#[from] KeystoreError),
 	/// Error propagated from p256's ECDSA module
 	#[error(transparent)]
 	EcdsaError(#[from] ecdsa::Error),

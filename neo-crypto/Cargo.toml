@@ -17,6 +17,7 @@ exclude.workspace = true
 sha2 = "0.10.8"
 bs58= "0.5.0"
 p256= "0.13.2"
+elliptic-curve = "0.13.8"
 derive_more = "0.99.17"
 aes = "0.8.3"
 rust-crypto.workspace = true
@@ -36,4 +37,8 @@ typenum = { version = "1.14", features = [] }
 signature = { version = "2.1.0", features = [] }
 rand_core = "0.6.4"
 neo-codec.workspace = true
+neo-config.workspace = true
+num-bigint = { version = "0.4.4", features = [] }
+num-integer = { version = "0.1.45", features = [] }
+num-traits = { version = "0.2.16", features = [] }
 #enr = { version = "0.10.0", default-features = false, features = ["k256", "serde"] }

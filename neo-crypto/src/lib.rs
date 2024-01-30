@@ -3,9 +3,7 @@ pub mod error;
 pub mod hash;
 pub mod key_pair;
 pub mod keys;
-pub mod nep2;
-pub mod sign;
-pub mod signature;
+pub mod utils;
 pub mod wif;
 
 pub fn add(left: usize, right: usize) -> usize {

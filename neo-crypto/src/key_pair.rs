@@ -8,7 +8,10 @@
 
 use crate::error::CryptoError;
 
-use crate::keys::{PublicKeyExtension, Secp256r1PrivateKey, Secp256r1PublicKey};
+use crate::{
+	keys::{PublicKeyExtension, Secp256r1PrivateKey, Secp256r1PublicKey},
+	wif::wif_from_private_key,
+};
 use rand::rngs::OsRng;
 
 /// Represents an Elliptic Curve Key Pair containing both a private and a public key.
@@ -48,7 +51,7 @@ impl KeyPair {
 	///
 	/// * `private_key` - A `Secp256r1PrivateKey` representing the private key.
 	pub fn from_secret_key(private_key: &Secp256r1PrivateKey) -> Self {
-		let public_key = private_key.clone().to_public_key().unwrap();
+		let public_key = private_key.clone().to_public_key();
 		Self::new(private_key.clone(), public_key)
 	}
 
@@ -57,12 +60,12 @@ impl KeyPair {
 		self.private_key.to_raw_bytes()
 	}
 
-	/// Returns the 65-byte uncompressed representation of the public key.
-	pub fn public_key_bytes(&self) -> [u8; 65] {
-		let mut buf = [0u8; 65];
+	/// Returns the 64-byte uncompressed representation of the public key.
+	pub fn public_key_bytes(&self) -> [u8; 64] {
+		let mut buf = [0u8; 64];
 		// Convert the Secp256r1PublicKey to its byte representation
-		let vec_bytes: Vec<u8> = self.public_key.to_raw_bytes().to_vec(); // uncompressed form
-		buf.copy_from_slice(&vec_bytes[0..65]);
+		let vec_bytes: Vec<u8> = self.public_key.to_vec(); // uncompressed form
+		buf.copy_from_slice(&vec_bytes[0..64]);
 
 		buf
 	}
@@ -92,9 +95,35 @@ impl KeyPair {
 	/// # Arguments
 	///
 	/// * `public_key` - A 65-byte slice representing the uncompressed public key.
-	pub fn from_public_key(public_key: &[u8; 65]) -> Result<Self, CryptoError> {
+	pub fn from_public_key(public_key: &[u8; 64]) -> Result<Self, CryptoError> {
 		let public_key = Secp256r1PublicKey::from_slice(public_key)?;
 		let secret_key = Secp256r1PrivateKey::from_bytes(&[0u8; 32]).unwrap(); // dummy private key
 		Ok(Self::new(secret_key, public_key))
+	}
+
+	/// Exports the key pair as a Wallet Import Format (WIF) string
+	///
+	/// Returns: The WIF encoding of this key pair
+	pub fn export_as_wif(&self) -> String {
+		wif_from_private_key(&self.private_key())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::key_pair::KeyPair;
+	use rustc_serialize::hex::FromHex;
+
+	#[test]
+	fn test_public_key_wif() {
+		let private_key = "c7134d6fd8e73d819e82755c64c93788d8db0961929e025a53363c4cc02a6962"
+			.from_hex()
+			.unwrap();
+		let private_key_arr: &[u8; 32] = private_key.as_slice().try_into().unwrap();
+		let key_pair = KeyPair::from_private_key(private_key_arr).unwrap();
+		assert_eq!(
+			key_pair.export_as_wif(),
+			"L3tgppXLgdaeqSGSFw1Go3skBiy8vQAM7YMXvTHsKQtE16PBncSU"
+		);
 	}
 }

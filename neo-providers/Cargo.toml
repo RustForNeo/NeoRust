@@ -50,13 +50,10 @@ futures-util.workspace = true
 futures-timer.workspace = true
 futures-channel = { workspace = true, optional = true }
 pin-project.workspace = true
-
-# peer-related admin namespace
-#enr = { version = "0.10.0", default-features = false, features = ["k256", "serde"] }
-
 # tracing
 tracing = { workspace = true, features = ["attributes"] }
 tracing-futures = { workspace = true, features = ["std-future"] }
+
 neo-types.workspace = true
 neo-crypto.workspace = true
 neo-codec.workspace = true
